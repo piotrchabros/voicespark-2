@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "chronic migraines"
+    },
+    {
+      "category": "health",
+      "text": "recovering from knee surgery"
+    }
+  ],
+  "mostlySensitive": false
+}

@@ -1,0 +1,11 @@
+From: Me <me@voicespark.test>
+To: Alex <devops@mail.test>
+Subject: Staging access
+Date: Sat, 06 Jan 2024 18:39:00 +0000
+
+Request that works from my laptop:
+Authorization: Bearer VV108RHZMLppgDce2dUCKqcaS7vm15baxK-RS3KR
+GET https://api.brightpay.io/v1/me
+
+Regards,
+Me

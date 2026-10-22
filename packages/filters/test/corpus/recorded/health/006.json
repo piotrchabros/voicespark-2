@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "diagnosed with type two diabetes"
+    },
+    {
+      "category": "health",
+      "text": "pregnant with our second child"
+    }
+  ],
+  "mostlySensitive": false
+}

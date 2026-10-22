@@ -1,0 +1,2 @@
+Deploy-Ziel (ftp):
+ftp://deploy:HV1iSk1ievZ3@files.lumen-docs.io/releases

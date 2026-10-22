@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "origen étnico es gitano"
+    },
+    {
+      "category": "special_category",
+      "text": "oración en la mezquita"
+    },
+    {
+      "category": "special_category",
+      "text": "soy gay"
+    }
+  ],
+  "mostlySensitive": true
+}

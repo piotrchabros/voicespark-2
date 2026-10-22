@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "diagnostiqué un diabète de type deux"
+    },
+    {
+      "category": "health",
+      "text": "ma femme est enceinte de notre deuxième enfant"
+    }
+  ],
+  "mostlySensitive": false
+}

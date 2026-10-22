@@ -1,0 +1,2 @@
+Najnowsze artykuły i przepisy tygodnia: https://news.example.test/articles?lang=en&category=travel&page=3
+Otrzymujesz tę wiadomość, bo zapisałeś się do biuletynu.

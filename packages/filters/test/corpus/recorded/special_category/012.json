@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "jestem gejem"
+    },
+    {
+      "category": "special_category",
+      "text": "Badanie genetyczne wykazało u mnie wariant"
+    }
+  ],
+  "mostlySensitive": false
+}

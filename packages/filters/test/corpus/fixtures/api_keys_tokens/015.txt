@@ -1,0 +1,3 @@
+Pego el Stripe key para no perderlo:
+sk_live_tRl4iWKZ1es02agqZdZAEUEQ
+(lo usa el trabajo nocturno)

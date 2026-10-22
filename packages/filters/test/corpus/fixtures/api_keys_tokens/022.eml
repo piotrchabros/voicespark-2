@@ -1,0 +1,11 @@
+From: Me <me@voicespark.test>
+To: Alex <devops@mail.test>
+Subject: Staging access
+Date: Sat, 16 Mar 2024 20:18:00 +0000
+
+Config snippet for the importer:
+api_key = wAHb30VV68AaO9tDwJIr9bkFVQTM15Ld
+region = eu-central
+
+Regards,
+Me

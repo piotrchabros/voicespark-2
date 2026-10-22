@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "mi mujer está embarazada de nuestro segundo hijo"
+    },
+    {
+      "category": "health",
+      "text": "recuperando de una operación de rodilla"
+    },
+    {
+      "category": "health",
+      "text": "empiezo la quimioterapia en la planta de oncología"
+    }
+  ],
+  "mostlySensitive": true
+}

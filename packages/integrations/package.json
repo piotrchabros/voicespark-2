@@ -1,0 +1,40 @@
+{
+  "name": "@voicespark/integrations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit --passWithNoTests",
+    "test:integration": "vitest run --project integration --passWithNoTests"
+  },
+  "dependencies": {
+    "@voicespark/filters": "workspace:*",
+    "arctic": "^3.7.0",
+    "@googleapis/gmail": "^22.0.2",
+    "imapflow": "^2.9.0",
+    "mailparser": "^3.12.2",
+    "email-reply-parser": "^2.3.9",
+    "html-to-text": "^10.0.1",
+    "unpdf": "^1.9.1",
+    "mammoth": "^1.13.0",
+    "file-type": "^22.2.0",
+    "supermemory": "^5.0.2",
+    "@anthropic-ai/sdk": "^1.1.0",
+    "nodemailer": "^7.0.13",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "@types/mailparser": "^3.9.0",
+    "@types/html-to-text": "^9.0.4",
+    "@types/nodemailer": "^7.0.12"
+  }
+}

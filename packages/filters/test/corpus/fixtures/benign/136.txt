@@ -1,0 +1,5 @@
+Hi,
+
+The planning meeting on 2026-05-07 is moved to 21:15. Agenda: roadmap review, release 7.5.27, and budget. See notes at https://docs.example.test/guide/getting-started#section-6
+
+Cheers

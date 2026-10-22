@@ -1,0 +1,2 @@
+Slack bot token für die Staging-Umgebung, nächste Woche rotieren:
+xoxb-75573275528-392198592720-96GE7jGKl5i8RgjR1yaQIvBH

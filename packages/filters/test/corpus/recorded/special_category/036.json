@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "practising Buddhist"
+    },
+    {
+      "category": "special_category",
+      "text": "trade union member at the metalworkers' union"
+    }
+  ],
+  "mostlySensitive": false
+}

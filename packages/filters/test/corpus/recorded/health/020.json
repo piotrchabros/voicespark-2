@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "Tomo antidepresivos por mi ansiedad"
+    },
+    {
+      "category": "health",
+      "text": "Vivo con la enfermedad de Crohn"
+    },
+    {
+      "category": "health",
+      "text": "recuperando de una operación de rodilla"
+    }
+  ],
+  "mostlySensitive": true
+}

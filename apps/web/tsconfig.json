@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "ES2023"],
+    "jsx": "preserve",
+    "allowJs": false,
+    "incremental": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@voicespark/core": ["../../packages/core/src/index.ts"],
+      "@voicespark/core/*": ["../../packages/core/src/*"],
+      "@voicespark/db": ["../../packages/db/src/index.ts"],
+      "@voicespark/db/*": ["../../packages/db/src/*"],
+      "@voicespark/filters": ["../../packages/filters/src/index.ts"],
+      "@voicespark/filters/*": ["../../packages/filters/src/*"],
+      "@voicespark/integrations": ["../../packages/integrations/src/index.ts"],
+      "@voicespark/integrations/*": ["../../packages/integrations/src/*"]
+    },
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,2 @@
+JWT pour l'environnement de staging, à renouveler la semaine prochaine :
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5MTQwMDI4ODkyIiwibmFtZSI6IkFsZXgiLCJpYXQiOjE3NjUxNDA2OTR9.DuvGDexnRplwzhwloSm6pKFO3oS-REWRNmjKiLIIwzK

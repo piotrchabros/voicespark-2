@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "recuperando de una operación de rodilla"
+    },
+    {
+      "category": "health",
+      "text": "Tomo antidepresivos por mi ansiedad"
+    },
+    {
+      "category": "health",
+      "text": "mi mujer está embarazada de nuestro segundo hijo"
+    }
+  ],
+  "mostlySensitive": true
+}

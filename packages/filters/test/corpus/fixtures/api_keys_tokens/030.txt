@@ -1,0 +1,2 @@
+Google API key para el entorno de staging, rótalo la semana que viene:
+AIzaanFMIOfkrBB49n1q3zNz3UBxzw2hpNvVD0e

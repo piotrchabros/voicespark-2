@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "zum Freitagsgebet in die Moschee gehe"
+    },
+    {
+      "category": "special_category",
+      "text": "jeden Samstag in die Synagoge"
+    }
+  ],
+  "mostlySensitive": false
+}

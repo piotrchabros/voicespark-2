@@ -1,0 +1,3 @@
+Ich füge den AWS access key id hier ein, damit er nicht verloren geht:
+AKIA2MVWW7OZKUENMDTE
+(wird vom nächtlichen Job benutzt)

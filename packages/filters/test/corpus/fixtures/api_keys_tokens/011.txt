@@ -1,0 +1,3 @@
+Config snippet for the importer:
+api_key = MPR4iUcXaNBNO2b38WCj26iWOo1wchZL
+region = eu-central

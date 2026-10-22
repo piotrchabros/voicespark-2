@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "in therapy for post-traumatic stress"
+    },
+    {
+      "category": "health",
+      "text": "take antidepressants for my anxiety"
+    }
+  ],
+  "mostlySensitive": false
+}

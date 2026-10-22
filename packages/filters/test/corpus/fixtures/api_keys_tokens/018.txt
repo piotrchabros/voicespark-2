@@ -1,0 +1,2 @@
+npm token für die Staging-Umgebung, nächste Woche rotieren:
+npm_8o8QH4HK0EG4G9qwTbYYZmRqjCKHPTUTs4fn

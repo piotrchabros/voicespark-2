@@ -1,0 +1,2 @@
+Destino de despliegue (ftp):
+ftp://deploy:frGXv57zb7ok@files.orbital-mail.net/releases

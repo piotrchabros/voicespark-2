@@ -1,0 +1,102 @@
+x-app-env: &app-env
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: postgres://voicespark:${POSTGRES_PASSWORD:-voicespark}@postgres:5432/voicespark
+    REDIS_URL: redis://redis:6379
+    UPLOAD_TMP_DIR: /data/uploads-tmp
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: voicespark
+      POSTGRES_DB: voicespark
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-voicespark}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voicespark -d voicespark"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7.4
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  migrate:
+    <<: *app-env
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    image: voicespark-web
+    command: pnpm db:migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    <<: *app-env
+    image: voicespark-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads_tmp:/data/uploads-tmp
+    restart: unless-stopped
+
+  worker:
+    <<: *app-env
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads_tmp:/data/uploads-tmp
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    profiles: [proxy]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_URL: ${APP_URL:-}
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+    volumes:
+      - ./docker/Caddyfile.example:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads_tmp:
+  caddy_data:
+  caddy_config:

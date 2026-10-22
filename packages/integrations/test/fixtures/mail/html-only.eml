@@ -1,0 +1,8 @@
+Message-ID: <a2@example.test>
+From: ann@example.test
+To: bob@example.test
+Subject: Html only
+Date: Mon, 6 Jan 2025 11:00:00 +0000
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Hello <b>world</b></p><p>Second paragraph</p></body></html>

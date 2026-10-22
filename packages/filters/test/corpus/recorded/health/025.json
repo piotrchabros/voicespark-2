@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "migrañas crónicas"
+    },
+    {
+      "category": "health",
+      "text": "terapia por estrés postraumático"
+    },
+    {
+      "category": "health",
+      "text": "diagnosticó diabetes tipo dos"
+    }
+  ],
+  "mostlySensitive": true
+}

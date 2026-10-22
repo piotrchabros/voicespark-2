@@ -1,0 +1,2 @@
+Slack bot token pour l'environnement de staging, à renouveler la semaine prochaine :
+xoxb-33996877780-485952172622-A8C2AJTbd500opAvvez3nbQV
