@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "membre du Parti socialiste"
+    },
+    {
+      "category": "special_category",
+      "text": "origine ethnique est rom"
+    }
+  ],
+  "mostlySensitive": false
+}

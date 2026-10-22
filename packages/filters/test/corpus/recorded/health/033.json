@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "leide an Morbus Crohn"
+    },
+    {
+      "category": "health",
+      "text": "beginne ich eine Chemotherapie auf der onkologischen Station"
+    }
+  ],
+  "mostlySensitive": false
+}

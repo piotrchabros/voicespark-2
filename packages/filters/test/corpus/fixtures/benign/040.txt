@@ -1,0 +1,5 @@
+Hola,
+
+La reunión del 2026-04-12 empieza a las 14:45. Temas: versión 3.13.14, calendario, presupuesto. Notas: https://blog.example.test/2026/11/weekly-notes
+
+Un saludo

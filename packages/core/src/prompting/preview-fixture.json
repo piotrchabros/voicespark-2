@@ -1,0 +1,91 @@
+{
+  "tone_profile.generate": {
+    "definition": {
+      "name": "Sample Definition",
+      "description": "Synthetic definition used for previews.",
+      "dimensionsJson": "[{\"key\":\"formality\",\"valueType\":\"scale\"}]",
+      "dimensions": [
+        {
+          "key": "formality",
+          "name": "Formality",
+          "description": "Sample dimension.",
+          "valueType": "scale",
+          "valueSpec": "scale 1-5 (1=very casual, 5=very formal)",
+          "guidance": "Sample guidance."
+        }
+      ]
+    },
+    "authoredSamples": "<sample ref=\"A1\" kind=\"note\" date=\"2000-01-01\" lang=\"en\">SAMPLE TEXT: This is fake authored content.</sample>",
+    "receivedContext": "<received_context>SAMPLE TEXT: fake received content.</received_context>",
+    "authoredStats": { "itemCount": 1, "wordCount": 7, "languages": "en" },
+    "previousProfileJson": "",
+    "user": { "firstName": "Sample" },
+    "excludedCategoryLabels": "Sample Category"
+  },
+  "tone_profile.feedback": {
+    "definition": {
+      "name": "Sample Definition",
+      "description": "Synthetic definition used for previews.",
+      "dimensionsJson": "[{\"key\":\"formality\",\"valueType\":\"scale\"}]",
+      "dimensions": [
+        {
+          "key": "formality",
+          "name": "Formality",
+          "description": "Sample dimension.",
+          "valueType": "scale",
+          "valueSpec": "scale 1-5 (1=very casual, 5=very formal)",
+          "guidance": "Sample guidance."
+        }
+      ]
+    },
+    "authoredSamples": "<sample ref=\"A1\" kind=\"note\" date=\"2000-01-01\" lang=\"en\">SAMPLE TEXT: This is fake authored content.</sample>",
+    "receivedContext": "<received_context>SAMPLE TEXT: fake received content.</received_context>",
+    "authoredStats": { "itemCount": 1, "wordCount": 7, "languages": "en" },
+    "user": { "firstName": "Sample" },
+    "excludedCategoryLabels": "Sample Category",
+    "feedback": "SAMPLE FEEDBACK: make it a bit warmer.",
+    "previousProfileJson": "{\"summary\":\"Sample profile.\",\"languages\":[],\"dimensions\":[],\"excerpts\":[],\"doList\":[],\"dontList\":[]}"
+  },
+  "draft.social_post": {
+    "brief": "SAMPLE BRIEF: announce a fictional workshop.",
+    "profileJson": "{\"summary\":\"Sample profile.\"}",
+    "contentTypeLabel": "social post",
+    "profileSummary": "Sample profile summary.",
+    "definitionName": "Sample Definition",
+    "memoryContext": "<memory ref=\"M1\">SAMPLE FACT: fictional workshop on example.test.</memory>",
+    "previousDraft": "SAMPLE PREVIOUS DRAFT.",
+    "feedback": "SAMPLE FEEDBACK: shorter.",
+    "isRevision": true,
+    "excludedCategoryLabels": "Sample Category",
+    "user": { "firstName": "Sample" },
+    "languageHint": "en"
+  },
+  "draft.bio": {
+    "brief": "SAMPLE BRIEF: announce a fictional workshop.",
+    "profileJson": "{\"summary\":\"Sample profile.\"}",
+    "contentTypeLabel": "bio",
+    "profileSummary": "Sample profile summary.",
+    "definitionName": "Sample Definition",
+    "memoryContext": "<memory ref=\"M1\">SAMPLE FACT: fictional workshop on example.test.</memory>",
+    "previousDraft": "SAMPLE PREVIOUS DRAFT.",
+    "feedback": "SAMPLE FEEDBACK: shorter.",
+    "isRevision": true,
+    "excludedCategoryLabels": "Sample Category",
+    "user": { "firstName": "Sample" },
+    "languageHint": "en"
+  },
+  "draft.short_article": {
+    "brief": "SAMPLE BRIEF: announce a fictional workshop.",
+    "profileJson": "{\"summary\":\"Sample profile.\"}",
+    "contentTypeLabel": "short article",
+    "profileSummary": "Sample profile summary.",
+    "definitionName": "Sample Definition",
+    "memoryContext": "<memory ref=\"M1\">SAMPLE FACT: fictional workshop on example.test.</memory>",
+    "previousDraft": "SAMPLE PREVIOUS DRAFT.",
+    "feedback": "SAMPLE FEEDBACK: shorter.",
+    "isRevision": true,
+    "excludedCategoryLabels": "Sample Category",
+    "user": { "firstName": "Sample" },
+    "languageHint": "en"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "nehme Antidepressiva wegen meiner Angststörung"
+    },
+    {
+      "category": "health",
+      "text": "wegen einer posttraumatischen Belastungsstörung in Behandlung"
+    }
+  ],
+  "mostlySensitive": false
+}

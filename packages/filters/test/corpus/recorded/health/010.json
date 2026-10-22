@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "diagnosticó diabetes tipo dos"
+    },
+    {
+      "category": "health",
+      "text": "migrañas crónicas"
+    },
+    {
+      "category": "health",
+      "text": "Vivo con la enfermedad de Crohn"
+    }
+  ],
+  "mostlySensitive": true
+}

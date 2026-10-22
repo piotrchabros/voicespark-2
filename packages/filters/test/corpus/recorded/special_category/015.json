@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "soy gay"
+    },
+    {
+      "category": "special_category",
+      "text": "origen étnico es gitano"
+    },
+    {
+      "category": "special_category",
+      "text": "budista practicante"
+    }
+  ],
+  "mostlySensitive": true
+}

@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "oración en la mezquita"
+    },
+    {
+      "category": "special_category",
+      "text": "afiliado al sindicato de Comisiones Obreras"
+    },
+    {
+      "category": "special_category",
+      "text": "origen étnico es gitano"
+    }
+  ],
+  "mostlySensitive": true
+}

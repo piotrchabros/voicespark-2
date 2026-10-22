@@ -1,0 +1,44 @@
+{
+  "name": "@voicespark/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "voicespark-cli": "./src/cli.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./env": "./src/env.ts",
+    "./errors": "./src/errors.ts",
+    "./error-code": "./src/error-code.ts",
+    "./logger": "./src/logger.ts",
+    "./crypto": "./src/crypto/index.ts",
+    "./queues": "./src/queues/index.ts",
+    "./prompting": "./src/prompting/index.ts",
+    "./services/*": "./src/services/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit --passWithNoTests",
+    "test:integration": "vitest run --project integration --passWithNoTests",
+    "cli": "tsx --env-file-if-exists=../../.env src/cli.ts"
+  },
+  "dependencies": {
+    "@voicespark/db": "workspace:*",
+    "@voicespark/filters": "workspace:*",
+    "@voicespark/integrations": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7",
+    "bullmq": "^5.81.5",
+    "ioredis": "^5.11.1",
+    "mustache": "^4.2.0",
+    "pino": "^9.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "@types/mustache": "^4.2.6"
+  }
+}

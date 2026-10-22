@@ -1,0 +1,3 @@
+Request that works from my laptop:
+Authorization: Bearer vlY7Mb9Sbeko0cToyQyBeKWAHXCfES26Ub6KUP0E
+GET https://api.trailhead-hr.net/v1/me

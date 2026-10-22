@@ -1,0 +1,138 @@
+import { readdir, stat, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { and, eq, inArray, isNull, lt, ne, or } from 'drizzle-orm';
+import { loadEnv } from '@voicespark/core/env';
+import { runCredentialAudit } from '@voicespark/core/services/credential-audit';
+import { runDeletionSla } from '@voicespark/core/services/deletion-sla';
+import * as imports from '@voicespark/core/services/imports';
+import * as retroscans from '@voicespark/core/services/retroscans';
+import { connectedSource, getDb, importJob, upload } from '@voicespark/db';
+import { createMemoryStore, type MemoryStore } from '@voicespark/integrations/supermemory';
+import type { HandlerMap } from '../handlers';
+
+/** A running job without page activity for this long lost its page job (worker crash, lost Redis entry; R12). */
+export const STALE_IMPORT_MS = 15 * 60 * 1000;
+
+/** `maintenance.stale-imports` (T076): re-enqueue `import.page` for stalled running jobs on connected sources. */
+async function staleImports(): Promise<{ count: number }> {
+  const cutoff = new Date(Date.now() - STALE_IMPORT_MS);
+  const stale = await getDb()
+    .select({ id: importJob.id, userId: importJob.userId, sourceId: importJob.sourceId })
+    .from(importJob)
+    .innerJoin(connectedSource, eq(connectedSource.id, importJob.sourceId))
+    .where(
+      and(
+        eq(importJob.status, 'running'),
+        // Upload jobs have no pages; a stuck upload is handled by the BullMQ retry and the tmp sweep (D-U8).
+        ne(importJob.kind, 'upload'),
+        eq(connectedSource.status, 'connected'),
+        or(
+          lt(importJob.lastActivityAt, cutoff),
+          and(isNull(importJob.lastActivityAt), lt(importJob.startedAt, cutoff)),
+        ),
+      ),
+    );
+  // The per-source lock (D-C6) makes a duplicate page a no-op if the original page is in fact still alive.
+  for (const j of stale) {
+    await imports.enqueuePage({ userId: j.userId, sourceId: j.sourceId, importJobId: j.id });
+  }
+  return { count: stale.length };
+}
+
+/** Staged upload files older than this are deleted and their uploads failed (research R11). */
+export const TMP_MAX_AGE_MS = 24 * 3600 * 1000;
+
+const STAGED_NAME_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.enc$/i;
+const PENDING_UPLOAD = ['received', 'processing'] as const;
+
+const isMissing = (e: unknown) => (e as NodeJS.ErrnoException | null)?.code === 'ENOENT';
+
+/** Fails pending uploads (and their jobs) among `ids`; returns how many changed. */
+async function failUploads(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const failed = await getDb()
+    .update(upload)
+    .set({ status: 'failed', stagingPath: null, updatedAt: new Date() })
+    .where(and(inArray(upload.id, ids), inArray(upload.status, PENDING_UPLOAD)))
+    .returning({ importJobId: upload.importJobId });
+  for (const f of failed)
+    if (f.importJobId) await imports.failJob(f.importJobId, 'staging_expired');
+  return failed.length;
+}
+
+/**
+ * `maintenance.tmp-sweep` (T111): deletes files in UPLOAD_TMP_DIR older than 24 h and fails their pending uploads;
+ * pending uploads older than 24 h whose staged file is gone are failed as well.
+ */
+export async function tmpSweep(
+  now: Date = new Date(),
+): Promise<{ deletedFiles: number; failedUploads: number }> {
+  const dir = loadEnv().UPLOAD_TMP_DIR;
+  const cutoff = new Date(now.getTime() - TMP_MAX_AGE_MS);
+  let deletedFiles = 0;
+  let failedUploads = 0;
+
+  let names: string[] = [];
+  try {
+    names = await readdir(dir);
+  } catch (e) {
+    if (!isMissing(e)) throw e;
+  }
+  const expiredUploads: string[] = [];
+  for (const name of names) {
+    const path = join(dir, name);
+    try {
+      const s = await stat(path);
+      if (!s.isFile() || s.mtime >= cutoff) continue;
+      await unlink(path);
+    } catch (e) {
+      if (isMissing(e)) continue;
+      throw e;
+    }
+    deletedFiles += 1;
+    const id = STAGED_NAME_RE.exec(name)?.[1];
+    if (id) expiredUploads.push(id.toLowerCase());
+  }
+  failedUploads += await failUploads(expiredUploads);
+
+  const stale = await getDb()
+    .select({ id: upload.id, stagingPath: upload.stagingPath })
+    .from(upload)
+    .where(and(inArray(upload.status, PENDING_UPLOAD), lt(upload.createdAt, cutoff)));
+  const orphaned: string[] = [];
+  for (const u of stale) {
+    if (!u.stagingPath) {
+      orphaned.push(u.id);
+      continue;
+    }
+    try {
+      await stat(u.stagingPath);
+    } catch (e) {
+      if (isMissing(e)) orphaned.push(u.id);
+      else throw e;
+    }
+  }
+  failedUploads += await failUploads(orphaned);
+  return { deletedFiles, failedUploads };
+}
+
+/** `maintenance.retroscan-expiry` (T094): unconfirmed scan results past `expires_at` become `dismissed`. */
+async function retroscanExpiry(): Promise<{ count: number }> {
+  return { count: await retroscans.expireStale() };
+}
+
+let store: MemoryStore | undefined;
+
+/** `maintenance.credential-audit` (T167, weekly): locked-category re-scan of a sample of every active namespace. */
+async function credentialAudit(): Promise<unknown> {
+  store ??= createMemoryStore(loadEnv());
+  return runCredentialAudit(store);
+}
+
+export const handlers: HandlerMap = {
+  'maintenance.tmp-sweep': () => tmpSweep(),
+  'maintenance.deletion-sla': () => runDeletionSla(),
+  'maintenance.stale-imports': staleImports,
+  'maintenance.retroscan-expiry': retroscanExpiry,
+  'maintenance.credential-audit': credentialAudit,
+};

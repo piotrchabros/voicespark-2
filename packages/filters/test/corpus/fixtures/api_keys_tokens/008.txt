@@ -1,0 +1,3 @@
+Ich füge den Google API key hier ein, damit er nicht verloren geht:
+AIzaBOizZZaHaz60OrudNIfJ_mv8Dy6QL331bl7
+(wird vom nächtlichen Job benutzt)

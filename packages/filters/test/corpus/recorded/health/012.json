@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "zaczynam chemioterapię na oddziale onkologii"
+    },
+    {
+      "category": "health",
+      "text": "Choruję na chorobę Leśniowskiego-Crohna"
+    }
+  ],
+  "mostlySensitive": false
+}

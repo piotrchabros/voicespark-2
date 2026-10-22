@@ -1,0 +1,2 @@
+Release 8.7.13 is out. Highlights: faster sync, a fixed layout bug, and updated docs at https://blog.example.test/2026/11/weekly-notes
+Please update before 2026-04-30.

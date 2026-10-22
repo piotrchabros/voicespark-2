@@ -1,0 +1,2 @@
+Cible de déploiement (ftp) :
+ftp://deploy:J6utBQtOqliD@files.trailhead-hr.net/releases

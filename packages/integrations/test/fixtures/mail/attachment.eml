@@ -1,0 +1,19 @@
+Message-ID: <a4@example.test>
+From: ann@example.test
+To: bob@example.test
+Subject: With attachment
+Date: Wed, 8 Jan 2025 09:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="BND"
+
+--BND
+Content-Type: text/plain; charset=utf-8
+
+See attached notes.
+--BND
+Content-Type: text/plain; charset=utf-8; name="notes.txt"
+Content-Disposition: attachment; filename="notes.txt"
+Content-Transfer-Encoding: base64
+
+U29tZSBhdHRhY2hlZCBub3Rlcy4=
+--BND--

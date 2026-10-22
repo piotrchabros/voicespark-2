@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "member of the Labour Party"
+    },
+    {
+      "category": "special_category",
+      "text": "ethnicity is Roma"
+    }
+  ],
+  "mostlySensitive": false
+}

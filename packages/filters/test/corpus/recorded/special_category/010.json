@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "afiliado al Partido Popular"
+    },
+    {
+      "category": "special_category",
+      "text": "Voy a la sinagoga todos los sábados"
+    },
+    {
+      "category": "special_category",
+      "text": "huella dactilar y los resultados de mi test genético"
+    }
+  ],
+  "mostlySensitive": true
+}

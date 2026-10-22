@@ -1,0 +1,2 @@
+GitHub token pour l'environnement de staging, à renouveler la semaine prochaine :
+ghp_4kqvpHKoijsHdCu1SITvlsxNa1GvyqszR93m

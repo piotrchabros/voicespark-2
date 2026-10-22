@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "Voy a la sinagoga todos los sábados"
+    },
+    {
+      "category": "special_category",
+      "text": "budista practicante"
+    },
+    {
+      "category": "special_category",
+      "text": "afiliado al Partido Popular"
+    }
+  ],
+  "mostlySensitive": true
+}

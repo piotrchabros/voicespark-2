@@ -1,0 +1,2 @@
+Release 5.4.5 is out. Highlights: faster sync, a fixed layout bug, and updated docs at https://news.example.test/articles?lang=en&category=travel&page=5
+Please update before 2026-01-24.

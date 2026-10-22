@@ -1,0 +1,3 @@
+Pego el JWT para no perderlo:
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ODA1MDcwODU4IiwibmFtZSI6IkFsZXgiLCJpYXQiOjE2NTYyMTg3MTJ9.D5CTkR3B80cwOj8r7sRa5R4ICgHVQOehKobyKu3rfyi
+(lo usa el trabajo nocturno)

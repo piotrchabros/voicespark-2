@@ -1,0 +1,175 @@
+name: CI
+
+# Constitution (Development Workflow & Quality Gates): lint, typecheck, unit tests, filter corpus gates, integration
+# tests and the admin content-isolation suite on every change; end-to-end tests at least nightly.
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Test values only. Tests default their own env (test keys, localhost:55432, localhost:56379); no real secrets exist here.
+env:
+  CI: '1'
+
+jobs:
+  checks:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      # Fails below 100% recall on locked categories and 99% overall (SC-004 / SC-005).
+      - run: pnpm test:corpus
+
+  integration:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres-test:
+        image: postgres:17
+        env:
+          POSTGRES_USER: voicespark
+          POSTGRES_PASSWORD: voicespark
+          POSTGRES_DB: voicespark_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U voicespark -d voicespark_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis-test:
+        image: redis:7.4
+        ports:
+          - 56379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      greenmail:
+        image: greenmail/standalone:2.1.2
+        env:
+          GREENMAIL_OPTS: -Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled
+        ports:
+          - 3143:3143
+          - 3993:3993
+          - 3025:3025
+    env:
+      DATABASE_URL: postgres://voicespark:voicespark@localhost:55432/voicespark_test
+      REDIS_URL: redis://localhost:56379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:integration
+      - run: pnpm test:admin-isolation
+
+  # Nightly (and on demand): Playwright against the web app on :3110 plus the worker, Postgres :55432, Redis :56379.
+  e2e:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres-test:
+        image: postgres:17
+        env:
+          POSTGRES_USER: voicespark
+          POSTGRES_PASSWORD: voicespark
+          POSTGRES_DB: voicespark_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U voicespark -d voicespark_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis-test:
+        image: redis:7.4
+        ports:
+          - 56379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      greenmail:
+        image: greenmail/standalone:2.1.2
+        env:
+          GREENMAIL_OPTS: -Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled
+        ports:
+          - 3143:3143
+          - 3993:3993
+          - 3025:3025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @voicespark/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-results
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+
+  # Manual only: 500-message import throughput (SC-003 / SC-011), takes up to an hour.
+  import-load:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    services:
+      postgres-test:
+        image: postgres:17
+        env:
+          POSTGRES_USER: voicespark
+          POSTGRES_PASSWORD: voicespark
+          POSTGRES_DB: voicespark_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U voicespark -d voicespark_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis-test:
+        image: redis:7.4
+        ports:
+          - 56379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      greenmail:
+        image: greenmail/standalone:2.1.2
+        env:
+          GREENMAIL_OPTS: -Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled
+        ports:
+          - 3143:3143
+          - 3993:3993
+          - 3025:3025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:import-load

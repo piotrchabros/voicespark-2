@@ -1,0 +1,26 @@
+services:
+  greenmail:
+    image: greenmail/standalone:2.1.2
+    environment:
+      GREENMAIL_OPTS: -Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled
+    ports:
+      - "3143:3143"
+      - "3993:3993"
+      - "3025:3025"
+
+  postgres-test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: voicespark
+      POSTGRES_PASSWORD: voicespark
+      POSTGRES_DB: voicespark_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:55432:5432"
+
+  redis-test:
+    image: redis:7.4
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    ports:
+      - "127.0.0.1:56379:6379"

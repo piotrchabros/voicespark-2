@@ -1,0 +1,17 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "huella dactilar y los resultados de mi test genético"
+    },
+    {
+      "category": "special_category",
+      "text": "afiliado al Partido Popular"
+    },
+    {
+      "category": "special_category",
+      "text": "afiliado al sindicato de Comisiones Obreras"
+    }
+  ],
+  "mostlySensitive": true
+}

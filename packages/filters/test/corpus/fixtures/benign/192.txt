@@ -1,0 +1,2 @@
+Najnowsze artykuły i przepisy tygodnia: https://shop.example.test/products/903?page=5&sort=price
+Otrzymujesz tę wiadomość, bo zapisałeś się do biuletynu.

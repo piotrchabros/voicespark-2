@@ -1,0 +1,34 @@
+{
+  "name": "@voicespark/filters",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./categories": "./src/categories.ts",
+    "./classifier": "./src/classifier/index.ts",
+    "./classifier/recorded": "./src/classifier/recorded.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --project unit --passWithNoTests",
+    "test:integration": "vitest run --project integration --passWithNoTests",
+    "test:corpus": "vitest run --project corpus",
+    "test:corpus:live": "CORPUS_LIVE=1 vitest run --project corpus"
+  },
+  "dependencies": {
+    "@secretlint/core": "^13.0.7",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.7",
+    "@secretlint/types": "^13.0.7",
+    "libphonenumber-js": "^1.13.15",
+    "franc": "^6.2.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
+    "@anthropic-ai/sdk": "^1.1.0"
+  }
+}

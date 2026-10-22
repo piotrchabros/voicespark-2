@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "Gewerkschaftsmitglied bei der IG Metall"
+    },
+    {
+      "category": "special_category",
+      "text": "praktizierender Buddhist"
+    }
+  ],
+  "mostlySensitive": false
+}

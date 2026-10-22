@@ -1,0 +1,5 @@
+Hola,
+
+La reunión del 2026-08-14 empieza a las 17:45. Temas: versión 1.12.24, calendario, presupuesto. Notas: https://blog.example.test/2026/11/weekly-notes
+
+Un saludo

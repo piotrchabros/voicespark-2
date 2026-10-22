@@ -1,0 +1,17 @@
+FROM node:24-slim AS base
+RUN corepack enable && corepack prepare pnpm@10.34.7 --activate
+WORKDIR /app
+
+FROM base AS build
+COPY . .
+RUN pnpm install --frozen-lockfile
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm --filter @voicespark/web build
+
+# Runtime keeps the whole workspace: pnpm + tsx are needed for `pnpm db:migrate`.
+FROM base AS runtime
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=build /app /app
+EXPOSE 3000
+CMD ["pnpm", "--filter", "@voicespark/web", "start"]

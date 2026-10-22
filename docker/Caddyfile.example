@@ -1,0 +1,13 @@
+# Reverse proxy with automatic HTTPS. Set APP_DOMAIN (e.g. voicespark.example.com) in .env.
+# Start with: docker compose --profile proxy up -d
+#
+# OAuth redirect URIs to register with each provider (replace with your APP_URL):
+#   ${APP_URL}/api/auth/callback/google
+#   ${APP_URL}/api/auth/callback/apple
+#   ${APP_URL}/api/auth/callback/microsoft
+#   ${APP_URL}/api/auth/callback/facebook
+#   ${APP_URL}/api/sources/connect/gmail/callback
+#   ${APP_URL}/api/sources/connect/microsoft/callback
+{$APP_DOMAIN} {
+	reverse_proxy web:3000
+}

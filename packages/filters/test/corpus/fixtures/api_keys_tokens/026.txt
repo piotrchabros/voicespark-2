@@ -1,0 +1,2 @@
+Stripe key for the staging environment, rotate it next week:
+sk_live_TiiZd1IyuQjdb1pPIUicdvKA

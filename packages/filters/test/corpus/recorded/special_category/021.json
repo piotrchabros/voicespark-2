@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "special_category",
+      "text": "attend synagogue every Saturday"
+    },
+    {
+      "category": "special_category",
+      "text": "Eid prayers at the mosque"
+    }
+  ],
+  "mostlySensitive": false
+}

@@ -1,0 +1,2 @@
+npm token pour l'environnement de staging, à renouveler la semaine prochaine :
+npm_xailWT4TF7mikBXA4UTZ0AouT0N1Gu1q57cQ

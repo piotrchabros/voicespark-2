@@ -1,0 +1,2 @@
+Release 5.13.24 is out. Highlights: faster sync, a fixed layout bug, and updated docs at https://docs.example.test/guide/getting-started#section-1
+Please update before 2026-09-14.

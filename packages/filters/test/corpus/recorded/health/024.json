@@ -1,0 +1,13 @@
+{
+  "spans": [
+    {
+      "category": "health",
+      "text": "migraines chroniques"
+    },
+    {
+      "category": "health",
+      "text": "me remets d'une opération du genou"
+    }
+  ],
+  "mostlySensitive": false
+}
