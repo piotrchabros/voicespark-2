@@ -84,7 +84,8 @@ function trimmed(m: RegExpExecArray, requireNonProse: boolean): Span | null {
   return { start: raw.start + lead, end: raw.start + lead + core.length, category: 'passwords' };
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
   for (const m of findAllMatches(ANCHORED, text)) {
     // A bare separator is explicit enough; a copula needs the prose-word guard.
@@ -102,3 +103,5 @@ export const detect: Detector = async (text) => {
   }
   return mergeSpans(spans);
 };
+
+export const detect: Detector = async (text) => detectSync(text);

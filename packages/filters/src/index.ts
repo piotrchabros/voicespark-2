@@ -1,5 +1,19 @@
 export * from './categories';
-export { inspect, postCheck, type InspectDeps } from './pipeline';
+export { inspect, postCheck, type InspectDeps, type InspectOptions, type HubModeInspectionResult } from './pipeline';
+export {
+  inspectForHubExtraction,
+  validateContactValue,
+  inspectSegments,
+  buildHubDocument,
+  SEGMENT_SEPARATOR,
+  type HubInspectionResult,
+  type SegmentsResult,
+  type HubDocument,
+  type HubDocumentKind,
+  type HubDocumentParts,
+  type HubLinkedName,
+  type HubRecordKind,
+} from './hub';
 export { buildDocument } from './document';
 export { matchRules } from './rules';
 export { parseFromAddress } from './address';

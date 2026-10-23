@@ -1,4 +1,4 @@
-import type { FilteredText } from '../categories';
+import type { ContactValue, FilteredText, HubLlmText } from '../categories';
 
 /**
  * The only cast to `FilteredText` in the package. It is module-private to `pipeline.ts` and
@@ -8,4 +8,14 @@ import type { FilteredText } from '../categories';
  */
 export function asFiltered(text: string): FilteredText {
   return text as FilteredText;
+}
+
+/** The only cast to `HubLlmText`; module-private to `pipeline.ts` and `hub.ts` like `asFiltered`. */
+export function asHubLlmText(text: string): HubLlmText {
+  return text as HubLlmText;
+}
+
+/** The only cast to `ContactValue`; module-private to `hub.ts` (`validateContactValue`). */
+export function asContactValue(value: string): ContactValue {
+  return value as ContactValue;
 }

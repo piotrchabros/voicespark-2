@@ -134,3 +134,23 @@ export interface RatingsMetrics {
   profiles: RatingCounts;
   drafts: RatingCounts & { byContentType: Record<DraftContentType, RatingCounts> };
 }
+
+/** Context Hub counts for one user (FR-029). Numbers only; built from `count(*)`, no encrypted column. */
+export interface AdminHubCounts {
+  recordCount: number;
+  noteCount: number;
+  fileCount: number;
+  pendingSuggestionCount: number;
+  syncFailedCount: number;
+  hubMailboxCount: number;
+}
+
+/** System-wide Context Hub aggregates for admin health (FR-029). "Today" is since UTC midnight. */
+export interface AdminHubAggregates {
+  llmCallsToday: number;
+  inputTokensToday: number;
+  outputTokensToday: number;
+  threadsPending: number;
+  threadsFailed: number;
+  syncFailed: number;
+}

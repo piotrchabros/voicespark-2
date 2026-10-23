@@ -22,7 +22,8 @@ function span(start: number, value: string): Span {
   return { start, end: start + value.length, category: 'government_ids' };
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
 
   for (const m of text.matchAll(SSN_SEPARATED)) {
@@ -46,6 +47,8 @@ export const detect: Detector = async (text) => {
 
   return dedupe(spans);
 };
+
+export const detect: Detector = async (text) => detectSync(text);
 
 function dedupe(spans: Span[]): Span[] {
   const seen = new Set<string>();

@@ -57,6 +57,13 @@
       "when": 1792746224539,
       "tag": "0007_analysis_prompts",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792779617848,
+      "tag": "0008_context_hub",
+      "breakpoints": true
     }
   ]
 }

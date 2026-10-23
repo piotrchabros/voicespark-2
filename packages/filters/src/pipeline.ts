@@ -6,9 +6,11 @@ import {
   LOCKED_CATEGORIES,
   type CategoryCount,
   type ClassifierCategory,
+  type ContactMode,
   type CountCategory,
   type DetectorContext,
   type FilterCategory,
+  type HubLlmText,
   type InspectionInput,
   type InspectionResult,
   type LockedCategory,
@@ -18,7 +20,7 @@ import {
 import type { Classifier, ClassifierOutput } from './classifier';
 import { scoreCredentialDelivery } from './credential-delivery';
 import { detectAll, LOCKED_DETECTORS } from './detectors';
-import { asFiltered } from './internal/brand';
+import { asFiltered, asHubLlmText } from './internal/brand';
 import { applyRedactions, type RedactionCounts } from './redact';
 import { matchRules } from './rules';
 
@@ -154,7 +156,124 @@ export async function postCheck(
   return null;
 }
 
-async function run(input: InspectionInput, policy: Policy, classifier: Classifier): Promise<InspectionResult> {
+interface FilterTextsOptions {
+  categories: readonly FilterCategory[];
+  classifierCategories: readonly ClassifierCategory[];
+  ctx: DetectorContext;
+  classifier: Classifier;
+  /** Per text: whether it goes to the classifier (the From address does not). */
+  classify: readonly boolean[];
+  /** Joins the classified texts into the one classifier call. */
+  separator: string;
+  /** Extra stage-3 spans per text (hub mode: URL userinfo). */
+  extraSpans?: (text: string) => Span[];
+}
+
+/**
+ * Stages 3 to 5 over texts that share one policy. Detectors run per text, so no span crosses a text
+ * boundary. Classifier spans are located per text, so a span that crosses a boundary is not found and
+ * excludes the item (fail closed). Throws `Excluded`.
+ */
+async function filterTexts(
+  texts: readonly string[],
+  opts: FilterTextsOptions,
+): Promise<{ texts: string[]; totals: Map<FilterCategory, number> }> {
+  const out = [...texts];
+  const totals = new Map<FilterCategory, number>();
+
+  // Stage 3: deterministic span redaction on every text.
+  await Promise.all(
+    out.map(async (text, i) => {
+      const spans = await detectAll(text, opts.categories, opts.ctx);
+      if (opts.extraSpans) spans.push(...opts.extraSpans(text));
+      const redacted = applyRedactions(text, spans);
+      out[i] = redacted.text;
+      addCounts(totals, redacted.counts);
+    }),
+  );
+
+  // Stage 4: classifier on the stage-3 text (credentials already gone), one call per item.
+  if (opts.classifierCategories.length > 0) {
+    const stage3 = out.flatMap((text, i) => (opts.classify[i] ? [[i, text] as [number, string]] : []));
+    const output = await opts.classifier.classify(stage3.map(([, text]) => text).join(opts.separator), {
+      categories: opts.classifierCategories,
+    });
+    if (output.mostlySensitive) throw new Excluded(dominantCategory(output));
+
+    // Locate every span before redacting anything, so overlapping spans cannot hide each other.
+    const located = new Map<number, Span[]>();
+    for (const span of output.spans) {
+      let found = false;
+      if (span.text.trim() !== '') {
+        for (const [i, text] of stage3) {
+          const spans = occurrences(text, span.text, span.category);
+          if (spans.length === 0) continue;
+          found = true;
+          located.set(i, [...(located.get(i) ?? []), ...spans]);
+        }
+      }
+      if (!found) throw new Excluded(span.category);
+    }
+    for (const [i, spans] of located) {
+      const redacted = applyRedactions(out[i] ?? '', spans);
+      out[i] = redacted.text;
+      addCounts(totals, redacted.counts);
+    }
+  }
+
+  // Stage 5: post-check; any locked hit on the final text excludes the item.
+  for (const text of out) {
+    const hit = await postCheck(text, opts.ctx);
+    if (hit) throw new Excluded(hit);
+  }
+
+  return { texts: out, totals };
+}
+
+/**
+ * The whole userinfo of a URL that carries `user:pass@`. The passwords detector needs a user part without
+ * `@`; in normal mode the contacts detector covers `https://jan@acme.example:secret@host` as an email, but
+ * hub mode skips that detector, so the userinfo is redacted here as a password instead.
+ */
+const URL_USERINFO = /\b[a-z][a-z0-9+.-]*:\/\/([^\s/?#]*:[^\s/?#]*)@[^\s/?#@]+/giu;
+
+function urlUserinfoSpans(text: string): Span[] {
+  const spans: Span[] = [];
+  for (const m of text.matchAll(URL_USERINFO)) {
+    const start = m.index + m[0].indexOf('://') + 3;
+    spans.push({ start, end: start + (m[1] ?? '').length, category: 'passwords' });
+  }
+  return spans;
+}
+
+function countsOf(totals: Map<FilterCategory, number>): CategoryCount[] {
+  return FILTER_CATEGORY_KEYS.flatMap((category) => {
+    const n = totals.get(category) ?? 0;
+    return n > 0 ? [{ category, redactedValues: n, wholeItem: false }] : [];
+  });
+}
+
+/** Locked categories are forced on; unknown keys in the policy are ignored. */
+function policyCategories(selected: ReadonlySet<string>): FilterCategory[] {
+  return FILTER_CATEGORY_KEYS.filter((c) => (LOCKED_CATEGORIES as readonly string[]).includes(c) || selected.has(c));
+}
+
+/** Header fields of an accepted item; unbranded until `inspect()` brands them by contact mode. */
+type FieldKey = Exclude<PartKey, 'body'>;
+
+interface RawResult {
+  body: string;
+  fields: Partial<Record<FieldKey, string>>;
+  counts: CategoryCount[];
+  languageHint?: string;
+}
+
+async function run(
+  input: InspectionInput,
+  policy: Policy,
+  classifier: Classifier,
+  contactMode: ContactMode,
+): Promise<RawResult> {
   // Stage 1: user exclusion rules.
   if (matchRules(input, policy.rules).matched) throw new Excluded('user_rule');
 
@@ -166,13 +285,13 @@ async function run(input: InspectionInput, policy: Policy, classifier: Classifie
   });
   if (delivery.excluded) throw new Excluded(delivery.category ?? 'otp_codes');
 
-  // Locked categories are forced on; unknown keys in the policy are ignored.
   const selected = new Set<string>(policy.selectedCategories);
-  const categories = FILTER_CATEGORY_KEYS.filter(
-    (c) => (LOCKED_CATEGORIES as readonly string[]).includes(c) || selected.has(c),
-  );
+  // Hub mode skips only the deterministic contacts detector (emails, phones) and keeps the From address;
+  // the classifier's postal-address sense of third_party_contacts stays.
+  const hub = contactMode === 'hub_extraction';
+  const categories = policyCategories(selected).filter((c) => !(hub && c === 'third_party_contacts'));
   const classifierCategories = CLASSIFIER_CATEGORIES.filter((c) => selected.has(c));
-  const dropFromAddress = selected.has('third_party_contacts');
+  const dropFromAddress = selected.has('third_party_contacts') && !hub;
   const ctx: DetectorContext = { ownAddresses: input.ownAddresses, defaultRegion: DEFAULT_REGION };
 
   const sender = parseFromAddress(input.headers.from);
@@ -184,95 +303,157 @@ async function run(input: InspectionInput, policy: Policy, classifier: Classifie
   // When third_party_contacts is selected the header address is dropped, not redacted (not counted).
   if (sender.address !== undefined && !dropFromAddress) parts.fromAddress = sender.address;
 
-  const totals = new Map<FilterCategory, number>();
-
-  // Stage 3: deterministic span redaction on the body and every header field.
-  await Promise.all(
-    definedParts(parts).map(async ([key, text]) => {
-      const spans = await detectAll(text, categories, ctx);
-      const redacted = applyRedactions(text, spans);
-      parts[key] = redacted.text;
-      addCounts(totals, redacted.counts);
-    }),
+  const entries = definedParts(parts);
+  const filtered = await filterTexts(
+    entries.map(([, text]) => text),
+    {
+      categories,
+      classifierCategories,
+      ctx,
+      classifier,
+      classify: entries.map(([key]) => key !== 'fromAddress'),
+      separator: '\n\n',
+      ...(hub ? { extraSpans: urlUserinfoSpans } : {}),
+    },
   );
-
-  // Stage 4: classifier on the stage-3 text (credentials already gone), one call per item.
-  if (classifierCategories.length > 0) {
-    const stage3 = definedParts(parts).filter(([key]) => key !== 'fromAddress');
-    const output = await classifier.classify(stage3.map(([, text]) => text).join('\n\n'), {
-      categories: classifierCategories,
-    });
-    if (output.mostlySensitive) throw new Excluded(dominantCategory(output));
-
-    // Locate every span before redacting anything, so overlapping spans cannot hide each other.
-    const located = new Map<PartKey, Span[]>();
-    for (const span of output.spans) {
-      let found = false;
-      if (span.text.trim() !== '') {
-        for (const [key, text] of stage3) {
-          const spans = occurrences(text, span.text, span.category);
-          if (spans.length === 0) continue;
-          found = true;
-          located.set(key, [...(located.get(key) ?? []), ...spans]);
-        }
-      }
-      if (!found) throw new Excluded(span.category);
-    }
-    for (const [key, spans] of located) {
-      const redacted = applyRedactions(parts[key] ?? '', spans);
-      parts[key] = redacted.text;
-      addCounts(totals, redacted.counts);
-    }
-  }
-
-  // Stage 5: post-check; any locked hit on the final text excludes the item.
-  for (const [, text] of definedParts(parts)) {
-    const hit = await postCheck(text, ctx);
-    if (hit) throw new Excluded(hit);
-  }
-
-  const counts: CategoryCount[] = FILTER_CATEGORY_KEYS.flatMap((category) => {
-    const n = totals.get(category) ?? 0;
-    return n > 0 ? [{ category, redactedValues: n, wholeItem: false }] : [];
+  entries.forEach(([key], i) => {
+    parts[key] = filtered.texts[i] ?? '';
   });
-  const fields: NonNullable<InspectionResult['fields']> = {};
-  if (parts.subject !== undefined) fields.subject = asFiltered(parts.subject);
-  if (parts.fromName !== undefined) fields.fromName = asFiltered(parts.fromName);
-  if (parts.fromAddress !== undefined) fields.fromAddress = asFiltered(parts.fromAddress);
-  if (parts.title !== undefined) fields.title = asFiltered(parts.title);
-  if (parts.filename !== undefined) fields.filename = asFiltered(parts.filename);
+
+  const fields: RawResult['fields'] = {};
+  for (const key of ['subject', 'fromName', 'fromAddress', 'title', 'filename'] as const) {
+    const text = parts[key];
+    if (text !== undefined) fields[key] = text;
+  }
   const hint = languageHint(parts.body);
 
   return {
-    outcome: 'accepted',
-    text: asFiltered(parts.body),
+    body: parts.body,
     fields,
-    counts,
+    counts: countsOf(filtered.totals),
     ...(hint !== undefined ? { languageHint: hint } : {}),
   };
 }
 
 /**
- * Runs the inspection stages (research R8) over the body and the header fields with the same
- * policy. Fails closed: any error or a run longer than `timeoutMs` yields `inspection_failed`.
- * The result carries counts only, never matched values.
+ * Runs `work` under the inspection budget. Fails closed: any error or a run longer than `timeoutMs`
+ * yields `inspection_failed`; an `Excluded` yields its category.
  */
-export async function inspect(
-  input: InspectionInput,
-  policy: Policy,
+async function guarded<T>(
+  work: () => Promise<T>,
   deps: InspectDeps,
-): Promise<InspectionResult> {
+  excluded: (category: CountCategory) => T,
+): Promise<T> {
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error('inspection timed out')), timeoutMs);
   });
   try {
-    return await Promise.race([run(input, policy, deps.classifier), timeout]);
+    return await Promise.race([work(), timeout]);
   } catch (err) {
     // Error details are dropped deliberately: they may echo document content.
-    return excludedResult(err instanceof Excluded ? err.category : 'inspection_failed');
+    return excluded(err instanceof Excluded ? err.category : 'inspection_failed');
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+export interface InspectOptions {
+  /** Default `normal`. `hub_extraction` is used only through `inspectForHubExtraction` (hub.ts). */
+  contactMode?: ContactMode;
+}
+
+/** A hub-mode result: the same shape, but the kept texts carry the `HubLlmText` brand, never `FilteredText`. */
+export type HubModeInspectionResult = Omit<InspectionResult, 'text' | 'fields'> & {
+  text?: HubLlmText;
+  fields?: Partial<Record<FieldKey, HubLlmText>>;
+};
+
+function branded<T extends string>(raw: RawResult, brand: (text: string) => T) {
+  const fields: Partial<Record<FieldKey, T>> = {};
+  for (const [key, text] of Object.entries(raw.fields) as [FieldKey, string][]) fields[key] = brand(text);
+  return {
+    outcome: 'accepted' as const,
+    text: brand(raw.body),
+    fields,
+    counts: raw.counts,
+    ...(raw.languageHint !== undefined ? { languageHint: raw.languageHint } : {}),
+  };
+}
+
+/**
+ * Runs the inspection stages (research R8) over the body and the header fields with the same
+ * policy. Fails closed: any error or a run longer than `timeoutMs` yields `inspection_failed`.
+ * The result carries counts only, never matched values. With `contactMode: 'hub_extraction'` the
+ * contacts detector is skipped, the From address is kept and the texts are `HubLlmText`. The normal
+ * overload is declared last so `ReturnType<typeof inspect>` stays `Promise<InspectionResult>`.
+ */
+export function inspect(
+  input: InspectionInput,
+  policy: Policy,
+  deps: InspectDeps,
+  options: { contactMode: 'hub_extraction' },
+): Promise<HubModeInspectionResult>;
+export function inspect(
+  input: InspectionInput,
+  policy: Policy,
+  deps: InspectDeps,
+  options?: InspectOptions & { contactMode?: 'normal' },
+): Promise<InspectionResult>;
+export async function inspect(
+  input: InspectionInput,
+  policy: Policy,
+  deps: InspectDeps,
+  options: InspectOptions = {},
+): Promise<InspectionResult | HubModeInspectionResult> {
+  const contactMode = options.contactMode ?? 'normal';
+  return guarded<InspectionResult | HubModeInspectionResult>(
+    async () => {
+      const raw = await run(input, policy, deps.classifier, contactMode);
+      return contactMode === 'hub_extraction' ? branded(raw, asHubLlmText) : branded(raw, asFiltered);
+    },
+    deps,
+    excludedResult,
+  );
+}
+
+export type TextsResult =
+  | { outcome: 'accepted'; texts: string[]; counts: CategoryCount[] }
+  | { outcome: 'excluded'; category: CountCategory };
+
+/**
+ * Package-internal (not exported from the index): the full user policy over a list of texts in one
+ * pass, for `inspectSegments`. Rules and the credential-delivery score see the texts joined by
+ * `separator`; detectors run per text; the classifier gets one call over the joined texts and its
+ * spans are located per text. Whole-item exclusion applies to the call. Fails closed like `inspect`.
+ */
+export async function inspectTexts(
+  texts: readonly string[],
+  policy: Policy,
+  deps: InspectDeps,
+  separator: string,
+): Promise<TextsResult> {
+  return guarded<TextsResult>(
+    async () => {
+      const joined = texts.join(separator);
+      const input: InspectionInput = { kind: 'note', bodyText: joined, headers: {}, folders: [], ownAddresses: [] };
+      if (matchRules(input, policy.rules).matched) throw new Excluded('user_rule');
+      const delivery = scoreCredentialDelivery({ bodyText: joined });
+      if (delivery.excluded) throw new Excluded(delivery.category ?? 'otp_codes');
+
+      const selected = new Set<string>(policy.selectedCategories);
+      const filtered = await filterTexts(texts, {
+        categories: policyCategories(selected),
+        classifierCategories: CLASSIFIER_CATEGORIES.filter((c) => selected.has(c)),
+        ctx: { ownAddresses: [], defaultRegion: DEFAULT_REGION },
+        classifier: deps.classifier,
+        classify: texts.map(() => true),
+        separator,
+      });
+      return { outcome: 'accepted', texts: filtered.texts, counts: countsOf(filtered.totals) };
+    },
+    deps,
+    (category) => ({ outcome: 'excluded', category }),
+  );
 }

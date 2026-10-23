@@ -55,7 +55,8 @@ function registeredIban(candidate: string): string | null {
   return ibanValid(slice) ? slice : null;
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
 
   for (const m of text.matchAll(IBAN_CANDIDATE)) {
@@ -89,6 +90,8 @@ export const detect: Detector = async (text) => {
 
   return dedupe(spans);
 };
+
+export const detect: Detector = async (text) => detectSync(text);
 
 function dedupe(spans: Span[]): Span[] {
   const seen = new Set<string>();

@@ -165,6 +165,21 @@ export interface Policy {
 
 export type FilteredText = string & { readonly __brand: 'FilteredText' };
 
+/**
+ * Text kept by the hub-mode inspection (emails and phones left in). Not assignable to `FilteredText`, so no
+ * memory-store or other `FilteredText` sink accepts it; only the hub extraction prompt builder does.
+ */
+export type HubLlmText = string & { readonly __brand: 'HubLlmText' };
+
+/**
+ * A validated email, phone or domain (`validateContactValue`). Allowed only in the hub contact columns and,
+ * when the policy allows, in hub memory documents.
+ */
+export type ContactValue = string & { readonly __brand: 'ContactValue' };
+
+/** `hub_extraction` skips the deterministic contacts detector and keeps the From address (FR-028). */
+export type ContactMode = 'normal' | 'hub_extraction';
+
 export interface CategoryCount {
   category: CountCategory;
   redactedValues: number;

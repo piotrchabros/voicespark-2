@@ -51,7 +51,11 @@ async function secretlintSpans(text: string): Promise<Span[]> {
   );
 }
 
-export const detect: Detector = async (text) => {
+/**
+ * The pattern-based part of `detect` (no secretlint, which is async), for callers that cannot await
+ * (contact-value validation).
+ */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
 
   for (const re of PROVIDER_PATTERNS) {
@@ -74,6 +78,7 @@ export const detect: Detector = async (text) => {
     if (s) spans.push(s);
   }
 
-  spans.push(...(await secretlintSpans(text)));
   return mergeSpans(spans);
 };
+
+export const detect: Detector = async (text) => mergeSpans([...detectSync(text), ...(await secretlintSpans(text))]);

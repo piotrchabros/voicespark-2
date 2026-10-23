@@ -53,7 +53,8 @@ function lexiconHits(text: string): Array<{ start: number; end: number }> {
   return hits;
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
   const hits = lexiconHits(text);
 
@@ -100,3 +101,5 @@ export const detect: Detector = async (text) => {
 
   return mergeSpans(spans);
 };
+
+export const detect: Detector = async (text) => detectSync(text);

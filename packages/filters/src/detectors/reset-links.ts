@@ -48,7 +48,8 @@ function isSensitive(url: string): boolean {
   return false;
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
   for (const m of findAllMatches(URL_RE, text)) {
     const url = m[0].replace(TRAILING_PUNCT, '');
@@ -62,3 +63,5 @@ export const detect: Detector = async (text) => {
   }
   return mergeSpans(spans);
 };
+
+export const detect: Detector = async (text) => detectSync(text);

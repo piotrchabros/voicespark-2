@@ -16,6 +16,7 @@
     "./queues": "./src/queues/index.ts",
     "./prompting": "./src/prompting/index.ts",
     "./text-diff": "./src/text-diff.ts",
+    "./hub/*": "./src/hub/*.ts",
     "./services/*": "./src/services/*.ts"
   },
   "scripts": {

@@ -72,7 +72,10 @@ describe('inspectSegments', () => {
   it('lets a segment come back empty after redaction', async () => {
     const r = await ok(['ok', 'jan@acme.example']);
     expect(r.segments).toHaveLength(2);
-    expect(r.segments[1].replace(/\[excluded: [^\]]*\]/g, '').trim()).toBe('');
+    const redacted = r.segments[1];
+    expect(redacted).toBeDefined();
+    if (redacted === undefined) throw new Error('segment 1 missing');
+    expect(redacted.replace(/\[excluded: [^\]]*\]/g, '').trim()).toBe('');
   });
 
   it('returns a whole-item exclusion for the call', async () => {
