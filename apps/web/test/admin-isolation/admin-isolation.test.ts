@@ -621,10 +621,12 @@ describe("(a') admin hub views are numbers only", () => {
     expect(Object.keys(hub).sort()).toEqual([...keys].sort());
     for (const k of keys) expect(hub[k], k).toEqual(expect.any(Number));
     expect(schema.safeParse(json).success).toBe(true);
-    expect(schema.safeParse({ ...(json as object), hub: { ...hub, extra: 1 } }).success).toBe(false);
-    expect(schema.safeParse({ ...(json as object), hub: { ...hub, [keys[0]!]: '1' } }).success).toBe(
+    expect(schema.safeParse({ ...(json as object), hub: { ...hub, extra: 1 } }).success).toBe(
       false,
     );
+    expect(
+      schema.safeParse({ ...(json as object), hub: { ...hub, [keys[0]!]: '1' } }).success,
+    ).toBe(false);
     const { hub: _dropped, ...withoutHub } = json as Record<string, unknown>;
     expect(schema.safeParse(withoutHub).success).toBe(false);
   };
@@ -1131,12 +1133,29 @@ describe("(b) an admin reaching another user's content", () => {
 
   it("GET /api/hub/people lists only the admin's own records", async () => {
     actor.current = { userId: seed.adminA, role: 'admin' };
-    const res = await call(API_ROOT, 'hub/[kind]', 'GET', { kind: 'people' }, { query: { limit: '100' } });
+    const res = await call(
+      API_ROOT,
+      'hub/[kind]',
+      'GET',
+      { kind: 'people' },
+      { query: { limit: '100' } },
+    );
     expect(res.status).toBe(200);
     const ids = listIds(res.json);
     expect(ids).toContain(seed.a.hub.personId);
     expect(ids).not.toContain(seed.u.hub.personId);
     expect(res.text).not.toContain(seed.u.hub.personId);
+  });
+
+  it("GET /api/hub/sync shows only the admin's own sync items", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const res = await call(API_ROOT, 'hub/sync', 'GET', {}, { query: { limit: '100' } });
+    expect(res.status).toBe(200);
+    const ids = listIds(res.json);
+    expect(ids).toContain(seed.a.hub.syncItemId);
+    expect(ids).not.toContain(seed.u.hub.syncItemId);
+    // The admin's own seeded hub data carries the same marker text, so the check is by user U's ids.
+    for (const id of Object.values(seed.u.hub)) expect(res.text).not.toContain(id);
   });
 
   it("GET /api/content-items lists only the admin's own items", async () => {

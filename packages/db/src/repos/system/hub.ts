@@ -107,6 +107,8 @@ export async function dueSyncUsers(limit = 500, db: DbOrTx = getDb()): Promise<s
         sql`(${hubSyncItem.status} <> 'stored' OR ${hubSyncItem.syncedVersion} < ${hubSyncItem.version})`,
         sql`(${hubSyncItem.nextAttemptAt} IS NULL OR ${hubSyncItem.nextAttemptAt} <= now())`,
         sql`(${hubSyncItem.leaseUntil} IS NULL OR ${hubSyncItem.leaseUntil} < now())`,
+        // Rows waiting for `hub.refilter` are not synced (fail-closed); `hub.refilter` wakes them.
+        sql`${hubSyncItem.lastErrorCode} IS DISTINCT FROM 'refilter_pending'`,
       ),
     )
     .limit(limit);

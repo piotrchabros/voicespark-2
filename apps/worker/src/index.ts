@@ -21,6 +21,8 @@ import { handlers as analysisPreview } from './processors/analysis-preview';
 import { handlers as deletion } from './processors/deletion';
 import { handlers as draft } from './processors/draft';
 import { handlers as hubFile } from './processors/hub-file';
+import { handlers as hubRefilter } from './processors/hub-refilter';
+import { handlers as hubSync } from './processors/hub-sync';
 import { handlers as importHandlers } from './processors/import';
 import { handlers as maintenance } from './processors/maintenance';
 import { handlers as notify } from './processors/notify';
@@ -41,6 +43,8 @@ const HANDLERS: HandlerMap = {
   ...notify,
   ...maintenance,
   ...hubFile,
+  ...hubRefilter,
+  ...hubSync,
 };
 
 // Per-job-name limits inside the single `hub` Worker (contracts/jobs.md; sum = its concurrency of 12).
@@ -95,6 +99,8 @@ const SCHEDULERS: ReadonlyArray<{
   { id: 'maintenance.retroscan-expiry', repeat: { pattern: '0 3 * * *' } },
   { id: 'maintenance.credential-audit', repeat: { pattern: '0 4 * * 0' } },
   { id: 'maintenance.hub-blob-sweep', repeat: { pattern: '0 5 * * *' } },
+  { id: 'maintenance.hub-refilter-retry', repeat: { pattern: '0 4 * * *' } },
+  { id: 'maintenance.hub-sync-sweep', repeat: { every: 60_000 } },
 ];
 
 async function main(): Promise<void> {

@@ -241,6 +241,63 @@ describe('retroscan.scan category trigger', () => {
   });
 });
 
+describe('retroscan.scan hub documents', () => {
+  // A hub document holding a rule keyword: retroscan never reads, inspects or matches it (hub content is re-filtered
+  // by hub.refilter instead). It even carries a uuid content item id, so only the `hub_` id prefix keeps it out.
+  const hubItemId = randomUUID();
+  const hubDocId = `hub_note_${hubItemId}`;
+
+  beforeAll(async () => {
+    await store.addDocuments(namespaceFor(userId), [
+      {
+        id: hubDocId,
+        content: ft('Title: Codename\n\nThe codename card is 4111 1111 1111 1111.'),
+        documentDate: new Date().toISOString(),
+        metadata: {
+          [META.kind]: 'hub_note',
+          vs_hub_item_id: hubItemId,
+          [META.contentItemId]: hubItemId,
+        },
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    await store.deleteDocuments(namespaceFor(userId), [hubDocId]);
+  });
+
+  it('skips ids starting with hub_ in rule and category scans', async () => {
+    const getDocument = vi.spyOn(store, 'getDocument');
+    const classify = vi.fn(async () => Promise.reject(new Error('boom')));
+    const failing = createRetroscanHandler({ store, classifier: { classify } });
+    try {
+      const keyword = await createScan({ ruleId: await createRule('keyword', 'codename') });
+      await run(keyword);
+      expect((await load(keyword)).matchedItemIds).toEqual([ids.note]);
+
+      // Fails closed on every document it inspects, so an inspected hub document would match.
+      const categories = await createScan({
+        trigger: 'categories_selected',
+        categories: ['health'],
+      });
+      await failing({
+        id: 'x',
+        data: { retroscanId: categories },
+        opts: { attempts: 3 },
+        attemptsMade: 0,
+      } as unknown as Job<FakeJob['data'], unknown, 'retroscan.scan'>);
+      expect([...(await load(categories)).matchedItemIds].sort()).toEqual(
+        Object.values(ids).sort(),
+      );
+      expect(classify).toHaveBeenCalledTimes(Object.values(ids).length);
+
+      expect(getDocument.mock.calls.map(([, id]) => id)).not.toContain(hubDocId);
+    } finally {
+      getDocument.mockRestore();
+    }
+  });
+});
+
 describe('retroscan.scan lifecycle', () => {
   it('leaves a non-scanning retroscan alone', async () => {
     const id = await createScan({

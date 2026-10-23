@@ -106,7 +106,10 @@ async function seedLink(userId: string, personId: string, companyId: string): Pr
 }
 
 /** A thread with a summary attached to the person, and one without a summary. */
-async function seedThreads(userId: string, personId: string): Promise<{ withSummary: string; without: string }> {
+async function seedThreads(
+  userId: string,
+  personId: string,
+): Promise<{ withSummary: string; without: string }> {
   const pool = getPool();
   const a = await pool.query<{ id: string }>(
     `insert into hub_thread (user_id, thread_key, summary_enc, summary_version) values ($1, $2, 'x', 1) returning id`,
@@ -117,11 +120,10 @@ async function seedThreads(userId: string, personId: string): Promise<{ withSumm
     [userId, H('f')],
   );
   for (const threadId of [a.rows[0]!.id, b.rows[0]!.id]) {
-    await pool.query(`insert into hub_thread_record (user_id, thread_id, person_id) values ($1, $2, $3)`, [
-      userId,
-      threadId,
-      personId,
-    ]);
+    await pool.query(
+      `insert into hub_thread_record (user_id, thread_id, person_id) values ($1, $2, $3)`,
+      [userId, threadId, personId],
+    );
   }
   return { withSummary: a.rows[0]!.id, without: b.rows[0]!.id };
 }
@@ -160,11 +162,13 @@ describe('docIdFor', () => {
 
   it('the longest custom id with the vs_user_{id}__ prefix is 94 chars and matches the v3 pattern', () => {
     const ns = `vs_user_${randomUUID()}`;
-    const lengths = (['person', 'company', 'project', 'note', 'file', 'summary'] as const).map((t) => {
-      const custom = `${ns}__${sync.docIdFor(t, randomUUID())}`;
-      expect(custom).toMatch(/^[A-Za-z0-9_.:-]{1,100}$/);
-      return custom.length;
-    });
+    const lengths = (['person', 'company', 'project', 'note', 'file', 'summary'] as const).map(
+      (t) => {
+        const custom = `${ns}__${sync.docIdFor(t, randomUUID())}`;
+        expect(custom).toMatch(/^[A-Za-z0-9_.:-]{1,100}$/);
+        return custom.length;
+      },
+    );
     expect(Math.max(...lengths)).toBe(94);
   });
 });
@@ -187,7 +191,11 @@ describe('markDirty', () => {
       attempts: 0,
       next_in: 2,
     });
-    expect(enqueue).toHaveBeenCalledWith('hub.sync', { userId }, { jobId: `hubsync-${userId}`, delay: 2000 });
+    expect(enqueue).toHaveBeenCalledWith(
+      'hub.sync',
+      { userId },
+      { jobId: `hubsync-${userId}`, delay: 2000 },
+    );
   });
 
   it('writes nothing when the caller transaction rolls back', async () => {
@@ -208,11 +216,25 @@ describe('markDirty', () => {
     const first = await row(userId, id);
     await set(first.id, `status = 'stored', synced_version = 1`);
     await dirty(userId, 'company', id);
-    expect(await row(userId, id)).toMatchObject({ version: 2, synced_version: 1, status: 'pending', attempts: 0, next_in: 2 });
+    expect(await row(userId, id)).toMatchObject({
+      version: 2,
+      synced_version: 1,
+      status: 'pending',
+      attempts: 0,
+      next_in: 2,
+    });
 
-    await set(first.id, `status = 'failed', attempts = 4, next_attempt_at = now() + interval '10 minutes'`);
+    await set(
+      first.id,
+      `status = 'failed', attempts = 4, next_attempt_at = now() + interval '10 minutes'`,
+    );
     await dirty(userId, 'company', id);
-    expect(await row(userId, id)).toMatchObject({ version: 3, status: 'pending', attempts: 0, next_in: 2 });
+    expect(await row(userId, id)).toMatchObject({
+      version: 3,
+      status: 'pending',
+      attempts: 0,
+      next_in: 2,
+    });
     expect(await rows(userId)).toHaveLength(1);
   });
 });
@@ -225,12 +247,26 @@ describe('tombstone', () => {
     const r = await row(userId, id);
     await set(r.id, `status = 'stored', synced_version = 1`);
     await withTransaction((tx) => sync.tombstone(tx, userId, 'file', id));
-    expect(await row(userId, id)).toMatchObject({ deleted: true, version: 2, status: 'pending', attempts: 0, next_in: 2 });
+    expect(await row(userId, id)).toMatchObject({
+      deleted: true,
+      version: 2,
+      status: 'pending',
+      attempts: 0,
+      next_in: 2,
+    });
 
     const other = randomUUID();
     await withTransaction((tx) => sync.tombstone(tx, userId, 'note', other));
-    expect(await row(userId, other)).toMatchObject({ deleted: true, status: 'pending', doc_id: `hub_note_${other}` });
-    expect(enqueue).toHaveBeenCalledWith('hub.sync', { userId }, { jobId: `hubsync-${userId}`, delay: 2000 });
+    expect(await row(userId, other)).toMatchObject({
+      deleted: true,
+      status: 'pending',
+      doc_id: `hub_note_${other}`,
+    });
+    expect(enqueue).toHaveBeenCalledWith(
+      'hub.sync',
+      { userId },
+      { jobId: `hubsync-${userId}`, delay: 2000 },
+    );
   });
 
   it('a later markDirty does not resurrect a tombstone', async () => {
@@ -349,7 +385,12 @@ describe('fail and busy', () => {
 
     await sync.fail(userId, r.id, 'supermemory_http_500');
     let now = await row(userId, id);
-    expect(now).toMatchObject({ status: 'failed', attempts: 1, last_error_code: 'supermemory_http_500', lease_in: null });
+    expect(now).toMatchObject({
+      status: 'failed',
+      attempts: 1,
+      last_error_code: 'supermemory_http_500',
+      lease_in: null,
+    });
     expect(now.next_in!).toBeGreaterThanOrEqual(4);
     expect(now.next_in!).toBeLessThanOrEqual(6);
 
@@ -374,7 +415,12 @@ describe('fail and busy', () => {
     const r = await row(userId, id);
     await set(r.id, `attempts = 2, lease_until = now() + interval '2 minutes'`);
     await sync.busy(userId, r.id);
-    expect(await row(userId, id)).toMatchObject({ status: 'pending', attempts: 2, next_in: 10, lease_in: null });
+    expect(await row(userId, id)).toMatchObject({
+      status: 'pending',
+      attempts: 2,
+      next_in: 10,
+      lease_in: null,
+    });
   });
 });
 
@@ -396,7 +442,7 @@ describe('resync', () => {
     const tomb = await row(userId, gone);
     await set(tomb.id, `status = 'stored', synced_version = version`);
 
-    const count = await sync.resync(userId);
+    const count = await sync.resync({ userId, role: 'user' });
     expect(count).toBe(6);
 
     const after = await rows(userId);
@@ -413,13 +459,23 @@ describe('resync', () => {
       ].sort(),
     );
     expect(docIds).not.toContain(`hub_summary_${without}`);
-    for (const r of after.filter((x) => !x.deleted)) expect(r).toMatchObject({ status: 'pending', attempts: 0 });
+    for (const r of after.filter((x) => !x.deleted))
+      expect(r).toMatchObject({ status: 'pending', attempts: 0 });
     expect(await row(userId, companyId)).toMatchObject({ version: 2, synced_version: 1 });
-    expect(await row(userId, gone)).toMatchObject({ status: 'stored', deleted: true, version: 1, synced_version: 1 });
-    expect(enqueue).toHaveBeenCalledWith('hub.sync', { userId }, { jobId: `hubsync-${userId}`, delay: 2000 });
+    expect(await row(userId, gone)).toMatchObject({
+      status: 'stored',
+      deleted: true,
+      version: 1,
+      synced_version: 1,
+    });
+    expect(enqueue).toHaveBeenCalledWith(
+      'hub.sync',
+      { userId },
+      { jobId: `hubsync-${userId}`, delay: 2000 },
+    );
 
     // Running it again inserts nothing new and bumps again.
-    expect(await sync.resync(userId)).toBe(6);
+    expect(await sync.resync({ userId, role: 'user' })).toBe(6);
     expect(await rows(userId)).toHaveLength(7);
     expect(await row(userId, companyId)).toMatchObject({ version: 3 });
   });
@@ -463,12 +519,17 @@ describe('markRecordTree', () => {
     );
     const { withSummary } = await seedThreads(userId, personId);
 
-    await withTransaction((tx) => sync.markRecordTree(tx, userId, 'person', personId, { deleted: true }));
+    await withTransaction((tx) =>
+      sync.markRecordTree(tx, userId, 'person', personId, { deleted: true }),
+    );
     expect(await row(userId, personId)).toMatchObject({ deleted: true });
     expect(await row(userId, noteId)).toMatchObject({ deleted: true });
     expect(await row(userId, fileId)).toMatchObject({ deleted: true });
     expect(await row(userId, companyId)).toMatchObject({ deleted: false, status: 'pending' });
-    expect(await row(userId, companyNote.rows[0]!.id)).toMatchObject({ deleted: false, status: 'pending' });
+    expect(await row(userId, companyNote.rows[0]!.id)).toMatchObject({
+      deleted: false,
+      status: 'pending',
+    });
     expect(await row(userId, withSummary)).toMatchObject({ deleted: false, status: 'pending' });
   });
 
@@ -487,10 +548,16 @@ describe('syncFieldFor', () => {
   it('returns the sync field of record, note and file responses', async () => {
     const userId = await createUser();
     const id = randomUUID();
-    expect(await sync.syncFieldFor(userId, 'person', id)).toEqual({ status: 'pending', lastSyncedAt: null });
+    expect(await sync.syncFieldFor(userId, 'person', id)).toEqual({
+      status: 'pending',
+      lastSyncedAt: null,
+    });
 
     await dirty(userId, 'person', id);
-    expect(await sync.syncFieldFor(userId, 'person', id)).toEqual({ status: 'pending', lastSyncedAt: null });
+    expect(await sync.syncFieldFor(userId, 'person', id)).toEqual({
+      status: 'pending',
+      lastSyncedAt: null,
+    });
 
     const r = await row(userId, id);
     expect(await sync.completeStored(userId, r.id, 1)).toBe(true);
@@ -503,6 +570,9 @@ describe('syncFieldFor', () => {
 
     // Another user's row is invisible.
     const other = await createUser();
-    expect(await sync.syncFieldFor(other, 'person', id)).toEqual({ status: 'pending', lastSyncedAt: null });
+    expect(await sync.syncFieldFor(other, 'person', id)).toEqual({
+      status: 'pending',
+      lastSyncedAt: null,
+    });
   });
 });

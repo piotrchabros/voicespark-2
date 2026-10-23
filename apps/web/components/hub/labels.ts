@@ -110,6 +110,7 @@ export interface HubNoteItem {
   redactedValues: number;
   createdAt: string;
   updatedAt: string;
+  sync?: HubSyncField;
 }
 
 export type ExtractionStatus = 'pending' | 'extracted' | 'empty' | 'unsupported' | 'failed' | 'excluded';
@@ -126,6 +127,7 @@ export interface HubFileItem {
   redactedValues: number;
   createdAt: string;
   updatedAt: string;
+  sync?: HubSyncField;
 }
 
 export const EXTRACTION_STATUS_LABELS: Record<ExtractionStatus, string> = {
@@ -146,6 +148,48 @@ export const EXTRACTION_REASON_TEXT: Record<string, string> = {
   corrupt: 'The file could not be read. The file is kept.',
   inspection_failed: 'The text could not be checked, so it was not kept. The file is kept.',
 };
+
+// Memory store sync (US7; contracts/http-api.md "Sync"; FR-026). `pending` is shown as "waiting".
+
+export type HubSyncStatus = 'pending' | 'stored' | 'failed';
+export type HubSyncEntity = ServiceKind | 'note' | 'file' | 'summary';
+
+/** The `sync` field of record, note and file responses. */
+export interface HubSyncField {
+  status: HubSyncStatus;
+  lastSyncedAt: string | null;
+}
+
+export interface HubSyncItem {
+  id: string;
+  entityType: HubSyncEntity;
+  entityId: string;
+  label: string | null;
+  status: HubSyncStatus;
+  attempts: number;
+  lastErrorCode: string | null;
+  lastSyncedAt: string | null;
+}
+
+export const SYNC_STATUS_LABELS: Record<HubSyncStatus, string> = {
+  stored: 'stored',
+  pending: 'waiting',
+  failed: 'failed',
+};
+
+export const SYNC_ENTITY_LABELS: Record<HubSyncEntity, string> = {
+  person: 'Person',
+  company: 'Company',
+  project: 'Project',
+  note: 'Note',
+  file: 'File',
+  summary: 'Conversation summary',
+};
+
+/** Same text on the server and in the browser (no locale), so a client badge hydrates without a mismatch. */
+export function formatSyncedAt(iso: string): string {
+  return `${iso.slice(0, 16).replace('T', ' ')} UTC`;
+}
 
 export const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
 

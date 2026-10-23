@@ -384,7 +384,8 @@ function indexedText(view: RecordView, kind: HubKind): string[] {
   return out.filter((s): s is string => !!s);
 }
 
-async function reindex(ctx: ServiceContext, kind: HubKind, row: repo.HubRecordRow, tx: Tx): Promise<RecordView> {
+/** Rewrites the record's blind search row from its stored, filtered fields. Same transaction as the write. */
+export async function reindex(ctx: ServiceContext, kind: HubKind, row: repo.HubRecordRow, tx: Tx): Promise<RecordView> {
   const view = await loadView(ctx, kind, row, tx);
   await content.upsertSearchDoc(
     ctx,

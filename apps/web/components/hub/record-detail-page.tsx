@@ -11,6 +11,7 @@ import { FileUpload } from './file-upload';
 import { LinkList } from './link-list';
 import { NoteList } from './note-list';
 import { RecordDetailActions } from './record-detail-actions';
+import { SyncStatusBadge } from './sync-status';
 import {
   KIND_LABELS,
   SERVICE_KIND,
@@ -24,12 +25,6 @@ import {
 
 // SC-002: a record with up to 100 notes and files renders on one screen; notes and files load in one call each.
 const NOTES_PER_SCREEN = 100;
-
-const SYNC_LABELS: Record<string, string> = {
-  pending: 'Waiting to sync',
-  synced: 'Synced',
-  failed: 'Sync failed',
-};
 
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -73,7 +68,7 @@ export async function RecordDetailPage({ kind, id }: { kind: HubKind; id: string
           <Badge variant="secondary">
             {r.createdFrom === 'email' ? 'Created from email' : 'Created by you'}
           </Badge>
-          <Badge variant="secondary">{SYNC_LABELS[sync.status] ?? sync.status}</Badge>
+          <SyncStatusBadge sync={sync} />
         </div>
       </div>
 

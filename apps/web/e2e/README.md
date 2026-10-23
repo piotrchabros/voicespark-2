@@ -33,7 +33,10 @@ setup, fixtures and every CLI they spawn (`pnpm cli admin:grant`, `support/scrip
 The in-memory Supermemory fake lives per process, but web, worker and specs must see the same documents. Global setup
 hosts `startMemoryRpcServer` from `@voicespark/integrations/testing`; web and worker get `TEST_MEMORY_STORE_URL` and
 use `RemoteMemoryStore` instead of the in-process store. Specs read it through `support/memory.ts`
-(`scanNamespace(userId)`, `expectNamespaceEmpty(userId)`). The variable is honoured only under `NODE_ENV=test` /
+(`scanNamespace(userId)`, `expectNamespaceEmpty(userId)`). The bridge serves a `FailableMemoryStore`:
+`failMemoryStoreFor(userId)` makes every write and delete in that user's namespace fail, `rejectMemoryDocs(ids)` rejects
+single documents, `restoreMemoryStore()` clears both (a flag file in `<os tmp>/vs-e2e`; setup and teardown clear it).
+The variable is honoured only under `NODE_ENV=test` /
 `AUTH_TEST_MODE` and refused in production; ESLint bans the testing module from application source.
 
 ## Test-mode sign-in

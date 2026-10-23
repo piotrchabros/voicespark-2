@@ -16,6 +16,7 @@ import {
   plural,
   type HubFileItem,
 } from './labels';
+import { SyncStatusBadge } from './sync-status';
 
 const POLL_MS = 3000;
 // eslint-disable-next-line no-control-regex
@@ -138,6 +139,7 @@ export function FileList({ files }: { files: HubFileItem[] }) {
                   <Badge variant={f.extractionStatus === 'extracted' ? 'secondary' : 'outline'}>
                     {EXTRACTION_STATUS_LABELS[f.extractionStatus]}
                   </Badge>
+                  {f.sync ? <SyncStatusBadge sync={f.sync} /> : null}
                   {f.redactedValues > 0 ? (
                     <Badge variant="outline">{plural(f.redactedValues, 'value')} excluded</Badge>
                   ) : null}

@@ -42,6 +42,7 @@ export const JOBS = {
   maintenanceHubThreadSweep: 'maintenance.hub-thread-sweep',
   maintenanceHubSyncSweep: 'maintenance.hub-sync-sweep',
   maintenanceHubBlobSweep: 'maintenance.hub-blob-sweep',
+  maintenanceHubRefilterRetry: 'maintenance.hub-refilter-retry',
 } as const;
 export type JobName = (typeof JOBS)[keyof typeof JOBS];
 
@@ -68,6 +69,7 @@ export const JOB_QUEUE: Record<JobName, QueueName> = {
   'maintenance.hub-thread-sweep': QUEUES.maintenance,
   'maintenance.hub-sync-sweep': QUEUES.maintenance,
   'maintenance.hub-blob-sweep': QUEUES.maintenance,
+  'maintenance.hub-refilter-retry': QUEUES.maintenance,
 };
 
 const id = z.string().uuid();
@@ -99,6 +101,7 @@ export const PAYLOAD_SCHEMAS = {
   'maintenance.hub-thread-sweep': emptyPayload,
   'maintenance.hub-sync-sweep': emptyPayload,
   'maintenance.hub-blob-sweep': emptyPayload,
+  'maintenance.hub-refilter-retry': emptyPayload,
 } satisfies { [N in JobName]: z.ZodType };
 
 export type JobPayload<N extends JobName> = z.infer<(typeof PAYLOAD_SCHEMAS)[N]>;
@@ -162,12 +165,17 @@ export const JOB_OPTIONS: Record<JobName, JobsOptions> = {
   'maintenance.credential-audit': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'hub.thread': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'hub.backfill': { ...DEFAULT_JOB_OPTIONS, attempts: 5, backoff: exponential(30_000) },
-  'hub.sync': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
+  // The fixed id `hubsync-{userId}` keeps at most one pending wake-up per user; a kept finished job would swallow
+  // every later wake-up with that id until it expires, so finished runs are removed at once (SC-010).
+  'hub.sync': { removeOnComplete: true, removeOnFail: true, attempts: 1 },
   'hub.file-extract': { ...DEFAULT_JOB_OPTIONS, attempts: 3, backoff: exponential(10_000) },
-  'hub.refilter': { ...DEFAULT_JOB_OPTIONS, attempts: 3, backoff: exponential(30_000) },
+  // `hubrefilter-{userId}-{policyVersion}` is re-enqueued for the same version (daily retry, credential-audit hit); a
+  // kept finished job would swallow it, so finished runs are removed at once. A waiting or delayed one still dedups.
+  'hub.refilter': { removeOnComplete: true, removeOnFail: true, attempts: 3, backoff: exponential(30_000) },
   'maintenance.hub-thread-sweep': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'maintenance.hub-sync-sweep': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'maintenance.hub-blob-sweep': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
+  'maintenance.hub-refilter-retry': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
 };
 
 // Per-job-name concurrency inside the single `hub` Worker (sum = the Worker's 12).

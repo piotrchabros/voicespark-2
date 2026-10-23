@@ -1,13 +1,14 @@
 import { readdir, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, eq, inArray, isNull, lt, ne, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import { loadEnv } from '@voicespark/core/env';
 import { runCredentialAudit } from '@voicespark/core/services/credential-audit';
 import { runDeletionSla } from '@voicespark/core/services/deletion-sla';
+import { enqueue, jobIds } from '@voicespark/core/queues';
 import * as imports from '@voicespark/core/services/imports';
 import * as retroscans from '@voicespark/core/services/retroscans';
-import { connectedSource, getDb, importJob, upload } from '@voicespark/db';
-import { orphanBlobKeys } from '@voicespark/db/repos/system/hub';
+import { connectedSource, filterPreferences, getDb, hubSyncItem, importJob, upload, user } from '@voicespark/db';
+import { dueSyncUsers, orphanBlobKeys } from '@voicespark/db/repos/system/hub';
 import { createMemoryStore, type MemoryStore } from '@voicespark/integrations/supermemory';
 import type { HandlerMap } from '../handlers';
 
@@ -172,6 +173,39 @@ export async function hubBlobSweep(now: Date = new Date()): Promise<{ deleted: n
   return { deleted };
 }
 
+/**
+ * `maintenance.hub-sync-sweep` (T082, every minute; contracts/jobs.md (16)): enqueues `hub.sync` for every user with
+ * due `hub_sync_item` rows (lost wake-ups, backoff due; never `refilter_pending` rows). The job id keeps one pending
+ * wake-up per user.
+ */
+export async function hubSyncSweep(): Promise<{ count: number }> {
+  const users = await dueSyncUsers();
+  for (const userId of users) await enqueue('hub.sync', { userId }, { jobId: jobIds.hubSync(userId) });
+  return { count: users.length };
+}
+
+/**
+ * `maintenance.hub-refilter-retry` (T084, daily; contracts/jobs.md (15), (16)): re-enqueues `hub.refilter` under the
+ * current policy version for every active user with rows held as `refilter_pending` (final refilter failure or a
+ * credential-audit hit). Finished `hub.refilter` jobs are not kept, so the same job id enqueues again.
+ */
+export async function hubRefilterRetry(): Promise<{ count: number }> {
+  const users = await getDb()
+    .selectDistinct({ userId: hubSyncItem.userId, version: sql<number>`coalesce(${filterPreferences.version}, 0)::int` })
+    .from(hubSyncItem)
+    .innerJoin(user, and(eq(user.id, hubSyncItem.userId), eq(user.status, 'active')))
+    .leftJoin(filterPreferences, eq(filterPreferences.userId, hubSyncItem.userId))
+    .where(eq(hubSyncItem.lastErrorCode, 'refilter_pending'));
+  for (const u of users) {
+    await enqueue(
+      'hub.refilter',
+      { userId: u.userId, policyVersion: u.version },
+      { jobId: jobIds.hubRefilter(u.userId, u.version) },
+    );
+  }
+  return { count: users.length };
+}
+
 let store: MemoryStore | undefined;
 
 /** `maintenance.credential-audit` (T167, weekly): locked-category re-scan of a sample of every active namespace. */
@@ -187,4 +221,6 @@ export const handlers: HandlerMap = {
   'maintenance.retroscan-expiry': retroscanExpiry,
   'maintenance.credential-audit': credentialAudit,
   'maintenance.hub-blob-sweep': () => hubBlobSweep(),
+  'maintenance.hub-sync-sweep': () => hubSyncSweep(),
+  'maintenance.hub-refilter-retry': () => hubRefilterRetry(),
 };

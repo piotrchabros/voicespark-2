@@ -81,6 +81,8 @@ export async function claimDue(
         or(ne(hubSyncItem.status, 'stored'), lt(hubSyncItem.syncedVersion, hubSyncItem.version)),
         or(isNull(hubSyncItem.nextAttemptAt), lte(hubSyncItem.nextAttemptAt, sql`now()`)),
         or(isNull(hubSyncItem.leaseUntil), lt(hubSyncItem.leaseUntil, sql`now()`)),
+        // Fail-closed: a row waiting for `hub.refilter` is never sent with content filtered under an older policy.
+        sql`${hubSyncItem.lastErrorCode} is distinct from 'refilter_pending'`,
       ),
     )
     .orderBy(hubSyncItem.nextAttemptAt)

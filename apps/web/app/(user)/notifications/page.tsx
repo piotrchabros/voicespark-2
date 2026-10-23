@@ -70,6 +70,11 @@ function describe(
       });
       return { text, href: `/profiles/${def.profileId}/analysis-prompt?${qs.toString()}` };
     }
+    case 'hub_refilter_pending':
+      return {
+        text: 'Some Context Hub items could not be checked against your new filter settings. They are kept in the app and will be copied to memory again once they are checked.',
+        href: '/hub',
+      };
     default:
       return { text: 'Notification' };
   }

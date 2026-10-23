@@ -1,8 +1,27 @@
-import { withTransaction, type DbOrTx, type HubSyncEntity, type HubSyncItem, type HubSyncStatus, type Tx } from '@voicespark/db';
+import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { z } from 'zod';
+import {
+  getDb,
+  hubCompany,
+  hubFile,
+  hubNote,
+  hubPerson,
+  hubProject,
+  hubSyncItem,
+  hubThread,
+  withTransaction,
+  type DbOrTx,
+  type HubSyncEntity,
+  type HubSyncItem,
+  type HubSyncStatus,
+  type Tx,
+} from '@voicespark/db';
 import * as repo from '@voicespark/db/repos/user/hub-sync';
+import { AppError, type ServiceContext } from '../../errors';
 import { logger } from '../../logger';
 import { enqueue, jobIds } from '../../queues';
-import type { HubKind } from './common';
+import { audit } from '../audit';
+import { decryptContent, type HubKind } from './common';
 
 // Outbox of the memory-store copy (contracts/memory-store-hub.md "Outbox" and "Worker rules"; FR-025, FR-026).
 // Domain writes mark rows dirty in their own transaction; the `hub.sync` worker (US7) claims and completes them.
@@ -38,18 +57,31 @@ async function wake(userId: string): Promise<void> {
   try {
     await enqueue('hub.sync', { userId }, { jobId: jobIds.hubSync(userId), delay: WAKE_DELAY_MS });
   } catch {
-    logger.warn({ userId, errorCode: 'hub_sync_enqueue_failed' }, 'hub.sync wake-up not enqueued; sweep will retry');
+    logger.warn(
+      { userId, errorCode: 'hub_sync_enqueue_failed' },
+      'hub.sync wake-up not enqueued; sweep will retry',
+    );
   }
 }
 
 /** Inserts or bumps the entity's row (`version + 1`, `pending`, due in 2 s) inside the caller's transaction. */
-export async function markDirty(tx: Tx, userId: string, entityType: SyncEntityType, entityId: string): Promise<void> {
+export async function markDirty(
+  tx: Tx,
+  userId: string,
+  entityType: SyncEntityType,
+  entityId: string,
+): Promise<void> {
   await repo.upsertDirty({ userId }, [target(entityType, entityId)], tx);
   await wake(userId);
 }
 
 /** Like `markDirty`, and sets `deleted = true`: the worker removes the document. */
-export async function tombstone(tx: Tx, userId: string, entityType: SyncEntityType, entityId: string): Promise<void> {
+export async function tombstone(
+  tx: Tx,
+  userId: string,
+  entityType: SyncEntityType,
+  entityId: string,
+): Promise<void> {
   await repo.upsertDirty({ userId }, [target(entityType, entityId)], tx, { deleted: true });
   await wake(userId);
 }
@@ -102,7 +134,11 @@ export async function claimDue(userId: string, limit = 10): Promise<ClaimedSyncI
 }
 
 /** Marks the row stored at `version` only if it is still at `version`; false leaves it pending for the next pass. */
-export async function completeStored(userId: string, id: string, version: number): Promise<boolean> {
+export async function completeStored(
+  userId: string,
+  id: string,
+  version: number,
+): Promise<boolean> {
   return repo.completeStored({ userId }, id, version);
 }
 
@@ -118,12 +154,211 @@ export async function busy(userId: string, id: string): Promise<void> {
 
 /**
  * Back-fills missing rows (`ON CONFLICT DO NOTHING`) and marks every non-deleted row dirty. Never deletes the
- * namespace. Returns the number of rows requeued.
+ * namespace. Audits `hub.resync_requested {items}` in the same transaction. Returns the number of rows requeued.
  */
-export async function resync(userId: string): Promise<number> {
-  const count = await withTransaction((tx) => repo.backfillAndBump({ userId }, tx));
-  await wake(userId);
+export async function resync(ctx: ServiceContext): Promise<number> {
+  const count = await withTransaction(async (tx) => {
+    const items = await repo.backfillAndBump({ userId: ctx.userId }, tx);
+    await audit.record(
+      {
+        actorType: 'user',
+        actorUserId: ctx.userId,
+        action: 'hub.resync_requested',
+        targetType: 'hub',
+        metadata: { items },
+      },
+      tx,
+    );
+    return items;
+  });
+  await wake(ctx.userId);
   return count;
+}
+
+export interface SyncStatusItem {
+  id: string;
+  entityType: SyncEntityType;
+  entityId: string;
+  /** The decrypted item name; null when the entity has none (a summary of a thread without subject). */
+  label: string | null;
+  status: HubSyncStatus;
+  attempts: number;
+  lastErrorCode: string | null;
+  lastSyncedAt: string | null;
+}
+
+export interface SyncStatusQuery {
+  status?: HubSyncStatus;
+  cursor?: string;
+  limit?: number;
+}
+
+const STATUS_DEFAULT_LIMIT = 25;
+const STATUS_MAX_LIMIT = 100;
+const RETRY_MAX_IDS = 500;
+
+const statusSchema = z
+  .object({
+    status: z.enum(['pending', 'stored', 'failed']).optional(),
+    cursor: z.string().max(512).optional(),
+    limit: z.number().int().min(1).max(STATUS_MAX_LIMIT).optional(),
+  })
+  .strict();
+const retryIdsSchema = z.array(z.uuid()).max(RETRY_MAX_IDS).optional();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function invalid(field: string): AppError {
+  return new AppError('validation_failed', `Invalid ${field}`, { fields: [field] });
+}
+
+function decodeStatusCursor(cursor: string): [string, string] {
+  const [ts, id, ...rest] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+  if (rest.length > 0 || !ts || !id || !UUID_RE.test(id) || Number.isNaN(Date.parse(ts)))
+    throw invalid('cursor');
+  return [ts, id];
+}
+
+/** Decrypted names of one page of items, keyed by entity id. Every lookup filters `user_id`. */
+async function labelsFor(
+  ctx: ServiceContext,
+  rows: { entityType: SyncEntityType; entityId: string }[],
+) {
+  const ids = (type: SyncEntityType) =>
+    rows.filter((r) => r.entityType === type).map((r) => r.entityId);
+  const db = getDb();
+  const labels = new Map<string, string | null>();
+  const put = (found: { id: string; enc: string | null }[]) => {
+    for (const f of found) labels.set(f.id, f.enc === null ? null : decryptContent(f.enc));
+  };
+  for (const [type, table] of [
+    ['person', hubPerson],
+    ['company', hubCompany],
+    ['project', hubProject],
+    ['file', hubFile],
+  ] as const) {
+    const wanted = ids(type);
+    if (wanted.length === 0) continue;
+    put(
+      await db
+        .select({ id: table.id, enc: table.nameEnc })
+        .from(table)
+        .where(and(eq(table.userId, ctx.userId), inArray(table.id, wanted))),
+    );
+  }
+  const notes = ids('note');
+  if (notes.length > 0) {
+    put(
+      await db
+        .select({ id: hubNote.id, enc: hubNote.titleEnc })
+        .from(hubNote)
+        .where(and(eq(hubNote.userId, ctx.userId), inArray(hubNote.id, notes))),
+    );
+  }
+  const threads = ids('summary');
+  if (threads.length > 0) {
+    put(
+      await db
+        .select({ id: hubThread.id, enc: hubThread.subjectEnc })
+        .from(hubThread)
+        .where(and(eq(hubThread.userId, ctx.userId), inArray(hubThread.id, threads))),
+    );
+  }
+  return labels;
+}
+
+/**
+ * Sync status of the user's items (FR-026): counts per status and one page of items, newest change first, with the
+ * decrypted label. Tombstones (`deleted = true`) are not items of the hub any more and are left out of both.
+ */
+export async function status(
+  ctx: ServiceContext,
+  query: SyncStatusQuery,
+): Promise<{
+  counts: Record<HubSyncStatus, number>;
+  items: SyncStatusItem[];
+  nextCursor: string | null;
+}> {
+  const parsed = statusSchema.safeParse(query);
+  if (!parsed.success) throw invalid(String(parsed.error.issues[0]?.path[0] ?? 'query'));
+  const q = parsed.data;
+  const limit = q.limit ?? STATUS_DEFAULT_LIMIT;
+  const db = getDb();
+  const own = and(eq(hubSyncItem.userId, ctx.userId), eq(hubSyncItem.deleted, false));
+
+  const counts: Record<HubSyncStatus, number> = { stored: 0, pending: 0, failed: 0 };
+  const grouped = await db
+    .select({ status: hubSyncItem.status, n: count() })
+    .from(hubSyncItem)
+    .where(own)
+    .groupBy(hubSyncItem.status);
+  for (const g of grouped) counts[g.status] = g.n;
+
+  const conds = [own];
+  if (q.status) conds.push(eq(hubSyncItem.status, q.status));
+  if (q.cursor) {
+    const [ts, id] = decodeStatusCursor(q.cursor);
+    conds.push(
+      sql`(${hubSyncItem.updatedAt}, ${hubSyncItem.id}) < (${ts}::timestamptz, ${id}::uuid)`,
+    );
+  }
+  const rows = await db
+    .select({
+      id: hubSyncItem.id,
+      entityType: hubSyncItem.entityType,
+      entityId: hubSyncItem.entityId,
+      status: hubSyncItem.status,
+      attempts: hubSyncItem.attempts,
+      lastErrorCode: hubSyncItem.lastErrorCode,
+      lastSyncedAt: hubSyncItem.lastSyncedAt,
+      ts: sql<string>`${hubSyncItem.updatedAt}::text`,
+    })
+    .from(hubSyncItem)
+    .where(and(...conds))
+    .orderBy(desc(hubSyncItem.updatedAt), desc(hubSyncItem.id))
+    .limit(limit + 1);
+  const page = rows.slice(0, limit);
+  const labels = await labelsFor(ctx, page);
+  const last = page.at(-1);
+  return {
+    counts,
+    items: page.map((r) => ({
+      id: r.id,
+      entityType: r.entityType,
+      entityId: r.entityId,
+      label: labels.get(r.entityId) ?? null,
+      status: r.status,
+      attempts: r.attempts,
+      lastErrorCode: r.lastErrorCode,
+      lastSyncedAt: r.lastSyncedAt ? r.lastSyncedAt.toISOString() : null,
+    })),
+    nextCursor:
+      rows.length > limit && last
+        ? Buffer.from(`${last.ts}|${last.id}`, 'utf8').toString('base64url')
+        : null,
+  };
+}
+
+/**
+ * User retry (data-model.md "hub_sync_item" states): `failed` rows go back to `pending`, `attempts = 0`, due now.
+ * Without ids every failed row of the user; ids of other users or of rows that are not failed are ignored.
+ * Returns the number of rows requeued.
+ */
+export async function retry(ctx: ServiceContext, ids?: string[]): Promise<number> {
+  const parsed = retryIdsSchema.safeParse(ids);
+  if (!parsed.success) throw invalid('ids');
+  const conds = [eq(hubSyncItem.userId, ctx.userId), eq(hubSyncItem.status, 'failed')];
+  if (parsed.data) {
+    if (parsed.data.length === 0) return 0;
+    conds.push(inArray(hubSyncItem.id, parsed.data));
+  }
+  const requeued = await getDb()
+    .update(hubSyncItem)
+    .set({ status: 'pending', attempts: 0, nextAttemptAt: sql`now()`, updatedAt: sql`now()` })
+    .where(and(...conds))
+    .returning({ id: hubSyncItem.id });
+  if (requeued.length > 0) await wake(ctx.userId);
+  return requeued.length;
 }
 
 /** `pending` with no timestamp until the entity has a row. */

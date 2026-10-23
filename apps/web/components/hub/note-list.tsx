@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { NoteEditor } from './note-editor';
 import { NoteView } from './note-view';
+import { SyncStatusBadge } from './sync-status';
 import { hubApiError, plural, type HubKind, type HubNoteItem } from './labels';
 
 const UNTITLED = 'Untitled note';
@@ -86,6 +87,7 @@ export function NoteList({ kind, recordId, notes }: { kind: HubKind; recordId: s
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                      {n.sync ? <SyncStatusBadge sync={n.sync} /> : null}
                       {n.redactedValues > 0 ? (
                         <Badge variant="outline">{plural(n.redactedValues, 'value')} excluded</Badge>
                       ) : null}

@@ -8,6 +8,7 @@ import { Redis } from 'ioredis';
 import { closeDb, getPool } from '@voicespark/db/client';
 import { startMemoryRpcServer } from '@voicespark/integrations/testing';
 import { E2E_ADMIN_DATABASE_URL, E2E_BASE_URL, E2E_DB_NAME, E2E_ENV, E2E_MEMORY_PORT } from './env';
+import { FailableMemoryStore, restoreMemoryStore } from './memory';
 
 // Runs in the Playwright runner main process, which lives for the whole run (after the webServer is up). It owns
 // exactly three things and tears down only those: the e2e database contents, the memory RPC server and the worker
@@ -49,6 +50,11 @@ const WARMUP_PATHS = [
   `/api/admin/users/${HUB_WARMUP_ID}`,
   '/api/admin/system/health',
   '/settings/account',
+  // Memory store sync (US7).
+  '/hub/settings',
+  '/api/hub/sync',
+  '/api/hub/sync/retry',
+  '/api/hub/sync/resync',
 ];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });
@@ -202,12 +208,14 @@ export default async function globalSetup(_config: FullConfig): Promise<() => Pr
   await prepareDatabase();
   await flushRedis();
 
-  const memory = await startMemoryRpcServer({ port: E2E_MEMORY_PORT });
+  restoreMemoryStore();
+  const memory = await startMemoryRpcServer({ port: E2E_MEMORY_PORT, store: new FailableMemoryStore() });
   let worker: ChildProcess | undefined;
   const teardown = async (): Promise<void> => {
     if (worker) await stopWorker(worker);
     rmSync(WORKER_PID_FILE, { force: true });
     await memory.close();
+    restoreMemoryStore();
     // next dev may drop an AGENTS.md into the app directory; it is not part of the repo.
     rmSync(join(WEB_DIR, 'AGENTS.md'), { force: true });
   };

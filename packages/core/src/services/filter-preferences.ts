@@ -1,13 +1,16 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import {
   FILTER_CATEGORIES,
   filterPreferences,
   getDb,
+  hubSyncItem,
   withTransaction,
   type FilterCategory,
 } from '@voicespark/db';
 import { LOCKED_CATEGORIES, type LockedCategory } from '@voicespark/filters';
 import { AppError, type ServiceContext } from '../errors';
+import { logger } from '../logger';
+import { enqueue, jobIds } from '../queues';
 import { audit } from './audit';
 import * as retroscans from './retroscans';
 
@@ -55,6 +58,18 @@ export function diffSelection(
   };
 }
 
+/** Any record, note, file or thread of the Context Hub (`hub.refilter` has something to re-inspect). */
+async function userHasHubData(userId: string): Promise<boolean> {
+  const result = await getDb().execute<{ found: boolean }>(sql`
+    select exists (select 1 from hub_person where user_id = ${userId})
+        or exists (select 1 from hub_company where user_id = ${userId})
+        or exists (select 1 from hub_project where user_id = ${userId})
+        or exists (select 1 from hub_note where user_id = ${userId})
+        or exists (select 1 from hub_file where user_id = ${userId})
+        or exists (select 1 from hub_thread where user_id = ${userId}) as found`);
+  return result.rows[0]?.found === true;
+}
+
 /** No row: all 10 selected, not confirmed, version 0. */
 export async function get(ctx: ServiceContext): Promise<FilterPreferencesView> {
   const [row] = await getDb()
@@ -91,7 +106,7 @@ export async function update(
 ): Promise<{ preferences: FilterPreferencesView; retroscanId: string | null }> {
   const next = validateSelection(selected);
 
-  const { added } = await withTransaction(async (tx) => {
+  const { added, version } = await withTransaction(async (tx) => {
     const [prev] = await tx
       .select()
       .from(filterPreferences)
@@ -100,6 +115,7 @@ export async function update(
       .limit(1);
     const diff = diffSelection(prev ? prev.selectedCategories : FILTER_CATEGORIES, next);
     const now = new Date();
+    const version = (prev?.version ?? 0) + 1;
     await tx
       .insert(filterPreferences)
       .values({ userId: ctx.userId, selectedCategories: next, confirmedAt: now, version: 1, updatedAt: now })
@@ -108,7 +124,7 @@ export async function update(
         set: {
           selectedCategories: next,
           confirmedAt: prev?.confirmedAt ?? now,
-          version: (prev?.version ?? 0) + 1,
+          version,
           updatedAt: now,
         },
       });
@@ -124,8 +140,36 @@ export async function update(
       },
       tx,
     );
-    return diff;
+    // Fail-closed (constitution VI): with the new policy, every hub document was filtered under an older one. Held as
+    // `refilter_pending` (never claimed by `hub.sync`) until `hub.refilter` re-inspects it; the version bump keeps an
+    // in-flight `hub.sync` write from completing the row as `stored`. A lost enqueue below is recovered by the daily
+    // `maintenance.hub-refilter-retry`, which selects users with `refilter_pending` rows.
+    await tx
+      .update(hubSyncItem)
+      .set({
+        version: sql`${hubSyncItem.version} + 1`,
+        status: 'pending',
+        attempts: 0,
+        lastErrorCode: 'refilter_pending',
+        updatedAt: sql`now()`,
+      })
+      .where(and(eq(hubSyncItem.userId, ctx.userId), eq(hubSyncItem.deleted, false)));
+    return { ...diff, version };
   });
+
+  // Hub data is re-inspected under the new policy (contracts/jobs.md (15)); one job per policy version. The rows are
+  // already held, so a Redis failure only delays the refilter to the daily retry; the save still succeeds.
+  if (await userHasHubData(ctx.userId)) {
+    try {
+      await enqueue(
+        'hub.refilter',
+        { userId: ctx.userId, policyVersion: version },
+        { jobId: jobIds.hubRefilter(ctx.userId, version) },
+      );
+    } catch {
+      logger.warn({ userId: ctx.userId, errorCode: 'hub_refilter_enqueue_failed' }, 'hub.refilter not enqueued; daily retry will');
+    }
+  }
 
   let retroscanId: string | null = null;
   if (added.length > 0 && (await retroscans.userHasContent(ctx.userId))) {
