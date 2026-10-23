@@ -1,17 +1,29 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../../client';
 import {
+  connectedSource,
+  contentItem,
+  contentItemOccurrence,
   profileGeneration,
   profileVersion,
   toneDefinition,
   toneDefinitionVersion,
   toneProfile,
+  type ContentKind,
   type DefinitionAvailability,
   type ProfileGeneration,
   type ProfileVersion,
   type ToneProfile,
 } from '../../schema';
 import type { UserContext } from './types';
+
+export interface ExcerptSourceRow {
+  itemId: string;
+  kind: ContentKind;
+  itemDate: Date;
+  /** `connected_source.account_label` of every source the item occurs in (unique, sorted). */
+  sourceLabels: string[];
+}
 
 export interface ProfileListRow {
   profile: ToneProfile;
@@ -101,4 +113,41 @@ export async function activeGenerations(ctx: UserContext): Promise<ProfileGenera
       ),
     )
     .orderBy(asc(profileGeneration.requestedAt), asc(profileGeneration.id));
+}
+
+/** Source facts of the user's content items quoted as excerpts; ids that are gone (or foreign) are absent. */
+export async function getExcerptSources(
+  ctx: UserContext,
+  itemIds: string[],
+): Promise<ExcerptSourceRow[]> {
+  if (itemIds.length === 0) return [];
+  const rows = await getDb()
+    .select({
+      itemId: contentItem.id,
+      kind: contentItem.kind,
+      itemDate: contentItem.itemDate,
+      label: connectedSource.accountLabel,
+    })
+    .from(contentItem)
+    .leftJoin(contentItemOccurrence, eq(contentItemOccurrence.contentItemId, contentItem.id))
+    .leftJoin(
+      connectedSource,
+      and(
+        eq(connectedSource.id, contentItemOccurrence.sourceId),
+        eq(connectedSource.userId, ctx.userId),
+      ),
+    )
+    .where(and(inArray(contentItem.id, itemIds), eq(contentItem.userId, ctx.userId)));
+  const byId = new Map<string, ExcerptSourceRow>();
+  for (const r of rows) {
+    const entry = byId.get(r.itemId) ?? {
+      itemId: r.itemId,
+      kind: r.kind,
+      itemDate: r.itemDate,
+      sourceLabels: [],
+    };
+    if (r.label !== null && !entry.sourceLabels.includes(r.label)) entry.sourceLabels.push(r.label);
+    byId.set(r.itemId, entry);
+  }
+  return [...byId.values()].map((e) => ({ ...e, sourceLabels: e.sourceLabels.sort() }));
 }

@@ -1,12 +1,17 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { closeDb, getPool } from '@voicespark/db';
+import { EMAILED_NOTIFICATION_TYPES } from '@voicespark/integrations/smtp';
+import { encrypt } from '@voicespark/core/crypto';
 import { AppError, type ServiceContext } from '@voicespark/core/errors';
+import { enqueue } from '@voicespark/core/queues';
 import * as definitions from '@voicespark/core/services/definitions';
 import {
+  choose,
   cleanupProfiles,
   createUser,
   seedDefinition,
+  seedOwnPrompt,
   setAvailability,
   withSoleAvailableDefinition,
   withStableDefinitions,
@@ -63,7 +68,23 @@ beforeAll(async () => {
   await getPool().query('select 1');
 });
 
+/** Users inserted in bulk by the fan-out test; deleted before cleanupProfiles drops the definitions. */
+const bulkUserIds: string[] = [];
+const touchedDefinitionIds: string[] = [];
+
 afterAll(async () => {
+  if (bulkUserIds.length > 0) {
+    await getPool().query('delete from "user" where id = any($1::uuid[])', [bulkUserIds]);
+  }
+  if (touchedDefinitionIds.length > 0) {
+    await getPool().query(
+      `delete from version_activation where entity_type = 'definition' and entity_id = any($1::uuid[])`,
+      [touchedDefinitionIds],
+    );
+    await getPool().query('delete from audit_log_entry where target_id = any($1::text[])', [
+      touchedDefinitionIds,
+    ]);
+  }
   await cleanupProfiles();
   await closeDb();
 });
@@ -196,4 +217,247 @@ describe('definitions.autoChooseIfSingle', () => {
     });
     expect(await activeChoices(ctx.userId)).toEqual([first.definitionId]);
   }, 30_000);
+});
+
+// US4 / T076: a changed default analysis prompt notifies users whose own prompt is in use (contracts/notifications.md).
+describe('definitions publish and rollback notify own-prompt users', () => {
+  const NOTE = 'analysis_prompt_default_changed';
+
+  const notificationsOf = async (userIds: string[]) =>
+    (
+      await getPool().query<{ user_id: string; payload: Record<string, unknown> }>(
+        `select user_id, payload from notification where type = $1 and user_id = any($2::uuid[])
+         order by created_at`,
+        [NOTE, userIds],
+      )
+    ).rows;
+
+  const lastAudit = async (definitionId: string, action: string) =>
+    (
+      await getPool().query<{ metadata: Record<string, unknown> }>(
+        `select metadata from audit_log_entry where target_id = $1 and action = $2
+         order by occurred_at desc limit 1`,
+        [definitionId, action],
+      )
+    ).rows[0]?.metadata;
+
+  async function setStatus(
+    userId: string,
+    status: 'suspended' | 'pending_deletion',
+  ): Promise<void> {
+    await getPool().query('update "user" set status = $2 where id = $1', [userId, status]);
+  }
+
+  /** Publishes a new draft with `patch` applied and returns its id. */
+  async function publishDraft(
+    adminId: string,
+    definitionId: string,
+    patch: { name?: string; description?: string; analysisPrompt?: string | null },
+  ): Promise<string> {
+    const draft = await definitions.createDraft(adminId, definitionId);
+    await definitions.updateDraft(adminId, definitionId, draft.id, patch);
+    await definitions.publish(adminId, definitionId, draft.id);
+    return draft.id;
+  }
+
+  itStable(
+    'notifies exactly the in-use own-prompt users of active status, on publish and rollback',
+    async () => {
+      const adminId = await createUser('Admin');
+      const def = await seedDefinition({ analysisPrompt: 'Default prompt one.' });
+      touchedDefinitionIds.push(def.definitionId);
+      const v1 = def.versionId;
+
+      const own = await createUser('Own');
+      const reset = await createUser('Reset');
+      const dflt = await createUser('Default');
+      const suspended = await createUser('Suspended');
+      const deleted = await createUser('Deleted');
+      const everyone = [own, reset, dflt, suspended, deleted];
+      for (const u of everyone) await choose(u, def.definitionId);
+      const ownPrompt = await seedOwnPrompt({
+        userId: own,
+        definitionId: def.definitionId,
+        text: 'Mine',
+        basedOnDefinitionVersionId: v1,
+      });
+      await seedOwnPrompt({
+        userId: reset,
+        definitionId: def.definitionId,
+        text: 'Reset',
+        basedOnDefinitionVersionId: v1,
+        inUse: false,
+      });
+      await seedOwnPrompt({
+        userId: suspended,
+        definitionId: def.definitionId,
+        text: 'S',
+        basedOnDefinitionVersionId: v1,
+      });
+      await seedOwnPrompt({
+        userId: deleted,
+        definitionId: def.definitionId,
+        text: 'D',
+        basedOnDefinitionVersionId: v1,
+      });
+      await setStatus(suspended, 'suspended');
+      await setStatus(deleted, 'pending_deletion');
+
+      vi.mocked(enqueue).mockClear();
+      const v2 = await publishDraft(adminId, def.definitionId, {
+        analysisPrompt: 'Default prompt two.',
+      });
+      const afterPublish = await notificationsOf(everyone);
+      expect(afterPublish).toEqual([
+        {
+          user_id: own,
+          payload: {
+            definitionId: def.definitionId,
+            ownPromptId: ownPrompt.ownPromptId,
+            fromDefinitionVersionId: v1,
+            toDefinitionVersionId: v2,
+          },
+        },
+      ]);
+      // In-app only: notify.send is queued, and the type is not one the mailer emails.
+      expect(vi.mocked(enqueue).mock.calls.filter(([name]) => name === 'notify.send')).toHaveLength(
+        1,
+      );
+      expect((EMAILED_NOTIFICATION_TYPES as readonly string[]).includes(NOTE)).toBe(false);
+      expect(await lastAudit(def.definitionId, 'definition.version_published')).toMatchObject({
+        analysisPromptChanged: true,
+        notifiedUsers: 1,
+      });
+
+      // Rollback to v1 changes the text back: the user is notified again. `from` stays the own prompt's base.
+      await definitions.rollback(adminId, def.definitionId, v1);
+      const afterRollback = await notificationsOf(everyone);
+      expect(afterRollback).toHaveLength(2);
+      expect(afterRollback[1]).toEqual({
+        user_id: own,
+        payload: {
+          definitionId: def.definitionId,
+          ownPromptId: ownPrompt.ownPromptId,
+          fromDefinitionVersionId: v1,
+          toDefinitionVersionId: v1,
+        },
+      });
+      expect(await lastAudit(def.definitionId, 'definition.rolled_back')).toMatchObject({
+        analysisPromptChanged: true,
+        notifiedUsers: 1,
+      });
+    },
+  );
+
+  itStable(
+    'changes to name, description or whitespace around the prompt notify nobody',
+    async () => {
+      const adminId = await createUser('Admin');
+      const def = await seedDefinition({ analysisPrompt: 'Same prompt.' });
+      touchedDefinitionIds.push(def.definitionId);
+      const own = await createUser('Own');
+      await seedOwnPrompt({
+        userId: own,
+        definitionId: def.definitionId,
+        text: 'Mine',
+        basedOnDefinitionVersionId: def.versionId,
+      });
+
+      const v2 = await publishDraft(adminId, def.definitionId, {
+        name: 'Renamed',
+        description: 'New description',
+      });
+      await publishDraft(adminId, def.definitionId, { analysisPrompt: '  Same prompt.\n\n' });
+      expect(await notificationsOf([own])).toEqual([]);
+      expect(await lastAudit(def.definitionId, 'definition.version_published')).toMatchObject({
+        analysisPromptChanged: false,
+        notifiedUsers: 0,
+      });
+      await definitions.rollback(adminId, def.definitionId, v2);
+      expect(await notificationsOf([own])).toEqual([]);
+      expect(await lastAudit(def.definitionId, 'definition.rolled_back')).toMatchObject({
+        analysisPromptChanged: false,
+        notifiedUsers: 0,
+      });
+    },
+  );
+
+  itStable(
+    'the first publish of a new definition notifies nobody and records the change',
+    async () => {
+      const adminId = await createUser('Admin');
+      const created = await definitions.create(adminId, {
+        key: `t_${randomBytes(6).toString('hex')}`,
+        name: 'Fresh',
+        description: 'Fresh definition',
+        analysisPrompt: 'First prompt.',
+      });
+      touchedDefinitionIds.push(created.definition.id);
+      try {
+        await definitions.publish(adminId, created.definition.id, created.draft.id);
+        expect(
+          await lastAudit(created.definition.id, 'definition.version_published'),
+        ).toMatchObject({
+          analysisPromptChanged: true,
+          notifiedUsers: 0,
+        });
+      } finally {
+        await getPool().query('update tone_definition set active_version_id = null where id = $1', [
+          created.definition.id,
+        ]);
+        await getPool().query('delete from tone_definition where id = $1', [created.definition.id]);
+      }
+    },
+  );
+
+  itStable('fans out to 1,000 users in under a second', async () => {
+    const adminId = await createUser('Admin');
+    const def = await seedDefinition({ analysisPrompt: 'Bulk prompt one.' });
+    touchedDefinitionIds.push(def.definitionId);
+    const tag = randomBytes(6).toString('hex');
+    const pool = getPool();
+    const users = await pool.query<{ id: string }>(
+      `insert into "user" (name, email)
+       select 'Bulk', 'bulk-' || g || '-' || $1 || '@example.test' from generate_series(1, 1000) g
+       returning id`,
+      [tag],
+    );
+    const ids = users.rows.map((r) => r.id);
+    bulkUserIds.push(...ids);
+    // Same order as seedOwnPrompt: insert not in use, add version 1, then point at it and flip in_use.
+    await pool.query(
+      `insert into own_analysis_prompt (user_id, definition_id, in_use) select u, $2, false from unnest($1::uuid[]) u`,
+      [ids, def.definitionId],
+    );
+    await pool.query(
+      `insert into own_analysis_prompt_version
+         (own_prompt_id, version_number, prompt_text_enc, char_count, based_on_definition_version_id)
+       select id, 1, $2, 4, $3 from own_analysis_prompt where definition_id = $1`,
+      [def.definitionId, encrypt('user-content', 'Mine'), def.versionId],
+    );
+    await pool.query(
+      `update own_analysis_prompt o set current_version_id = v.id, in_use = true
+         from own_analysis_prompt_version v where v.own_prompt_id = o.id and o.definition_id = $1`,
+      [def.definitionId],
+    );
+
+    const draft = await definitions.createDraft(adminId, def.definitionId);
+    await definitions.updateDraft(adminId, def.definitionId, draft.id, {
+      analysisPrompt: 'Bulk prompt two.',
+    });
+    const started = performance.now();
+    await definitions.publish(adminId, def.definitionId, draft.id);
+    const elapsed = performance.now() - started;
+
+    const { rows } = await pool.query<{ n: string }>(
+      'select count(*) as n from notification where type = $1 and user_id = any($2::uuid[])',
+      [NOTE, ids],
+    );
+    expect(Number(rows[0]!.n)).toBe(1000);
+    expect(await lastAudit(def.definitionId, 'definition.version_published')).toMatchObject({
+      analysisPromptChanged: true,
+      notifiedUsers: 1000,
+    });
+    expect(elapsed).toBeLessThan(1000);
+  });
 });

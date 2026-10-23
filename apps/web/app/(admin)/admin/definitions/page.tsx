@@ -56,6 +56,10 @@ export default async function AdminDefinitionsPage() {
                     <dd>
                       {d.userChoiceCount} {d.userChoiceCount === 1 ? 'user' : 'users'}
                     </dd>
+                    <dt className="text-muted-foreground">Own prompt in use</dt>
+                    <dd>
+                      {d.ownPromptCount} {d.ownPromptCount === 1 ? 'user' : 'users'}
+                    </dd>
                   </dl>
                   <div className="flex flex-wrap gap-2">
                     <AvailabilityToggle

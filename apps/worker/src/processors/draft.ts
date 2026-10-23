@@ -6,8 +6,11 @@ import {
   buildDraftOutputSchema,
   CONTENT_TYPE_LABEL,
   documentBody,
+  documentToMarkdown,
   firstName,
   render,
+  structuredToDocument,
+  toDraftDocumentJson,
   toPromptProfileJson,
 } from '@voicespark/core/prompting';
 import type { JobPayload } from '@voicespark/core/queues';
@@ -71,11 +74,15 @@ async function runDraft(job: DraftJob, deps: DraftDeps): Promise<DraftRunResult>
   const brief = usable(await inspect(inputs.brief));
   if (brief === null) return fail('brief_excluded');
 
-  // Profile JSON and summary are inspected separately (D-D8).
-  const body = inputs.profileBody!;
-  const profileJson = usable(await inspect(toPromptProfileJson(body)));
+  // Profile JSON, summary and voice document are inspected separately (D-D8). A legacy structured body keeps the
+  // exact 001 `profileJson` (SC-006); a document drops refs and item ids (jobs.md behavior 5).
+  const view = inputs.profileBody!;
+  const doc = view.format === 'document' ? view.body : structuredToDocument(view.body, run.definitionDimensions);
+  const rawProfileJson = view.format === 'document' ? toDraftDocumentJson(view.body) : toPromptProfileJson(view.body);
+  const profileJson = usable(await inspect(rawProfileJson));
   if (profileJson === null) return fail('profile_excluded');
-  const profileSummary = (await inspect(body.summary)) ?? '';
+  const profileSummary = (await inspect(view.body.summary)) ?? '';
+  const voiceDocument = (await inspect(documentToMarkdown(doc))) ?? '';
 
   const feedback = inputs.feedback === null ? '' : ((await inspect(inputs.feedback)) ?? '');
   const previousDraft = inputs.previousDraft === null ? '' : ((await inspect(inputs.previousDraft)) ?? '');
@@ -93,7 +100,7 @@ async function runDraft(job: DraftJob, deps: DraftDeps): Promise<DraftRunResult>
 
   const type = run.draft.contentType;
   const version = run.promptVersion;
-  const languageHint = [...body.languages].sort((a, b) => b.share - a.share)[0]?.code ?? '';
+  const languageHint = [...view.body.languages].sort((a, b) => b.share - a.share)[0]?.code ?? '';
   const prompt = render(version, {
     brief,
     profileJson,
@@ -107,6 +114,7 @@ async function runDraft(job: DraftJob, deps: DraftDeps): Promise<DraftRunResult>
     excludedCategoryLabels: policy.selectedCategories.map((c) => labelFor(c as CountCategory)).join(', '),
     user: { firstName: firstName(run.user.name) },
     languageHint,
+    voiceDocument,
   });
 
   const output = await deps.llm.parseStructured({

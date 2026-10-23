@@ -55,6 +55,27 @@ describe('notifications routes', () => {
     });
   });
 
+  it('returns analysis_prompt_default_changed with an ids-only payload', async () => {
+    const createdAt = new Date('2026-01-01T00:00:00Z');
+    const payload = {
+      definitionId: 'd1',
+      ownPromptId: 'p1',
+      fromDefinitionVersionId: 'v1',
+      toDefinitionVersionId: 'v2',
+    };
+    mocks.list.mockResolvedValue({
+      items: [
+        { id: ID, type: 'analysis_prompt_default_changed', payload, readAt: null, createdAt },
+      ],
+      nextCursor: null,
+    });
+    const res = await GET(new Request('http://x/api/notifications'), undefined);
+    const body = await res.json();
+    expect(body.items[0].type).toBe('analysis_prompt_default_changed');
+    expect(body.items[0].payload).toEqual(payload);
+    expect(Object.keys(body.items[0].payload).sort()).toEqual(Object.keys(payload).sort());
+  });
+
   it('marks read with 204', async () => {
     mocks.markRead.mockResolvedValue(true);
     const res = await POST(new Request('http://x'), params(ID));

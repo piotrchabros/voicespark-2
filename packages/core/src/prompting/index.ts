@@ -1,3 +1,6 @@
+export * from './analysis';
+export * from './document-schema';
+export * from './preview-data';
 export * from './render';
 export * from './variables';
 export * from './profile-schema';

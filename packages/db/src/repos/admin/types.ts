@@ -62,6 +62,7 @@ export interface AdminDefinitionListItem {
   activeVersion: { id: string; versionNumber: number; name: string } | null;
   draftVersionId: string | null;
   userChoiceCount: number;
+  ownPromptCount: number;
 }
 
 export interface DefinitionVersionView {
@@ -71,6 +72,7 @@ export interface DefinitionVersionView {
   name: string;
   description: string;
   dimensions: Dimension[];
+  analysisPrompt: string | null;
   createdAt: string;
   createdBy: string;
   publishedAt: string | null;

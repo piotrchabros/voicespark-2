@@ -1,11 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { closeDb, getDb } from './client';
+import { backfillAnalysisPrompts } from './data/analysis-prompts';
 
 async function main(): Promise<void> {
   await migrate(getDb(), {
     migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url)),
   });
+  await backfillAnalysisPrompts(getDb());
 }
 
 main()

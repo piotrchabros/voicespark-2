@@ -1,0 +1,93 @@
+{
+  "authored": [
+    {
+      "ref": "A1",
+      "contentItemId": "00000000-0000-4000-8000-000000000001",
+      "kind": "note",
+      "date": "2000-01-01",
+      "lang": "en",
+      "text": "SAMPLE TEXT: LinkedIn post: Last quarter our team shipped a new onboarding flow, and the numbers surprised me. Completion rose from 52 to 71 percent, mostly because we removed two screens nobody needed. I keep relearning that simple changes beat clever ones. If you are planning a redesign, start by deleting something.",
+      "wordCount": 52
+    },
+    {
+      "ref": "A2",
+      "contentItemId": "00000000-0000-4000-8000-000000000002",
+      "kind": "email",
+      "date": "2000-01-02",
+      "lang": "en",
+      "text": "SAMPLE TEXT: Hi Marta, thanks for sending the proposal over so quickly. I read it twice this morning and I think the scope is right. Two small questions before we sign: can we move the kickoff to the following Monday, and could you share the reference contact you mentioned? Happy to jump on a call whenever suits you.",
+      "wordCount": 58
+    },
+    {
+      "ref": "A3",
+      "contentItemId": "00000000-0000-4000-8000-000000000003",
+      "kind": "note",
+      "date": "2000-01-03",
+      "lang": "en",
+      "text": "SAMPLE TEXT: LinkedIn post: Hiring is the hardest part of building a small company. This week I interviewed six people and learned more from the questions they asked than from their answers. The best candidates wanted to know how we handle mistakes. That tells me a lot about how they will work with the rest of us.",
+      "wordCount": 57
+    },
+    {
+      "ref": "A4",
+      "contentItemId": "00000000-0000-4000-8000-000000000004",
+      "kind": "email",
+      "date": "2000-01-04",
+      "lang": "en",
+      "text": "SAMPLE TEXT: Dear Thomas, I wanted to follow up on our conversation from Thursday. We have reviewed the numbers again, and I am confident that the revised budget is realistic. Please let me know if you need any additional detail from our side. I will send the final version by the end of the week.",
+      "wordCount": 55
+    },
+    {
+      "ref": "A5",
+      "contentItemId": "00000000-0000-4000-8000-000000000005",
+      "kind": "note",
+      "date": "2000-01-05",
+      "lang": "en",
+      "text": "SAMPLE TEXT: Quick reflection after the conference: the talks were fine, but the real value came from the hallway conversations. I met three founders who are fighting the same customer support problems we had last year. I shared what worked for us and promised to write it up properly next week.",
+      "wordCount": 51
+    },
+    {
+      "ref": "A6",
+      "contentItemId": "00000000-0000-4000-8000-000000000006",
+      "kind": "email",
+      "date": "2000-01-06",
+      "lang": "en",
+      "text": "SAMPLE TEXT: Hello team, a short update on the migration. We moved the first two services yesterday without any downtime, which is better than I expected. The remaining three are scheduled for next Tuesday. If anything looks odd on your dashboards in the meantime, ping me directly and I will take a look.",
+      "wordCount": 53
+    },
+    {
+      "ref": "A7",
+      "contentItemId": "00000000-0000-4000-8000-000000000007",
+      "kind": "note",
+      "date": "2000-01-07",
+      "lang": "en",
+      "text": "SAMPLE TEXT: LinkedIn post: Nobody tells you that your first year as a manager is mostly listening. I used to jump in with answers within seconds. Now I wait, ask one more question, and let people find the solution themselves. It is slower at first, but the team owns the result, and that matters far more than speed.",
+      "wordCount": 58
+    },
+    {
+      "ref": "A8",
+      "contentItemId": "00000000-0000-4000-8000-000000000008",
+      "kind": "email",
+      "date": "2000-01-08",
+      "lang": "en",
+      "text": "SAMPLE TEXT: Hi Anna, great to meet you last week. I enjoyed hearing how your team approaches customer research, and I would love to compare notes. Would a thirty minute call on Wednesday or Thursday work for you? I can share a short summary of our approach beforehand so we make good use of the time.",
+      "wordCount": 56
+    }
+  ],
+  "received": [
+    {
+      "kind": "email",
+      "date": "2000-01-02",
+      "text": "SAMPLE TEXT: Hello, thank you for the quick turnaround on the draft. We would like to schedule a review for next week and invite two colleagues from finance. Please confirm which days suit you best."
+    },
+    {
+      "kind": "email",
+      "date": "2000-01-04",
+      "text": "SAMPLE TEXT: Dear colleague, the numbers look promising, but we still need clarity on the timeline. Could you send a short summary of the open risks before our meeting on Friday?"
+    },
+    {
+      "kind": "email",
+      "date": "2000-01-06",
+      "text": "SAMPLE TEXT: Hi, just checking in on the migration status. Our customers have started asking about the new dashboard, so any update you can share would be very helpful."
+    }
+  ]
+}

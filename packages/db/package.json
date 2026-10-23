@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
+    "./data/*": "./src/data/*.ts",
     "./client": "./src/client.ts",
     "./repos/user/*": "./src/repos/user/*.ts",
     "./repos/admin/*": "./src/repos/admin/*.ts",

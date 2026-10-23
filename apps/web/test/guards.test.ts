@@ -13,6 +13,7 @@ vi.mock('@voicespark/db', () => {
   const chain = {
     select: () => chain,
     from: () => chain,
+    innerJoin: () => chain,
     where: () => chain,
     limit: async () => mocks.rows,
   };
@@ -31,6 +32,8 @@ vi.mock('@voicespark/db', () => {
     toneProfile: table('profile'),
     profileGeneration: table('generation'),
     draft: table('draft'),
+    ownAnalysisPrompt: table('ownPrompt'),
+    ownAnalysisPromptVersion: { id: 'ownVersion.id', ownPromptId: 'ownVersion.ownPromptId' },
     signInIdentity: { accountId: 'identity.accountId', userId: 'identity.userId' },
     filterPreferences: { userId: 'fp.userId', confirmedAt: 'fp.confirmedAt' },
   };
@@ -97,6 +100,18 @@ describe('auditForeignAccess', () => {
         actorUserId: 'a-1',
         action: 'admin.content_access_denied',
         metadata: { resourceType: 'content_item', targetId: ID },
+      }),
+    );
+  });
+
+  it('resolves the owner of an own prompt version through its prompt', async () => {
+    mocks.rows = [{ id: ID, userId: 'u-9' }];
+    await auditForeignAccess(ADMIN, 'own_prompt_version', ID);
+    expect(mocks.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'admin.content_access_denied',
+        targetType: 'own_prompt_version',
+        metadata: { resourceType: 'own_prompt_version', targetId: ID },
       }),
     );
   });

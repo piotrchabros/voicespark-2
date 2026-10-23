@@ -12,6 +12,7 @@ import {
   type DraftContentType,
   type DraftRating,
   type DraftStatus,
+  type Dimension,
   type ProfileVersion,
   type PromptTemplateVersion,
   type UserStatus,
@@ -20,7 +21,7 @@ import { getDraft, listDrafts, type DraftListRow } from '@voicespark/db/repos/us
 import { getProfile } from '@voicespark/db/repos/user/profiles';
 import { decrypt, encrypt } from '../crypto';
 import { AppError, type ServiceContext } from '../errors';
-import { DRAFT_PROMPT_KEY, type ProfileBody } from '../prompting';
+import { DRAFT_PROMPT_KEY, type VersionBodyView } from '../prompting';
 import { enqueue, jobIds } from '../queues';
 import { audit } from './audit';
 import { notify } from './notifications';
@@ -285,6 +286,8 @@ export interface DraftRun {
   profileVersion: ProfileVersion | null;
   /** Name of the definition version the pinned profile version was built with. */
   definitionName: string | null;
+  /** Dimensions of that definition version; names the sections when a legacy body is shown as a document. */
+  definitionDimensions: Dimension[];
   promptVersion: PromptTemplateVersion;
   parent: Draft | null;
 }
@@ -298,6 +301,7 @@ export async function loadDraftForRun(id: string): Promise<DraftRun | null> {
       user: { name: user.name, status: user.status },
       profileVersion,
       definitionName: toneDefinitionVersion.name,
+      definitionDimensions: toneDefinitionVersion.dimensions,
       promptVersion: promptTemplateVersion,
     })
     .from(draft)
@@ -317,7 +321,7 @@ export async function loadDraftForRun(id: string): Promise<DraftRun | null> {
           .limit(1)
       )[0] ?? null)
     : null;
-  return { ...row, parent };
+  return { ...row, definitionDimensions: row.definitionDimensions ?? [], parent };
 }
 
 /** Raw (decrypted, NOT yet inspected) inputs: the processor inspects each one before any use (Principle I). */
@@ -325,7 +329,7 @@ export function decryptDraftInputs(run: DraftRun): {
   brief: string;
   feedback: string | null;
   previousDraft: string | null;
-  profileBody: ProfileBody | null;
+  profileBody: VersionBodyView | null;
 } {
   return {
     brief: decrypt('user-content', run.draft.briefEnc),

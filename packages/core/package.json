@@ -15,6 +15,7 @@
     "./crypto": "./src/crypto/index.ts",
     "./queues": "./src/queues/index.ts",
     "./prompting": "./src/prompting/index.ts",
+    "./text-diff": "./src/text-diff.ts",
     "./services/*": "./src/services/*.ts"
   },
   "scripts": {
@@ -27,18 +28,19 @@
     "@voicespark/db": "workspace:*",
     "@voicespark/filters": "workspace:*",
     "@voicespark/integrations": "workspace:*",
-    "drizzle-orm": "^0.45.4",
-    "zod": "^4.6.7",
     "bullmq": "^5.81.5",
+    "diff": "8.0.4",
+    "drizzle-orm": "^0.45.4",
     "ioredis": "^5.11.1",
     "mustache": "^4.2.0",
-    "pino": "^9.14.0"
+    "pino": "^9.14.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/mustache": "^4.2.6",
     "@types/node": "^24.19.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.7",
-    "@types/mustache": "^4.2.6"
+    "vitest": "^3.2.7"
   }
 }

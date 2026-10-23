@@ -134,4 +134,14 @@ describe('profile routes A', () => {
     expect(del.status).toBe(202);
     expect(await del.json()).toEqual({});
   });
+
+  it('profile GET passes a document latestVersion through unchanged', async () => {
+    const view = {
+      profile: { id: ID },
+      latestVersion: { id: ID, format: 'document', promptSource: 'default', excerptSources: {} },
+    };
+    mocks.get.mockResolvedValue(view);
+    const res = await profilesIdRoute.GET(new Request('http://x'), params);
+    expect(await res.json()).toEqual(view);
+  });
 });

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
+  check,
   index,
   integer,
   pgTable,
@@ -11,14 +12,17 @@ import {
 } from 'drizzle-orm/pg-core';
 import { user } from './auth';
 import { toneDefinition, toneDefinitionVersion } from './definitions';
+import { ownAnalysisPromptVersion } from './own-prompts';
 import { promptTemplateVersion } from './prompts';
 import {
+  analysisPromptSourceEnum,
   generationBlockReasonEnum,
   profileGenerationKindEnum,
   profileGenerationStatusEnum,
   profileOutdatedReasonEnum,
   profileRatingEnum,
   profileStatusEnum,
+  profileVersionFormatEnum,
   profileVersionOriginEnum,
 } from './enums';
 
@@ -84,6 +88,12 @@ export const profileVersion = pgTable(
     languages: text('languages').array().notNull().default(sql`'{}'`),
     contributingSourceIds: uuid('contributing_source_ids').array().notNull().default(sql`'{}'`),
     contributingItemCount: integer('contributing_item_count').notNull(),
+    format: profileVersionFormatEnum('format').notNull().default('structured'),
+    // Null for legacy rows.
+    promptSource: analysisPromptSourceEnum('prompt_source'),
+    ownPromptVersionId: uuid('own_prompt_version_id').references(() => ownAnalysisPromptVersion.id, {
+      onDelete: 'set null',
+    }),
     rating: profileRatingEnum('rating'),
     ratedAt: timestamp('rated_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -91,6 +101,10 @@ export const profileVersion = pgTable(
   (t) => [
     uniqueIndex('profile_version_profile_number_uq').on(t.profileId, t.versionNumber),
     index('profile_version_rating_idx').on(t.rating, t.ratedAt),
+    check(
+      'profile_version_prompt_source_consistent',
+      sql`${t.ownPromptVersionId} is null or ${t.promptSource} = 'own'`,
+    ),
   ],
 );
 
@@ -113,6 +127,9 @@ export const profileGeneration = pgTable(
     promptVersionId: uuid('prompt_version_id')
       .notNull()
       .references(() => promptTemplateVersion.id),
+    ownPromptVersionId: uuid('own_prompt_version_id').references(() => ownAnalysisPromptVersion.id, {
+      onDelete: 'set null',
+    }),
     feedbackEnc: text('feedback_enc'),
     errorCode: text('error_code'),
     requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),

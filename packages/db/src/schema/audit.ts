@@ -43,6 +43,10 @@ export const AUDIT_ACTIONS = [
   'user.role_revoked',
   'settings.changed',
   'admin.content_access_denied',
+  'analysis_prompt.customised',
+  'analysis_prompt.saved',
+  'analysis_prompt.reset',
+  'profile.document_edited',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

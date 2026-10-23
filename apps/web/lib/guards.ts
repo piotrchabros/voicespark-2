@@ -11,6 +11,8 @@ import {
   getDb,
   importJob,
   notification,
+  ownAnalysisPrompt,
+  ownAnalysisPromptVersion,
   retroscan,
   profileGeneration,
   signInIdentity,
@@ -59,7 +61,8 @@ export type ForeignResourceType =
   | 'upload'
   | 'profile'
   | 'profile_generation'
-  | 'draft';
+  | 'draft'
+  | 'own_prompt_version';
 
 interface ForeignResourceTable {
   table: PgTable;
@@ -68,7 +71,10 @@ interface ForeignResourceTable {
 }
 
 // Later phases extend this map as new user-scoped resources gain by-id routes.
-export const FOREIGN_RESOURCE_TABLES: Record<ForeignResourceType, ForeignResourceTable> = {
+export const FOREIGN_RESOURCE_TABLES: Record<
+  Exclude<ForeignResourceType, 'own_prompt_version'>,
+  ForeignResourceTable
+> = {
   source: { table: connectedSource, idColumn: connectedSource.id, userIdColumn: connectedSource.userId },
   content_item: { table: contentItem, idColumn: contentItem.id, userIdColumn: contentItem.userId },
   import_job: { table: importJob, idColumn: importJob.id, userIdColumn: importJob.userId },
@@ -104,12 +110,25 @@ export async function auditForeignAccess(
   id: string,
 ): Promise<void> {
   if (ctx.role !== 'admin' || !UUID_RE.test(id)) return;
-  const { table, idColumn, userIdColumn } = FOREIGN_RESOURCE_TABLES[resourceType];
-  const [row] = await getDb()
-    .select({ id: idColumn, userId: userIdColumn })
-    .from(table)
-    .where(eq(idColumn, id))
-    .limit(1);
+  const [row] =
+    resourceType === 'own_prompt_version'
+      ? await getDb()
+          .select({ id: ownAnalysisPromptVersion.id, userId: ownAnalysisPrompt.userId })
+          .from(ownAnalysisPromptVersion)
+          .innerJoin(
+            ownAnalysisPrompt,
+            eq(ownAnalysisPrompt.id, ownAnalysisPromptVersion.ownPromptId),
+          )
+          .where(eq(ownAnalysisPromptVersion.id, id))
+          .limit(1)
+      : await (() => {
+          const { table, idColumn, userIdColumn } = FOREIGN_RESOURCE_TABLES[resourceType];
+          return getDb()
+            .select({ id: idColumn, userId: userIdColumn })
+            .from(table)
+            .where(eq(idColumn, id))
+            .limit(1);
+        })();
   if (!row || row.userId === ctx.userId) return;
   await audit.record({
     actorType: 'admin',

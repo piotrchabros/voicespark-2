@@ -6,6 +6,7 @@ import * as profilesIdVersionsVersionIdRatingRoute from '../app/api/profiles/[id
 import * as profilesIdRegenerateRoute from '../app/api/profiles/[id]/regenerate/route';
 import * as profilesIdFeedbackRoute from '../app/api/profiles/[id]/feedback/route';
 import * as profilesIdAdjustRoute from '../app/api/profiles/[id]/adjust/route';
+import * as profilesIdDocumentRoute from '../app/api/profiles/[id]/document/route';
 
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   regenerate: vi.fn(),
   feedback: vi.fn(),
   adjust: vi.fn(),
+  editDocument: vi.fn(),
 }));
 
 vi.mock('../lib/guards', () => ({
@@ -36,6 +38,7 @@ vi.mock('@voicespark/core/services/profiles', () => ({
   regenerate: mocks.regenerate,
   feedback: mocks.feedback,
   adjust: mocks.adjust,
+  editDocument: mocks.editDocument,
 }));
 
 const user = { userId: 'u1', role: 'user' as const };
@@ -135,5 +138,75 @@ describe('profile routes B', () => {
     expect((await POST(json('POST', { dimensions: {} }), params)).status).toBe(404);
     expect(mocks.auditForeignAccess).toHaveBeenCalledWith(user, 'profile', ID);
     expect((await POST(json('POST', { dimensions: { a: {} } }), params)).status).toBe(VALIDATION);
+  });
+
+  it('adjust maps a conflict on a document to 409', async () => {
+    mocks.adjust.mockRejectedValue(new AppError('conflict'));
+    const { POST } = profilesIdAdjustRoute;
+    const res = await POST(json('POST', { dimensions: { a: 'x' } }), params);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe('conflict');
+  });
+
+  it('passes the union version view through', async () => {
+    const view = { id: VID, format: 'document', promptSource: 'own', excerptSources: {} };
+    mocks.version.mockResolvedValue(view);
+    const res = await profilesIdVersionsVersionIdRoute.GET(new Request('http://x'), vparams);
+    expect(await res.json()).toEqual(view);
+  });
+});
+
+describe('document edit route', () => {
+  const body = {
+    baseVersionId: VID,
+    summary: 's',
+    sections: [{ heading: 'h', markdown: 'm' }],
+    doList: ['a'],
+    dontList: ['b'],
+    keepExcerpts: [0, 2],
+  };
+  const { POST } = profilesIdDocumentRoute;
+
+  it('returns 201 and passes the body to the service', async () => {
+    const out = { version: { id: VID, versionNumber: 3, origin: 'manual_edit', createdAt: 'x' } };
+    mocks.editDocument.mockResolvedValue(out);
+    const res = await POST(json('POST', body), params);
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual(out);
+    expect(mocks.editDocument).toHaveBeenCalledWith(user, ID, body);
+  });
+
+  it('rejects a malformed body with 422', async () => {
+    expect((await POST(json('POST', { ...body, baseVersionId: 'nope' }), params)).status).toBe(
+      VALIDATION,
+    );
+    expect((await POST(json('POST', { ...body, keepExcerpts: [1.5] }), params)).status).toBe(
+      VALIDATION,
+    );
+    expect(mocks.editDocument).not.toHaveBeenCalled();
+  });
+
+  it('audits a foreign profile on 404', async () => {
+    mocks.editDocument.mockRejectedValue(new AppError('not_found'));
+    expect((await POST(json('POST', body), params)).status).toBe(404);
+    expect(mocks.auditForeignAccess).toHaveBeenCalledWith(user, 'profile', ID);
+  });
+
+  it('maps conflict, validation_failed and sensitive_content', async () => {
+    mocks.editDocument.mockRejectedValueOnce(new AppError('conflict'));
+    expect((await POST(json('POST', body), params)).status).toBe(409);
+    mocks.editDocument.mockRejectedValueOnce(
+      new AppError('validation_failed', 'bad', { field: 'summary' }),
+    );
+    const v = await POST(json('POST', body), params);
+    expect(v.status).toBe(VALIDATION);
+    expect((await v.json()).error.details).toEqual({ field: 'summary' });
+    mocks.editDocument.mockRejectedValueOnce(
+      new AppError('sensitive_content', 'x', { fields: ['summary'] }),
+    );
+    const s = await POST(json('POST', body), params);
+    expect(s.status).toBe(422);
+    expect((await s.json()).error.details).toEqual({ fields: ['summary'] });
+    expect(mocks.auditForeignAccess).not.toHaveBeenCalled();
   });
 });

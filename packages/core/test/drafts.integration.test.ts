@@ -14,6 +14,7 @@ import {
   ensureActivePrompt,
   insertVersion,
   sampleBody,
+  sampleDocument,
   seedDefinition,
   type SeededDefinition,
 } from './helpers/profiles';
@@ -482,8 +483,38 @@ describe('worker-facing seams', () => {
     expect(inputs.feedback).toBe('Make it warmer');
     // The parent's edited text wins over its generated text.
     expect(inputs.previousDraft).toBe('Parent edited');
-    expect(inputs.profileBody?.summary).toBe(sampleBody('x').summary);
-    expect(inputs.profileBody?.dimensions.map((d) => d.key)).toEqual(['formality', 'energy', 'signature', 'phrases']);
+    expect(run!.definitionDimensions.map((d) => d.key)).toEqual(def.dimensions.map((d) => d.key));
+    expect(inputs.profileBody?.format).toBe('structured');
+    if (inputs.profileBody?.format !== 'structured') throw new Error('expected a structured body');
+    expect(inputs.profileBody.body.summary).toBe(sampleBody('x').summary);
+    expect(inputs.profileBody.body.dimensions.map((d) => d.key)).toEqual(['formality', 'energy', 'signature', 'phrases']);
+  });
+
+  it('creates a draft from a profile whose latest version is a document and exposes the document body (T056)', async () => {
+    const a = await author();
+    const itemId = randomUUID();
+    const docVersionId = await insertVersion({
+      profileId: a.profileId,
+      body: sampleDocument(itemId),
+      format: 'document',
+      promptSource: 'default',
+      definitionVersionId: def.versionId,
+      promptVersionId: profilePromptId,
+    });
+
+    const { draftId } = await drafts.create(a.ctx, {
+      contentType: 'social_post',
+      profileId: a.profileId,
+      brief: 'Announce the spring workshop for new volunteers',
+    });
+    const created = await row(draftId);
+    expect(created!.profileVersionId).toBe(docVersionId);
+    expect(created!.promptVersionId).toBe(await activePromptId('draft.social_post'));
+
+    const run = await drafts.loadDraftForRun(draftId);
+    expect(run!.profileVersion?.id).toBe(docVersionId);
+    const inputs = drafts.decryptDraftInputs(run!);
+    expect(inputs.profileBody).toEqual({ format: 'document', body: sampleDocument(itemId) });
   });
 
   it('previousDraft falls back to the generated text; a first draft has no feedback or previous draft', async () => {

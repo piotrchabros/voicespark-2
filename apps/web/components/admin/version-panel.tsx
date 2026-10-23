@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatTime } from '@/lib/format';
 
 // Version lifecycle for definitions and prompts (FR-041, FR-042): publish, discard, rollback, diff and history.
 // Every call goes through the zod-validated admin API; only version metadata and definition/prompt fields appear here.
@@ -64,10 +65,6 @@ export async function adminSend(
   } catch {
     return { ok: false, error: null };
   }
-}
-
-export function formatTime(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleString() : '-';
 }
 
 type VersionStatus = 'draft' | 'active' | 'superseded';

@@ -3,7 +3,13 @@ import { UnrecoverableError, type Job } from 'bullmq';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { closeDb, getPool, type DraftContentType } from '@voicespark/db';
 import { decrypt, encrypt } from '@voicespark/core/crypto';
-import { createFakeGenerationLlm, type ProfileBody } from '@voicespark/core/prompting';
+import {
+  createFakeGenerationLlm,
+  documentToMarkdown,
+  structuredToDocument,
+  type ProfileBody,
+  type VoiceDocument,
+} from '@voicespark/core/prompting';
 import type { Classifier } from '@voicespark/filters';
 import {
   LlmRefusedError,
@@ -23,8 +29,10 @@ import {
   insertVersion,
   prose,
   sampleBody,
+  sampleDocument,
   seedAuthoredContent,
   seedDefinition,
+  TEST_DIMENSIONS,
 } from './helpers/profiles';
 
 // draft.generate (T152, contracts/jobs.md behavior 5; constitution Principle I): every LLM input of a draft is
@@ -65,6 +73,7 @@ const USER_TEMPLATE = [
   'PROFILE[{{profileJson}}]PROFILE',
   'SUMMARY[{{profileSummary}}]SUMMARY',
   'MEMORY[{{memoryContext}}]MEMORY',
+  'VOICE[{{voiceDocument}}]VOICE',
   '{{#isRevision}}REVISION PREVIOUS[{{previousDraft}}]PREVIOUS FEEDBACK[{{feedback}}]FEEDBACK{{/isRevision}}',
 ].join('\n');
 
@@ -107,8 +116,11 @@ interface World {
   versionId: string;
 }
 
-/** A user (Ada) with confirmed preferences and a versioned profile; `body` customises the pinned version. */
-async function world(opts: { body?: ProfileBody } = {}): Promise<World> {
+/**
+ * A user (Ada) with confirmed preferences and a versioned profile; `body` customises the pinned version and
+ * `document` pins a document version instead.
+ */
+async function world(opts: { body?: ProfileBody; document?: VoiceDocument } = {}): Promise<World> {
   const userId = await createUser('Ada Lovelace');
   await confirmPreferences(userId);
   const store = new InMemoryMemoryStore();
@@ -116,7 +128,9 @@ async function world(opts: { body?: ProfileBody } = {}): Promise<World> {
   const profileId = await choose(userId, def.definitionId);
   const versionId = await insertVersion({
     profileId,
-    body: opts.body ?? sampleBody(randomUUID()),
+    body: opts.document ?? opts.body ?? sampleBody(randomUUID()),
+    format: opts.document ? 'document' : 'structured',
+    promptSource: opts.document ? 'default' : null,
     definitionVersionId: def.versionId,
     promptVersionId: profilePrompt,
   });
@@ -305,6 +319,90 @@ describe('draft.generate: success', () => {
     expect(calls).toHaveLength(1);
     expect((await draftRow(draftId)).status).toBe('ready');
     expect(await notifications(w.userId, 'draft_ready')).toHaveLength(1);
+  });
+});
+
+describe('draft.generate: profile formats (jobs.md behavior 5)', () => {
+  it('drafts from a document version: document profileJson without item ids plus the voiceDocument markdown', async () => {
+    const itemId = randomUUID();
+    const doc = sampleDocument(itemId);
+    const w = await world({ document: doc });
+    const draftId = await insertDraft(w);
+    const { llm, calls } = capturing();
+
+    await run(llm, w, draftId);
+
+    expect(calls).toHaveLength(1);
+    const user = calls[0]!.user;
+    const profileJson = section(user, 'PROFILE[', ']PROFILE');
+    expect(JSON.parse(profileJson)).toEqual({
+      format: 'document',
+      summary: doc.summary,
+      sections: doc.sections.map(({ heading, markdown }) => ({ heading, markdown })),
+      doList: doc.doList,
+      dontList: doc.dontList,
+      excerpts: doc.excerpts.map(({ text }) => ({ text })),
+      languages: doc.languages,
+    });
+    expect(profileJson).not.toContain('contentItemId');
+    expect(profileJson).not.toContain('sampleRef');
+    expect(promptText(calls[0]!)).not.toContain(itemId);
+    expect(section(user, 'SUMMARY[', ']SUMMARY')).toBe(doc.summary);
+    expect(section(user, 'LANG[', ']')).toBe('en');
+    const voice = section(user, 'VOICE[', ']VOICE');
+    expect(voice).toBe(documentToMarkdown(doc));
+    expect(voice).toContain('### Tempo');
+    expect(voice).toContain('- Be brief');
+    expect((await draftRow(draftId)).status).toBe('ready');
+  });
+
+  it('drafts from a legacy structured version: profileJson byte-identical to 001 (SC-006)', async () => {
+    const body = sampleBody(randomUUID());
+    const w = await world({ body });
+    const draftId = await insertDraft(w);
+    const { llm, calls } = capturing();
+
+    await run(llm, w, draftId);
+
+    // The 001 serialisation, spelled out: the whole body with excerpts reduced to text, sampleRef, dimensionKeys.
+    const legacy = JSON.stringify({
+      ...body,
+      excerpts: body.excerpts.map(({ text, sampleRef, dimensionKeys }) => ({
+        text,
+        sampleRef,
+        dimensionKeys,
+      })),
+    });
+    const user = calls[0]!.user;
+    expect(section(user, 'PROFILE[', ']PROFILE')).toBe(legacy);
+    expect(section(user, 'SUMMARY[', ']SUMMARY')).toBe(body.summary);
+    expect(section(user, 'LANG[', ']')).toBe('en');
+    // voiceDocument renders the legacy body as a document, sections named after the definition's dimensions.
+    const voice = section(user, 'VOICE[', ']VOICE');
+    expect(voice).toBe(documentToMarkdown(structuredToDocument(body, TEST_DIMENSIONS)));
+    expect(voice).toContain('### Signature move');
+    expect((await draftRow(draftId)).status).toBe('ready');
+  });
+
+  it('passes an empty voiceDocument when it is wholly excluded but the profile JSON is usable', async () => {
+    const doc = sampleDocument(randomUUID());
+    const w = await world({ document: doc });
+    const draftId = await insertDraft(w);
+    // Inspection is per text: only the voiceDocument markdown is wholly excluded.
+    const markdown = documentToMarkdown(doc);
+    const excluding: Classifier = {
+      classify: async (text: string) => ({ spans: [], mostlySensitive: text.includes(markdown) }),
+    };
+    const { llm, calls } = capturing();
+    const handler = createDraftHandler({ store: w.store, classifier: excluding, llm });
+
+    await handler(fakeJob(w.userId, draftId), 'token');
+
+    expect(calls).toHaveLength(1);
+    expect(section(calls[0]!.user, 'VOICE[', ']VOICE')).toBe('');
+    expect(JSON.parse(section(calls[0]!.user, 'PROFILE[', ']PROFILE'))).toMatchObject({
+      format: 'document',
+    });
   });
 });
 

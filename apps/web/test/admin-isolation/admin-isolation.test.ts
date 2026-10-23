@@ -1,4 +1,4 @@
-// SC-010 / constitution III: admin responses carry metadata, counts and aggregates only; admin code
+// SC-010 (001), SC-007 (002) / constitution III: admin responses carry metadata, counts and aggregates only; admin code
 // never reads *_enc columns or the memory store; an admin reaching another user's content gets
 // not_found plus an `admin.content_access_denied` audit entry. Real test DB + Redis-test.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { auditLogEntry, closeDb, connectedSource, contentItem, draft, getDb } from '@voicespark/db';
-import { closeQueues } from '@voicespark/core/queues';
+import { QUEUES, closeQueues, getQueue } from '@voicespark/core/queues';
 import { AppError } from '@voicespark/core/errors';
 import {
   ADMIN_FORBIDDEN_FIELDS,
@@ -50,10 +50,17 @@ vi.mock('../../lib/guards', async (importOriginal) => {
   };
 });
 
-vi.mock('@voicespark/core/queues', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@voicespark/core/queues')>()),
-  enqueue: vi.fn(async () => ({})),
-}));
+// Preview runs go to the real Redis (56379) so the status route can read the job back; nothing
+// else is enqueued. No worker consumes the test Redis, so the job stays queued until afterAll.
+vi.mock('@voicespark/core/queues', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@voicespark/core/queues')>();
+  return {
+    ...original,
+    enqueue: vi.fn(async (...args: Parameters<typeof original.enqueue>) =>
+      args[0] === original.JOBS.analysisPreview ? original.enqueue(...args) : {},
+    ),
+  };
+});
 
 const WEB_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const REPO_ROOT = join(WEB_ROOT, '..', '..');
@@ -75,6 +82,9 @@ const EXPECTED_ADMIN_ROUTES = [
   'definitions/[id]/versions/[versionId]',
   'definitions/[id]/versions/[versionId]/publish',
   'definitions/[id]/versions/[versionId]/diff',
+  'definitions/[id]/versions/[versionId]/preview',
+  'definitions/[id]/versions/[versionId]/preview-run',
+  'definitions/[id]/versions/[versionId]/preview-run/[jobId]',
   'definitions/[id]/rollback',
   'definitions/[id]/availability',
   'definitions/[id]/history',
@@ -183,6 +193,8 @@ const deniedCount = async (actorUserId: string, targetId: string) =>
   ).length;
 
 let seed: IsolationSeed;
+/** Preview-run jobs the scenario enqueued on the real Redis; removed in afterAll. */
+const previewJobIds: string[] = [];
 
 beforeAll(async () => {
   seed = await seedIsolation();
@@ -190,6 +202,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (seed) await cleanupIsolation(seed);
+  for (const jobId of previewJobIds) await (await getQueue(QUEUES.profile).getJob(jobId))?.remove();
   await closeQueues();
   await closeDb();
 });
@@ -232,15 +245,8 @@ function scenario(sd: IsolationSeed): Step[] {
   const defV = (key: string) => (s: State) => ({ id: s.definitionId!, versionId: s[key]! });
   const pr = (s: State) => ({ id: s.promptId! });
   const prV = (key: string) => (s: State) => ({ id: s.promptId!, versionId: s[key]! });
-  const dimensions = [
-    {
-      key: 'warmth',
-      name: 'Warmth',
-      description: 'How warm the writing feels',
-      valueType: 'scale',
-      scale: { min: 1, max: 5, minLabel: 'cool', maxLabel: 'warm' },
-    },
-  ];
+  // The seeded definition: user U has an own prompt and a document made with it.
+  const seededV = () => ({ id: sd.definitionId, versionId: sd.definitionVersionId });
   return [
     // Users
     { route: 'users', verb: 'GET', query: () => ({ query: `iso-user-u-${sd.runId}` }) },
@@ -263,7 +269,7 @@ function scenario(sd: IsolationSeed): Step[] {
         key: `iso_scn_${sd.runId}`,
         name: 'Isolation scenario',
         description: 'Created by the admin isolation suite',
-        dimensions,
+        analysisPrompt: 'Describe how this person writes: tone, rhythm and word choice.',
       }),
       save: (j, s) => {
         s.definitionId = get(j, 'definition', 'id');
@@ -304,6 +310,30 @@ function scenario(sd: IsolationSeed): Step[] {
       query: (s) => ({ against: s.defDraft1! }),
     },
     {
+      route: 'definitions/[id]/versions/[versionId]/preview',
+      verb: 'POST',
+      params: defV('defDraft2'),
+      body: () => ({ kind: 'feedback' }),
+    },
+    {
+      route: 'definitions/[id]/versions/[versionId]/preview-run',
+      verb: 'POST',
+      params: defV('defDraft2'),
+      save: (j, s) => {
+        s.previewJobId = get(j, 'jobId');
+        previewJobIds.push(s.previewJobId);
+      },
+    },
+    {
+      route: 'definitions/[id]/versions/[versionId]/preview-run/[jobId]',
+      verb: 'GET',
+      params: (s) => ({ ...defV('defDraft2')(s), jobId: s.previewJobId! }),
+      // A `save` makes a non-2xx a failure: the job must be readable back from Redis.
+      save: (j, s) => {
+        s.previewStatus = get(j, 'status');
+      },
+    },
+    {
       route: 'definitions/[id]/versions/[versionId]/publish',
       verb: 'POST',
       params: defV('defDraft2'),
@@ -337,6 +367,10 @@ function scenario(sd: IsolationSeed): Step[] {
       params: def,
       body: () => ({ availability: 'retired' }),
     },
+    // The seeded definition carries user U's own prompt and document: counts only.
+    { route: 'definitions/[id]', verb: 'GET', params: () => ({ id: sd.definitionId }) },
+    { route: 'definitions/[id]/history', verb: 'GET', params: () => ({ id: sd.definitionId }) },
+    { route: 'definitions/[id]/versions/[versionId]/preview', verb: 'POST', params: seededV },
     // Prompts: custom create -> patch -> validate -> preview -> publish -> draft -> diff -> publish -> rollback -> history
     { route: 'prompts', verb: 'GET' },
     {
@@ -622,6 +656,20 @@ describe("(b) an admin reaching another user's content", () => {
       target: (sd) => sd.u.profileId,
     },
     {
+      name: 'document profile version',
+      route: 'profiles/[id]/versions/[versionId]',
+      verb: 'GET',
+      params: (sd) => ({ id: sd.u.profileId, versionId: sd.u.documentVersionId }),
+      target: (sd) => sd.u.profileId,
+    },
+    {
+      name: 'own prompt version',
+      route: 'analysis-prompts/[definitionId]/versions/[versionId]',
+      verb: 'GET',
+      params: (sd) => ({ definitionId: sd.definitionId, versionId: sd.u.ownPromptVersionId }),
+      target: (sd) => sd.u.ownPromptVersionId,
+    },
+    {
       name: 'upload',
       route: 'uploads/[id]',
       verb: 'GET',
@@ -691,6 +739,15 @@ describe("(b) an admin reaching another user's content", () => {
     const res = await call(API_ROOT, 'drafts', 'GET');
     expect(res.status).toBe(200);
     expect(listIds(res.json)).not.toContain(seed.u.draftId);
+    expect(res.text).not.toContain(SECRET_MARKER);
+  });
+
+  it("GET /api/analysis-prompts shows no other user's own prompt", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const res = await call(API_ROOT, 'analysis-prompts', 'GET');
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain(seed.u.ownPromptId);
+    expect(res.text).not.toContain(seed.u.ownPromptVersionId);
     expect(res.text).not.toContain(SECRET_MARKER);
   });
 

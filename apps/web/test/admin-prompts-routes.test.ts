@@ -258,6 +258,18 @@ describe('publish / diff / validate / preview', () => {
     expect((await POST(post(), vparams)).status).toBe(403);
   });
 
+  it('publish maps unknown_template_variable to 422 with details', async () => {
+    const details = {
+      unknownVariables: ['definition.dimensionsJson'],
+      missingRequired: ['analysisPrompt'],
+    };
+    mocks.publish.mockRejectedValue(new AppError('unknown_template_variable', undefined, details));
+    const { POST } = adminPromptsIdVersionsVersionIdPublishRoute;
+    const res = await POST(post(), vparams);
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatchObject({ code: 'unknown_template_variable', details });
+  });
+
   it('diffs and requires a uuid `against`', async () => {
     const result = {
       from: { id: OTHER, versionNumber: 1 },
@@ -338,6 +350,18 @@ describe('rollback / history', () => {
     expect(mocks.rollback).not.toHaveBeenCalled();
     mocks.rollback.mockRejectedValue(new AppError('not_found'));
     expect((await POST(post({ versionId: VID }), params)).status).toBe(404);
+  });
+
+  it('rollback to a version with removed variables maps to 422 with details', async () => {
+    const details = {
+      unknownVariables: ['definition.dimensions', 'previousProfileJson'],
+      missingRequired: [],
+    };
+    mocks.rollback.mockRejectedValue(new AppError('unknown_template_variable', undefined, details));
+    const { POST } = adminPromptsIdRollbackRoute;
+    const res = await POST(post({ versionId: VID }), params);
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatchObject({ code: 'unknown_template_variable', details });
   });
 
   it('returns history entries', async () => {

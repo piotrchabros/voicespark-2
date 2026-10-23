@@ -16,6 +16,19 @@ const BLOCK_TEXT: Record<string, string> = {
   definition_not_chosen: 'This definition is no longer chosen.',
 };
 
+const ERROR_TEXT: Record<string, string> = {
+  invalid_output: 'The generated profile did not pass our checks. Please try again.',
+  analysis_prompt_excluded:
+    'Your own analysis prompt contains content we cannot use. Edit your prompt or use the default prompt.',
+  analysis_prompt_missing:
+    'The analysis prompt is no longer available. Choose a prompt and try again.',
+  inspection_failed: 'We could not check the result. Please try again later.',
+  output_excluded:
+    'The generated profile contained content that cannot be stored, so it was discarded.',
+  feedback_excluded: 'Your feedback contained content we cannot use. Edit it and try again.',
+  llm_refused: 'The model declined to produce a profile from this content.',
+};
+
 // Polls the generation every 3 s until it settles, then calls onDone once (FR-035, FR-066).
 export function GenerationStatus({
   generationId,
@@ -65,7 +78,8 @@ export function GenerationStatus({
   else if (generation.status === 'succeeded') text = 'Profile ready.';
   else if (generation.status === 'blocked')
     text = BLOCK_TEXT[generation.blockReason ?? ''] ?? 'Generation was blocked.';
-  else text = 'Generation failed. Please try again later.';
+  else
+    text = ERROR_TEXT[generation.errorCode ?? ''] ?? 'Generation failed. Please try again later.';
 
   return (
     <p role="status" className="text-muted-foreground text-sm">

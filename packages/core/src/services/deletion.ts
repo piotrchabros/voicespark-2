@@ -37,6 +37,7 @@ import { assertNotLastActiveAdmin } from './admin-users';
 import { audit } from './audit';
 import { loadRevocableToken } from './mail-access';
 import { notify } from './notifications';
+import { scrubDeletedExcerpts } from './profiles';
 
 /** Constitution: every deletion completes and is verified within 24 h (SC-009, R19). */
 export const DELETION_SLA_MS = 24 * 60 * 60 * 1000;
@@ -379,6 +380,8 @@ async function purgeItems(
   await withTransaction(async (tx) => {
     // `finalize` runs while the rows still exist (upload.content_item_id is nulled by the cascade otherwise).
     await finalize(tx);
+    // Profile excerpts quoting the purged items go in the same transaction (FR-023).
+    if (ids.length > 0) await scrubDeletedExcerpts(tx, userId, ids);
     if (ids.length > 0) {
       await decrementSourceItemCounts(tx, ids);
       await tx
@@ -583,6 +586,7 @@ async function deleteSource(
 
   await withTransaction(async (tx) => {
     if (exclusive.length > 0) {
+      await scrubDeletedExcerpts(tx, userId, exclusive);
       await tx
         .delete(contentItem)
         .where(and(inArray(contentItem.id, exclusive), eq(contentItem.userId, userId)));

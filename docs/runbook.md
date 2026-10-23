@@ -105,6 +105,25 @@ succeeds and retries on failure. A failing `SMTP_URL` therefore shows up as a de
 
 `DEDUP_HMAC_KEY` is not part of the keyring; changing it breaks duplicate detection against already imported content.
 
+## Tone-of-voice analysis prompt migration (0007)
+
+Migration `0007_analysis_prompts.sql` adds the analysis prompt to tone definitions and the own-prompt tables. Right after
+it, `pnpm db:migrate` runs a TypeScript backfill (`packages/db/src/data/analysis-prompts.ts`) in one transaction. It is
+idempotent: a second run changes nothing.
+
+- The backfill fills `analysis_prompt` for every `tone_definition_version`, active, superseded and draft, built from the
+  existing dimensions.
+- It activates v2 of the `tone_profile.generate` and `tone_profile.feedback` wrapper templates (effort `medium`,
+  `maxTokens` 16000) when the active version lacks `{{analysisPrompt}}`. Each activation is recorded as a `publish`
+  version activation.
+- This changes generation behaviour at deploy. The next profile generation or feedback run uses the v2 templates, with no
+  extra step. Plan the deploy with that in mind.
+- Rolling those templates back to the dimension-based v1 is blocked on purpose. Template validation rejects v1 with
+  `unknown_template_variable`, because the variable whitelist no longer includes the dimension variables.
+- Existing structured profiles are not rewritten. They stay readable and usable for drafting.
+
+Migrations run through the `migrate` service on `docker compose up`, so the same backfill runs there.
+
 ## Pilot measurements
 
 Local runs verify mechanisms only; these targets need real usage in a beta cohort.

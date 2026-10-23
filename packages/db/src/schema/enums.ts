@@ -260,3 +260,11 @@ export const profileGenerationKindEnum = pgEnum(
   'profile_generation_kind',
   PROFILE_GENERATION_KINDS,
 );
+
+export const PROFILE_VERSION_FORMATS = ['structured', 'document'] as const;
+export type ProfileVersionFormat = (typeof PROFILE_VERSION_FORMATS)[number];
+export const profileVersionFormatEnum = pgEnum('profile_version_format', PROFILE_VERSION_FORMATS);
+
+export const ANALYSIS_PROMPT_SOURCES = ['default', 'own'] as const;
+export type AnalysisPromptSource = (typeof ANALYSIS_PROMPT_SOURCES)[number];
+export const analysisPromptSourceEnum = pgEnum('analysis_prompt_source', ANALYSIS_PROMPT_SOURCES);

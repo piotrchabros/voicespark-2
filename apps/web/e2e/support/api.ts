@@ -52,6 +52,13 @@ export const api = {
   delete: <T = unknown>(page: Page, path: string, data?: unknown) => call<T>(page, 'DELETE', path, data),
 };
 
+/** Transient network failures (dev server reset the connection); never an HTTP error response. */
+function isTransientTransportError(err: unknown): boolean {
+  if (err instanceof ApiError) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /ECONNRESET|ECONNREFUSED|socket hang up/i.test(msg);
+}
+
 /** Calls `fn` until `until(value)` holds; throws with the last value on timeout. */
 export async function poll<T>(
   fn: () => Promise<T>,
@@ -61,10 +68,23 @@ export async function poll<T>(
   const timeoutMs = opts.timeoutMs ?? 60_000;
   const intervalMs = opts.intervalMs ?? 500;
   const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
   for (;;) {
-    const value = await fn();
-    if (until(value)) return value;
+    let value: T | undefined;
+    let have = false;
+    try {
+      value = await fn();
+      have = true;
+      lastError = undefined;
+    } catch (err) {
+      if (!isTransientTransportError(err)) throw err;
+      lastError = err;
+    }
+    if (have && until(value as T)) return value as T;
     if (Date.now() > deadline) {
+      if (!have) {
+        throw new Error(`poll timed out after ${timeoutMs} ms; last error: ${String(lastError)}`, { cause: lastError });
+      }
       throw new Error(`poll timed out after ${timeoutMs} ms; last value: ${JSON.stringify(value)}`);
     }
     await new Promise((r) => setTimeout(r, intervalMs));

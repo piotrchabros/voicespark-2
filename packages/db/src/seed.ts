@@ -1,4 +1,11 @@
 import { eq } from 'drizzle-orm';
+import {
+  ANALYSIS_WRAPPER_EFFORT,
+  ANALYSIS_WRAPPER_MAX_TOKENS,
+  ANALYSIS_WRAPPER_TEMPLATES,
+  SYSTEM_ACTOR,
+  buildAnalysisPromptFromDimensions,
+} from './data/analysis-prompts';
 import { closeDb, withTransaction, type Tx } from './client';
 import {
   APP_SETTING_DEFAULTS,
@@ -12,9 +19,6 @@ import {
   type SystemPromptKey,
 } from './schema';
 
-// Seeded rows have no real author; created_by has no FK, so the nil uuid marks "system".
-const SYSTEM_ACTOR = '00000000-0000-0000-0000-000000000000';
-
 const SHARED_RULES = `Never reproduce redaction tokens (for example [REDACTED:...]) or sensitive values; if one appears in the input, omit it.
 Never invent facts about the user beyond the supplied content.`;
 
@@ -25,47 +29,6 @@ In a revision, apply the feedback to the previous draft and keep what was not cr
 Never state or imply that the text was published or will be posted; put caveats in "notes".
 Do not copy profile excerpts verbatim.
 Output JSON only: {"title": string|null, "body": string, "notes": string|null}.`;
-
-const PROFILE_RULES = `${SHARED_RULES}
-Use only the authored samples (refs A1, A2, ...) as evidence of the user's voice; the received context is background only: never quote it, never cite it in evidenceRefs or excerpts, and never attribute its style to the user.
-Describe every dimension of the definition exactly once, using the allowed value type, with a short explanation and evidenceRefs.
-Include 3-12 short verbatim excerpts, each tied to one sampleRef and relevant dimensionKeys.
-Report the detected languages with their share.
-Fill doList and dontList (at most 10 each) with actionable guidance.
-Do not draw on excluded categories ({{excludedCategoryLabels}}).
-Output JSON only, matching the required profile schema.`;
-
-const GENERATE_SYSTEM = `You build tone-of-voice profiles from a person's own writing.
-${PROFILE_RULES}
-If a previous profile is supplied, keep it stable unless the new evidence contradicts it.`;
-
-const GENERATE_USER = `You build a tone-of-voice profile called "{{definition.name}}". {{definition.description}}
-Dimensions (describe every one): {{definition.dimensionsJson}}
-{{#definition.dimensions}}- {{key}} ({{name}}): {{description}}. Value: {{valueSpec}}. {{guidance}}
-{{/definition.dimensions}}
-Evidence, authored by {{user.firstName}} ({{authoredStats.itemCount}} items, {{authoredStats.wordCount}} words, languages: {{authoredStats.languages}}):
-{{authoredSamples}}
-Background only, never quote:
-{{receivedContext}}
-Previous profile (may be empty): {{previousProfileJson}}
-Return JSON only.`;
-
-const FEEDBACK_SYSTEM = `You revise an existing tone-of-voice profile according to the user's written feedback.
-${PROFILE_RULES}
-Apply the feedback to the previous profile, changing only what the feedback and the evidence justify, and keep other dimensions as they are.
-Treat the feedback as a user preference, not as evidence of voice: evidence still comes only from the authored samples, and excerpts must remain verbatim.
-If the feedback conflicts with the authored evidence, follow the feedback for the dimension value and say so in its explanation.
-Output the full revised profile in the same schema, not a diff.`;
-
-const FEEDBACK_USER = `Revise the profile below using the user's feedback.
-Current profile: {{previousProfileJson}}
-Feedback: {{feedback}}
-Evidence, authored by {{user.firstName}}:
-{{authoredSamples}}
-Background only, never quote:
-{{receivedContext}}
-Describe every dimension of "{{definition.name}}": {{definition.dimensionsJson}}
-Return the full revised profile as JSON only.`;
 
 const SOCIAL_SYSTEM = `You write social posts in the voice of a supplied tone profile.
 ${DRAFT_RULES}
@@ -148,6 +111,8 @@ const DIMENSIONS: Dimension[] = [
   },
 ];
 
+const GENERAL_DESCRIPTION = 'A general-purpose description of how you write: formality, warmth and style.';
+
 interface PromptSeed {
   key: SystemPromptKey;
   description: string;
@@ -161,21 +126,21 @@ interface PromptSeed {
 const PROMPTS: PromptSeed[] = [
   {
     key: 'tone_profile.generate',
-    description: 'Generates a tone-of-voice profile from authored content.',
+    description: ANALYSIS_WRAPPER_TEMPLATES['tone_profile.generate'].description,
     model: 'profile',
-    effort: 'high',
-    maxTokens: 8192,
-    systemTemplate: GENERATE_SYSTEM,
-    userTemplate: GENERATE_USER,
+    effort: ANALYSIS_WRAPPER_EFFORT,
+    maxTokens: ANALYSIS_WRAPPER_MAX_TOKENS,
+    systemTemplate: ANALYSIS_WRAPPER_TEMPLATES['tone_profile.generate'].systemTemplate,
+    userTemplate: ANALYSIS_WRAPPER_TEMPLATES['tone_profile.generate'].userTemplate,
   },
   {
     key: 'tone_profile.feedback',
-    description: 'Revises a tone-of-voice profile using user feedback.',
+    description: ANALYSIS_WRAPPER_TEMPLATES['tone_profile.feedback'].description,
     model: 'profile',
-    effort: 'high',
-    maxTokens: 8192,
-    systemTemplate: FEEDBACK_SYSTEM,
-    userTemplate: FEEDBACK_USER,
+    effort: ANALYSIS_WRAPPER_EFFORT,
+    maxTokens: ANALYSIS_WRAPPER_MAX_TOKENS,
+    systemTemplate: ANALYSIS_WRAPPER_TEMPLATES['tone_profile.feedback'].systemTemplate,
+    userTemplate: ANALYSIS_WRAPPER_TEMPLATES['tone_profile.feedback'].userTemplate,
   },
   {
     key: 'draft.social_post',
@@ -227,8 +192,13 @@ async function seedDefinition(tx: Tx): Promise<void> {
       versionNumber: 1,
       status: 'active',
       name: 'General voice',
-      description: 'A general-purpose description of how you write: formality, warmth and style.',
+      description: GENERAL_DESCRIPTION,
       dimensions: DIMENSIONS,
+      analysisPrompt: buildAnalysisPromptFromDimensions({
+        name: 'General voice',
+        description: GENERAL_DESCRIPTION,
+        dimensions: DIMENSIONS,
+      }),
       createdBy: SYSTEM_ACTOR,
       publishedBy: SYSTEM_ACTOR,
       publishedAt: now,

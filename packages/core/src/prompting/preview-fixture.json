@@ -2,49 +2,41 @@
   "tone_profile.generate": {
     "definition": {
       "name": "Sample Definition",
-      "description": "Synthetic definition used for previews.",
-      "dimensionsJson": "[{\"key\":\"formality\",\"valueType\":\"scale\"}]",
-      "dimensions": [
-        {
-          "key": "formality",
-          "name": "Formality",
-          "description": "Sample dimension.",
-          "valueType": "scale",
-          "valueSpec": "scale 1-5 (1=very casual, 5=very formal)",
-          "guidance": "Sample guidance."
-        }
-      ]
+      "description": "Synthetic definition used for previews."
     },
     "authoredSamples": "<sample ref=\"A1\" kind=\"note\" date=\"2000-01-01\" lang=\"en\">SAMPLE TEXT: This is fake authored content.</sample>",
     "receivedContext": "<received_context>SAMPLE TEXT: fake received content.</received_context>",
-    "authoredStats": { "itemCount": 1, "wordCount": 7, "languages": "en" },
-    "previousProfileJson": "",
-    "user": { "firstName": "Sample" },
-    "excludedCategoryLabels": "Sample Category"
+    "authoredStats": {
+      "itemCount": 1,
+      "wordCount": 7,
+      "languages": "en"
+    },
+    "user": {
+      "firstName": "Sample"
+    },
+    "excludedCategoryLabels": "Sample Category",
+    "analysisPrompt": "SAMPLE ANALYSIS PROMPT:\n- Formality: how formal or casual the wording is.\n- Warmth: how personal and friendly the tone feels.",
+    "previousDocumentJson": ""
   },
   "tone_profile.feedback": {
     "definition": {
       "name": "Sample Definition",
-      "description": "Synthetic definition used for previews.",
-      "dimensionsJson": "[{\"key\":\"formality\",\"valueType\":\"scale\"}]",
-      "dimensions": [
-        {
-          "key": "formality",
-          "name": "Formality",
-          "description": "Sample dimension.",
-          "valueType": "scale",
-          "valueSpec": "scale 1-5 (1=very casual, 5=very formal)",
-          "guidance": "Sample guidance."
-        }
-      ]
+      "description": "Synthetic definition used for previews."
     },
     "authoredSamples": "<sample ref=\"A1\" kind=\"note\" date=\"2000-01-01\" lang=\"en\">SAMPLE TEXT: This is fake authored content.</sample>",
     "receivedContext": "<received_context>SAMPLE TEXT: fake received content.</received_context>",
-    "authoredStats": { "itemCount": 1, "wordCount": 7, "languages": "en" },
-    "user": { "firstName": "Sample" },
+    "authoredStats": {
+      "itemCount": 1,
+      "wordCount": 7,
+      "languages": "en"
+    },
+    "user": {
+      "firstName": "Sample"
+    },
     "excludedCategoryLabels": "Sample Category",
     "feedback": "SAMPLE FEEDBACK: make it a bit warmer.",
-    "previousProfileJson": "{\"summary\":\"Sample profile.\",\"languages\":[],\"dimensions\":[],\"excerpts\":[],\"doList\":[],\"dontList\":[]}"
+    "analysisPrompt": "SAMPLE ANALYSIS PROMPT:\n- Formality: how formal or casual the wording is.\n- Warmth: how personal and friendly the tone feels.",
+    "previousDocumentJson": "{\"summary\":\"Sample document.\",\"languages\":[{\"code\":\"en\",\"share\":1}],\"sections\":[{\"key\":\"formality\",\"heading\":\"Formality\",\"markdown\":\"Sample section.\"}],\"excerpts\":[],\"doList\":[\"Sample do.\"],\"dontList\":[\"Sample dont.\"]}"
   },
   "draft.social_post": {
     "brief": "SAMPLE BRIEF: announce a fictional workshop.",
@@ -57,8 +49,11 @@
     "feedback": "SAMPLE FEEDBACK: shorter.",
     "isRevision": true,
     "excludedCategoryLabels": "Sample Category",
-    "user": { "firstName": "Sample" },
-    "languageHint": "en"
+    "user": {
+      "firstName": "Sample"
+    },
+    "languageHint": "en",
+    "voiceDocument": "SAMPLE VOICE DOCUMENT."
   },
   "draft.bio": {
     "brief": "SAMPLE BRIEF: announce a fictional workshop.",
@@ -71,8 +66,11 @@
     "feedback": "SAMPLE FEEDBACK: shorter.",
     "isRevision": true,
     "excludedCategoryLabels": "Sample Category",
-    "user": { "firstName": "Sample" },
-    "languageHint": "en"
+    "user": {
+      "firstName": "Sample"
+    },
+    "languageHint": "en",
+    "voiceDocument": "SAMPLE VOICE DOCUMENT."
   },
   "draft.short_article": {
     "brief": "SAMPLE BRIEF: announce a fictional workshop.",
@@ -85,7 +83,10 @@
     "feedback": "SAMPLE FEEDBACK: shorter.",
     "isRevision": true,
     "excludedCategoryLabels": "Sample Category",
-    "user": { "firstName": "Sample" },
-    "languageHint": "en"
+    "user": {
+      "firstName": "Sample"
+    },
+    "languageHint": "en",
+    "voiceDocument": "SAMPLE VOICE DOCUMENT."
   }
 }
