@@ -1,0 +1,9 @@
+Hello,
+
+Please contact Anna Nowak at anna.nowak@harbor-point.example or call +49 30 901820 about the schedule.
+
+Regards,
+Sophie Turner
+Office manager, acme Ltd
+Tel: +48 512 000 345
+E-mail: sophie.turner@acme.example

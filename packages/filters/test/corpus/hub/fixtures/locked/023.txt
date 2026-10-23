@@ -1,0 +1,7 @@
+Hello,
+
+Notes from today.
+Questions? Write to sophie.turner@brightpay.example.
+Reset your password here: https://accounts.lumen-labs.example/reset-password?token=FUffgYvnS2enxFmcD9ZLKQyedPNspwLf
+
+Thanks

@@ -1,0 +1,12 @@
+Hi,
+
+The order 1004 ships tomorrow. Ticket reference TCK-204.
+
+Best wishes,
+John Smith
+Tel. +44 20 7946 0958 | Fax +1 202 555 0143
+john.smith@harbor-point.example
+www.harbor-point.example
+
+--
+You are receiving this message because you subscribed to our newsletter. Unsubscribe at any time.

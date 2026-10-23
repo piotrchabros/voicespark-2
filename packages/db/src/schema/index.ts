@@ -17,3 +17,4 @@ export * from './uploads';
 export * from './own-prompts';
 export * from './profiles';
 export * from './drafts';
+export * from './hub';

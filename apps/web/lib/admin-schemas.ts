@@ -42,6 +42,17 @@ export const ADMIN_FORBIDDEN_FIELDS = [
   'password',
   'promptText',
   'sections',
+  'summary',
+  'evidence',
+  'participants',
+  'emails',
+  'phone',
+  'domains',
+  'roleTitle',
+  'industry',
+  'website',
+  'extractedText',
+  'fileName',
 ] as const;
 export const ADMIN_FORBIDDEN_FIELD_PATTERN = /_enc$|Enc$/;
 

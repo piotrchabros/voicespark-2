@@ -1,0 +1,9 @@
+Hello,
+
+Please contact Ewa Mazur at ewa.mazur@northwind-test.example or call +48 601 234 567 about the schedule.
+
+Regards,
+Tomasz Lewandowski
+Sales manager, harbor-point Ltd
+Tel: +48 512 000 345
+E-mail: tomasz.lewandowski@harbor-point.example

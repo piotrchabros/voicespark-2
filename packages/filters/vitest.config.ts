@@ -22,8 +22,10 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'corpus',
-          include: ['test/corpus/corpus.test.ts'],
+          // Hub first, so a hub-mode failure shows before the normal run reports.
+          include: ['test/corpus/hub-corpus.test.ts', 'test/corpus/corpus.test.ts'],
           testTimeout: 600000,
+          fileParallelism: false,
         },
       },
     ],

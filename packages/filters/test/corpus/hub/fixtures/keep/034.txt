@@ -1,0 +1,9 @@
+Hello,
+
+Please contact John Smith at john.smith@fjord-works.example or call 601 700 800 about the schedule.
+
+Regards,
+Anna Nowak
+Account executive, brightpay Ltd
+Tel: +48 601 234 567
+E-mail: anna.nowak@brightpay.example

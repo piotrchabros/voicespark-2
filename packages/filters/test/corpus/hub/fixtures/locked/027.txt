@@ -1,0 +1,7 @@
+Hello,
+
+Notes from today.
+Questions? Write to piotr.wisniewski@lumen-labs.example.
+Reset your password here: https://accounts.northwind-test.example/reset-password?token=r6hLVwq3CQXMG6S2rjT9k04xwmECQpUU
+
+Thanks

@@ -1,0 +1,9 @@
+Hello,
+
+Please contact Jan Kowalski at jan.kowalski@kestrel.example or call (+48) 600-111-222 about the schedule.
+
+Regards,
+Tomasz Lewandowski
+Account executive, oakline Ltd
+Tel: +33 1 23 45 67 89
+E-mail: tomasz.lewandowski@oakline.example

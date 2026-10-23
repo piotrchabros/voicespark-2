@@ -1,7 +1,7 @@
 import { createSecretKey, hkdfSync } from 'node:crypto';
 import { loadEnv } from '../env';
 
-export type KeyPurpose = 'mailbox-credentials' | 'user-content' | 'upload-staging';
+export type KeyPurpose = 'mailbox-credentials' | 'user-content' | 'upload-staging' | 'hub-files';
 
 export interface Keyring {
   activeKeyId: string;

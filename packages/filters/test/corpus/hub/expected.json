@@ -1,0 +1,1060 @@
+{
+ "keep/001.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "anna.nowak@fjord-works.example",
+    "+1 202 555 0143",
+    "+33 1 23 45 67 89",
+    "ewa.mazur@brightpay.example"
+   ]
+  }
+ ],
+ "keep/002.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "john.smith@harbor-point.example",
+    "+44 7700 900123",
+    "+33 1 23 45 67 89",
+    "lukas.brandt@fjord-works.example"
+   ]
+  }
+ ],
+ "keep/003.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "claire.dubois@brightpay.example",
+    "+33 1 23 45 67 89",
+    "+48 22 555 01 23",
+    "john.smith@lumen-labs.example"
+   ]
+  }
+ ],
+ "keep/004.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "jan.kowalski@kestrel.example",
+    "(+48) 600-111-222",
+    "+33 1 23 45 67 89",
+    "tomasz.lewandowski@oakline.example"
+   ]
+  }
+ ],
+ "keep/005.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "sophie.turner@brightpay.example",
+    "+48 512 000 345",
+    "+44 20 7946 0958",
+    "oliver.hughes@lumen-labs.example"
+   ]
+  }
+ ],
+ "keep/006.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "oliver.hughes@acme.example",
+    "+48 22 555 01 23",
+    "+33 1 23 45 67 89",
+    "anna.nowak@northwind-test.example"
+   ]
+  }
+ ],
+ "keep/007.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "oliver.hughes@acme.example",
+    "+1 202 555 0143",
+    "+49 30 901820",
+    "claire.dubois@brightpay.example"
+   ]
+  }
+ ],
+ "keep/008.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "claire.dubois@kestrel.example",
+    "+1 202 555 0143",
+    "+48 601 234 567",
+    "tomasz.lewandowski@kestrel.example"
+   ]
+  }
+ ],
+ "keep/009.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "tomasz.lewandowski@oakline.example",
+    "+49 30 901820",
+    "+48 512 000 345",
+    "piotr.wisniewski@kestrel.example"
+   ]
+  }
+ ],
+ "keep/010.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "ewa.mazur@northwind-test.example",
+    "+48 601 234 567",
+    "+48 512 000 345",
+    "tomasz.lewandowski@harbor-point.example"
+   ]
+  }
+ ],
+ "keep/011.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "lukas.brandt@fjord-works.example",
+    "+49 30 901820",
+    "+48 601 234 567",
+    "ewa.mazur@acme.example"
+   ]
+  }
+ ],
+ "keep/012.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "claire.dubois@harbor-point.example",
+    "+44 20 7946 0958",
+    "+33 1 23 45 67 89",
+    "sophie.turner@lumen-labs.example"
+   ]
+  }
+ ],
+ "keep/013.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "sophie.turner@northwind-test.example",
+    "601 700 800",
+    "+44 20 7946 0958",
+    "anna.nowak@lumen-labs.example"
+   ]
+  }
+ ],
+ "keep/014.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "anna.nowak@acme.example",
+    "+48 512 000 345",
+    "+1 202 555 0143",
+    "lukas.brandt@northwind-test.example"
+   ]
+  }
+ ],
+ "keep/015.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "anna.nowak@lumen-labs.example",
+    "+48 512 000 345",
+    "+48 601 234 567",
+    "emily.carter@brightpay.example"
+   ]
+  }
+ ],
+ "keep/016.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "maria.zielinska@fjord-works.example",
+    "+1 202 555 0143",
+    "601 700 800",
+    "claire.dubois@oakline.example"
+   ]
+  }
+ ],
+ "keep/017.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "john.smith@acme.example",
+    "+48 22 555 01 23",
+    "+44 7700 900123",
+    "tomasz.lewandowski@harbor-point.example"
+   ]
+  }
+ ],
+ "keep/018.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "lukas.brandt@lumen-labs.example",
+    "+48 22 555 01 23",
+    "601 700 800",
+    "anna.nowak@northwind-test.example"
+   ]
+  }
+ ],
+ "keep/019.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "anna.nowak@lumen-labs.example",
+    "+33 1 23 45 67 89",
+    "+49 30 901820",
+    "oliver.hughes@brightpay.example"
+   ]
+  }
+ ],
+ "keep/020.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "maria.zielinska@acme.example",
+    "601 700 800",
+    "+48 22 555 01 23",
+    "emily.carter@acme.example"
+   ]
+  }
+ ],
+ "keep/021.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "oliver.hughes@oakline.example",
+    "+44 20 7946 0958",
+    "601 700 800",
+    "tomasz.lewandowski@lumen-labs.example"
+   ]
+  }
+ ],
+ "keep/022.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "maria.zielinska@oakline.example",
+    "(+48) 600-111-222",
+    "601 700 800",
+    "anna.nowak@fjord-works.example"
+   ]
+  }
+ ],
+ "keep/023.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "lukas.brandt@brightpay.example",
+    "601 700 800",
+    "+1 202 555 0143",
+    "ewa.mazur@acme.example"
+   ]
+  }
+ ],
+ "keep/024.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "ewa.mazur@kestrel.example",
+    "+1 202 555 0143",
+    "+44 7700 900123",
+    "jan.kowalski@brightpay.example"
+   ]
+  }
+ ],
+ "keep/025.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "maria.zielinska@lumen-labs.example",
+    "+49 30 901820",
+    "+44 7700 900123",
+    "claire.dubois@brightpay.example"
+   ]
+  }
+ ],
+ "keep/026.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "lukas.brandt@northwind-test.example",
+    "+44 20 7946 0958",
+    "+49 30 901820",
+    "piotr.wisniewski@fjord-works.example"
+   ]
+  }
+ ],
+ "keep/027.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "maria.zielinska@acme.example",
+    "+48 22 555 01 23",
+    "(+48) 600-111-222",
+    "claire.dubois@fjord-works.example"
+   ]
+  }
+ ],
+ "keep/028.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "piotr.wisniewski@oakline.example",
+    "+48 601 234 567",
+    "+44 7700 900123",
+    "claire.dubois@acme.example"
+   ]
+  }
+ ],
+ "keep/029.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "emily.carter@oakline.example",
+    "(+48) 600-111-222",
+    "+48 601 234 567",
+    "john.smith@northwind-test.example"
+   ]
+  }
+ ],
+ "keep/030.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "ewa.mazur@oakline.example",
+    "+33 1 23 45 67 89",
+    "+49 30 901820",
+    "sophie.turner@kestrel.example"
+   ]
+  }
+ ],
+ "keep/031.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "claire.dubois@northwind-test.example",
+    "+44 7700 900123",
+    "+49 30 901820",
+    "sophie.turner@oakline.example"
+   ]
+  }
+ ],
+ "keep/032.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "piotr.wisniewski@lumen-labs.example",
+    "601 700 800",
+    "+33 1 23 45 67 89",
+    "tomasz.lewandowski@northwind-test.example"
+   ]
+  }
+ ],
+ "keep/033.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "oliver.hughes@fjord-works.example",
+    "+44 7700 900123",
+    "+44 20 7946 0958",
+    "ewa.mazur@brightpay.example"
+   ]
+  }
+ ],
+ "keep/034.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "john.smith@fjord-works.example",
+    "601 700 800",
+    "+48 601 234 567",
+    "anna.nowak@brightpay.example"
+   ]
+  }
+ ],
+ "keep/035.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "john.smith@brightpay.example",
+    "(+48) 600-111-222",
+    "+48 512 000 345",
+    "ewa.mazur@lumen-labs.example"
+   ]
+  }
+ ],
+ "keep/036.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "claire.dubois@acme.example",
+    "+44 20 7946 0958",
+    "+49 30 901820",
+    "emily.carter@brightpay.example"
+   ]
+  }
+ ],
+ "keep/037.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "piotr.wisniewski@kestrel.example",
+    "+48 512 000 345",
+    "+49 30 901820",
+    "sophie.turner@brightpay.example"
+   ]
+  }
+ ],
+ "keep/038.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "oliver.hughes@fjord-works.example",
+    "+44 20 7946 0958",
+    "+44 7700 900123",
+    "piotr.wisniewski@kestrel.example"
+   ]
+  }
+ ],
+ "keep/039.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "jan.kowalski@kestrel.example",
+    "+44 7700 900123",
+    "+1 202 555 0143",
+    "maria.zielinska@acme.example"
+   ]
+  }
+ ],
+ "keep/040.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "claire.dubois@acme.example",
+    "+44 20 7946 0958",
+    "+48 512 000 345",
+    "maria.zielinska@northwind-test.example"
+   ]
+  }
+ ],
+ "keep/041.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "piotr.wisniewski@fjord-works.example",
+    "+44 7700 900123",
+    "+44 20 7946 0958",
+    "maria.zielinska@fjord-works.example"
+   ]
+  }
+ ],
+ "keep/042.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "claire.dubois@kestrel.example",
+    "+44 7700 900123",
+    "+49 30 901820",
+    "lukas.brandt@fjord-works.example"
+   ]
+  }
+ ],
+ "keep/043.txt": [
+  {
+   "category": "keep",
+   "values": [
+    "anna.nowak@harbor-point.example",
+    "+49 30 901820",
+    "+48 512 000 345",
+    "sophie.turner@acme.example"
+   ]
+  }
+ ],
+ "keep/044.eml": [
+  {
+   "category": "keep",
+   "values": [
+    "tomasz.lewandowski@harbor-point.example",
+    "(+48) 600-111-222",
+    "601 700 800",
+    "anna.nowak@northwind-test.example"
+   ]
+  }
+ ],
+ "locked/001.txt": [
+  {
+   "category": "passwords",
+   "values": [
+    "XkL18Qo6#9"
+   ]
+  }
+ ],
+ "locked/002.eml": [
+  {
+   "category": "otp_codes",
+   "values": [
+    "866276"
+   ]
+  }
+ ],
+ "locked/003.txt": [
+  {
+   "category": "reset_verification_links",
+   "values": [
+    "https://accounts.kestrel.example/reset-password?token=t8coHkKNS9NoMKpPYra0nPdUmyIxMZwf"
+   ]
+  }
+ ],
+ "locked/004.eml": [
+  {
+   "category": "api_keys_tokens",
+   "values": [
+    "xoxb-84257916162-880284066250-6zLrAzPX05XCB5jy9sNMhk0l"
+   ]
+  }
+ ],
+ "locked/005.txt": [
+  {
+   "category": "passwords",
+   "values": [
+    "XkwZmhLD#9"
+   ]
+  }
+ ],
+ "locked/006.eml": [
+  {
+   "category": "otp_codes",
+   "values": [
+    "100694"
+   ]
+  }
+ ],
+ "locked/007.txt": [
+  {
+   "category": "reset_verification_links",
+   "values": [
+    "https://accounts.northwind-test.example/reset-password?token=NKw0yX4CUhw4yK0fVXYyNMbfzpQXppT2"
+   ]
+  }
+ ],
+ "locked/008.eml": [
+  {
+   "category": "api_keys_tokens",
+   "values": [
+    "xoxb-45881146499-456601333849-XUascORkjmzmFEqh0ePKGd7s"
+   ]
+  }
+ ],
+ "locked/009.txt": [
+  {
+   "category": "passwords",
+   "values": [
+    "XkWqHIF3#9"
+   ]
+  }
+ ],
+ "locked/010.eml": [
+  {
+   "category": "otp_codes",
+   "values": [
+    "579255"
+   ]
+  }
+ ],
+ "locked/011.txt": [
+  {
+   "category": "reset_verification_links",
+   "values": [
+    "https://accounts.kestrel.example/reset-password?token=FozdKRGVAT6BSx7XIa4rUpHknU6J4wY5"
+   ]
+  }
+ ],
+ "locked/012.eml": [
+  {
+   "category": "api_keys_tokens",
+   "values": [
+    "xoxb-89202007923-996151645470-UeODLukRdU9ZipqbyR0su3xh"
+   ]
+  }
+ ],
+ "locked/013.txt": [
+  {
+   "category": "passwords",
+   "values": [
+    "XkC9Ityr#9"
+   ]
+  }
+ ],
+ "locked/014.eml": [
+  {
+   "category": "otp_codes",
+   "values": [
+    "503798"
+   ]
+  }
+ ],
+ "locked/015.txt": [
+  {
+   "category": "reset_verification_links",
+   "values": [
+    "https://accounts.harbor-point.example/reset-password?token=hLVIi3IHesVULROFgdqXRgCbDBgYgyCA"
+   ]
+  }
+ ],
+ "locked/016.eml": [
+  {
+   "category": "api_keys_tokens",
+   "values": [
+    "AKIAWS64TCLN422QNJWY"
+   ]
+  }
+ ],
+ "locked/017.txt": [
+  {
+   "category": "passwords",
+   "values": [
+    "XkSZ6SvF#9"
+   ]
+  }
+ ],
+ "locked/018.eml": [
+  {
+   "category": "otp_codes",
+   "values": [
+    "148679"
+   ]
+  }
+ ],
+ "locked/019.txt": [
+  {
+   "category": "reset_verification_links",
+   "values": [
+    "https://accounts.lumen-labs.example/reset-password?token=Du130ugAjobyI9mfotVjR98H77EdBrNh"
+   ]
+  }
+ ],
+ "locked/020.eml": [
+  {
+   "category": "api_keys_tokens",
+   "values": [
+    "xoxb-99333000897-315911009356-nAlcZJj8kk7bhldcasLTU2iU"
+   ]
+  }
+ ],
+ "locked/021.txt": [
+  {
+   "category": "passwords",
+   "values": [
+    "XkmxNew4#9"
+   ]
+  }
+ ],
+ "locked/022.eml": [
+  {
+   "category": "otp_codes",
+   "values": [
+    "512442"
+   ]
+  }
+ ],
+ "locked/023.txt": [
+  {
+   "category": "reset_verification_links",
+   "values": [
+    "https://accounts.lumen-labs.example/reset-password?token=FUffgYvnS2enxFmcD9ZLKQyedPNspwLf"
+   ]
+  }
+ ],
+ "locked/024.eml": [
+  {
+   "category": "api_keys_tokens",
+   "values": [
+    "ghp_psHW8zNRgaYdUdm38AqMpPjvUzTP1glPEmuF"
+   ]
+  }
+ ],
+ "locked/025.txt": [
+  {
+   "category": "passwords",
+   "values": [
+    "XkI7MFBd#9"
+   ]
+  }
+ ],
+ "locked/026.eml": [
+  {
+   "category": "otp_codes",
+   "values": [
+    "642506"
+   ]
+  }
+ ],
+ "locked/027.txt": [
+  {
+   "category": "reset_verification_links",
+   "values": [
+    "https://accounts.northwind-test.example/reset-password?token=r6hLVwq3CQXMG6S2rjT9k04xwmECQpUU"
+   ]
+  }
+ ],
+ "locked/028.eml": [
+  {
+   "category": "api_keys_tokens",
+   "values": [
+    "sk_live_qYOSQ8spuLRERtIF3c8qFI9z"
+   ]
+  }
+ ],
+ "locked/029.txt": [
+  {
+   "category": "passwords",
+   "values": [
+    "XkG9RCQ5#9"
+   ]
+  }
+ ],
+ "locked/030.eml": [
+  {
+   "category": "otp_codes",
+   "values": [
+    "949787"
+   ]
+  }
+ ],
+ "locked/031.txt": [
+  {
+   "category": "reset_verification_links",
+   "values": [
+    "https://accounts.brightpay.example/reset-password?token=Tq3GqJ8tvwNfqfpxOcLxlSmQFCw5zhvM"
+   ]
+  }
+ ],
+ "locked/032.eml": [
+  {
+   "category": "api_keys_tokens",
+   "values": [
+    "sk_live_MM8lcxjmqnTESTVUyUdkk0uo"
+   ]
+  }
+ ],
+ "optional/001.txt": [
+  {
+   "category": "payment_cards",
+   "values": [
+    "4943 5995 8720 9431"
+   ]
+  }
+ ],
+ "optional/002.eml": [
+  {
+   "category": "payment_cards",
+   "values": [
+    "4856 6610 0084 1581"
+   ]
+  }
+ ],
+ "optional/003.txt": [
+  {
+   "category": "payment_cards",
+   "values": [
+    "5357 2818 3268 3936"
+   ]
+  }
+ ],
+ "optional/004.eml": [
+  {
+   "category": "payment_cards",
+   "values": [
+    "5284 6163 1090 7372"
+   ]
+  }
+ ],
+ "optional/005.txt": [
+  {
+   "category": "payment_cards",
+   "values": [
+    "5140 3087 4308 2213"
+   ]
+  }
+ ],
+ "optional/006.eml": [
+  {
+   "category": "payment_cards",
+   "values": [
+    "5206 6550 1338 7701"
+   ]
+  }
+ ],
+ "optional/007.txt": [
+  {
+   "category": "bank_accounts",
+   "values": [
+    "PL32974864112664060166295801"
+   ]
+  }
+ ],
+ "optional/008.eml": [
+  {
+   "category": "bank_accounts",
+   "values": [
+    "DE75252149857468694170"
+   ]
+  }
+ ],
+ "optional/009.txt": [
+  {
+   "category": "bank_accounts",
+   "values": [
+    "PL66620326888423771358102190"
+   ]
+  }
+ ],
+ "optional/010.eml": [
+  {
+   "category": "bank_accounts",
+   "values": [
+    "DE74344356452871457256"
+   ]
+  }
+ ],
+ "optional/011.txt": [
+  {
+   "category": "bank_accounts",
+   "values": [
+    "PL37951117960057570901027566"
+   ]
+  }
+ ],
+ "optional/012.eml": [
+  {
+   "category": "bank_accounts",
+   "values": [
+    "DE48583700109395187436"
+   ]
+  }
+ ],
+ "optional/013.txt": [
+  {
+   "category": "government_ids",
+   "values": [
+    "77081924477"
+   ]
+  }
+ ],
+ "optional/014.eml": [
+  {
+   "category": "government_ids",
+   "values": [
+    "77081622610"
+   ]
+  }
+ ],
+ "optional/015.txt": [
+  {
+   "category": "government_ids",
+   "values": [
+    "77081103788"
+   ]
+  }
+ ],
+ "optional/016.eml": [
+  {
+   "category": "government_ids",
+   "values": [
+    "77081136414"
+   ]
+  }
+ ],
+ "optional/017.txt": [
+  {
+   "category": "government_ids",
+   "values": [
+    "77081534489"
+   ]
+  }
+ ],
+ "optional/018.eml": [
+  {
+   "category": "government_ids",
+   "values": [
+    "77081501524"
+   ]
+  }
+ ],
+ "optional/019.txt": [
+  {
+   "category": "third_party_contacts",
+   "values": [
+    "ul. Lipowa 12/4, 00-950 Warszawa"
+   ]
+  }
+ ],
+ "optional/020.eml": [
+  {
+   "category": "third_party_contacts",
+   "values": [
+    "Bahnhofstrasse 8, 20095 Hamburg"
+   ]
+  }
+ ],
+ "optional/021.txt": [
+  {
+   "category": "third_party_contacts",
+   "values": [
+    "14 Maple Road, Leeds LS6 2QX"
+   ]
+  }
+ ],
+ "optional/022.eml": [
+  {
+   "category": "third_party_contacts",
+   "values": [
+    "ul. Krótka 3, 31-100 Kraków"
+   ]
+  }
+ ],
+ "optional/023.txt": [
+  {
+   "category": "third_party_contacts",
+   "values": [
+    "22 Harbor Street, Springfield 62704"
+   ]
+  }
+ ],
+ "optional/024.eml": [
+  {
+   "category": "third_party_contacts",
+   "values": [
+    "Rue des Lilas 5, 75011 Paris"
+   ]
+  }
+ ],
+ "hard_negative/001.txt": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "anna.nowak@lumen-labs.example",
+    "+48 512 000 345"
+   ]
+  }
+ ],
+ "hard_negative/002.eml": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "emily.carter@brightpay.example",
+    "+1 202 555 0143"
+   ]
+  }
+ ],
+ "hard_negative/003.txt": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "maria.zielinska@northwind-test.example",
+    "+1 202 555 0143"
+   ]
+  }
+ ],
+ "hard_negative/004.eml": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "oliver.hughes@brightpay.example",
+    "601 700 800"
+   ]
+  }
+ ],
+ "hard_negative/005.txt": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "john.smith@harbor-point.example",
+    "+44 20 7946 0958"
+   ]
+  }
+ ],
+ "hard_negative/006.eml": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "claire.dubois@lumen-labs.example",
+    "(+48) 600-111-222"
+   ]
+  }
+ ],
+ "hard_negative/007.txt": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "jan.kowalski@brightpay.example",
+    "+48 512 000 345"
+   ]
+  }
+ ],
+ "hard_negative/008.eml": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "john.smith@acme.example",
+    "+44 7700 900123"
+   ]
+  }
+ ],
+ "hard_negative/009.txt": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "claire.dubois@northwind-test.example",
+    "+49 30 901820"
+   ]
+  }
+ ],
+ "hard_negative/010.eml": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "oliver.hughes@acme.example",
+    "+48 512 000 345"
+   ]
+  }
+ ],
+ "hard_negative/011.txt": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "oliver.hughes@kestrel.example",
+    "+33 1 23 45 67 89"
+   ]
+  }
+ ],
+ "hard_negative/012.eml": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "maria.zielinska@kestrel.example",
+    "+1 202 555 0143"
+   ]
+  }
+ ],
+ "hard_negative/013.txt": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "jan.kowalski@lumen-labs.example",
+    "+48 512 000 345"
+   ]
+  }
+ ],
+ "hard_negative/014.eml": [
+  {
+   "category": "hard_negative",
+   "values": [
+    "maria.zielinska@oakline.example",
+    "601 700 800"
+   ]
+  }
+ ]
+}

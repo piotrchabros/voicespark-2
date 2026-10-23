@@ -1,0 +1,9 @@
+Hello,
+
+Please contact Piotr Wisniewski at piotr.wisniewski@oakline.example or call +48 601 234 567 about the schedule.
+
+Regards,
+Claire Dubois
+Account executive, acme Ltd
+Tel: +44 7700 900123
+E-mail: claire.dubois@acme.example
