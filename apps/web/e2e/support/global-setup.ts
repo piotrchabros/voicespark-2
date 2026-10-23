@@ -55,6 +55,9 @@ const WARMUP_PATHS = [
   '/api/hub/sync',
   '/api/hub/sync/retry',
   '/api/hub/sync/resync',
+  // Search (US5).
+  '/hub/search',
+  '/api/hub/search',
 ];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });

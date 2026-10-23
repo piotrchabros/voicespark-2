@@ -198,3 +198,63 @@ export function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// Search (US5; contracts/http-api.md "Search", contracts/hub-search.md). The server sends highlight offsets, never HTML.
+
+export type HubSearchType = ServiceKind | 'note' | 'file';
+
+export const SEARCH_TYPES: readonly HubSearchType[] = ['person', 'company', 'project', 'note', 'file'];
+
+export const SEARCH_TYPE_LABELS: Record<HubSearchType, string> = {
+  person: 'Person',
+  company: 'Company',
+  project: 'Project',
+  note: 'Note',
+  file: 'File',
+};
+
+/** Filter chips: one type at a time, in this order. */
+export const SEARCH_TYPE_FILTERS: { type: HubSearchType; label: string }[] = [
+  { type: 'person', label: 'People' },
+  { type: 'company', label: 'Companies' },
+  { type: 'project', label: 'Projects' },
+  { type: 'note', label: 'Notes' },
+  { type: 'file', label: 'Files' },
+];
+
+export const SEARCH_QUERY_MAX = 200;
+
+export interface HubSearchSnippet {
+  text: string;
+  /** UTF-16 offsets into `text`: `[start, end]`. */
+  highlights: [number, number][];
+}
+
+export interface HubSearchItem {
+  type: HubSearchType;
+  id: string;
+  title: string;
+  /** The record a note or file belongs to; null for records. */
+  owner: { kind: ServiceKind; id: string; name: string } | null;
+  snippets: HubSearchSnippet[];
+  updatedAt: string;
+}
+
+/** The `types` query value (comma list) as known types, deduplicated; unknown words are ignored. */
+export function parseSearchTypes(raw: string | undefined): HubSearchType[] {
+  if (!raw) return [];
+  const out: HubSearchType[] = [];
+  for (const part of raw.split(',')) {
+    const t = part.trim() as HubSearchType;
+    if (SEARCH_TYPES.includes(t) && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/** Where a search result opens: records on their own page, notes and files on their record's page. */
+export function searchResultHref(item: Pick<HubSearchItem, 'type' | 'id' | 'owner'>): string {
+  if (item.type === 'note' || item.type === 'file') {
+    return item.owner ? `/hub/${KIND_PATH[item.owner.kind]}/${item.owner.id}` : '/hub';
+  }
+  return `/hub/${KIND_PATH[item.type]}/${item.id}`;
+}

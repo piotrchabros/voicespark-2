@@ -1158,6 +1158,26 @@ describe("(b) an admin reaching another user's content", () => {
     for (const id of Object.values(seed.u.hub)) expect(res.text).not.toContain(id);
   });
 
+  it("GET /api/hub/search finds only the admin's own items, with no audit", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const before = await deniedCount(seed.adminA, seed.u.hub.noteId);
+    // Both hubs carry a note whose title and body are `${SECRET_MARKER}-H5`; only the admin's own one may come back.
+    const res = await call(
+      API_ROOT,
+      'hub/search',
+      'GET',
+      {},
+      { query: { q: `${SECRET_MARKER}-H5`, limit: '100' } },
+    );
+    expect(res.status).toBe(200);
+    const ids = listIds(res.json);
+    expect(ids).toContain(seed.a.hub.noteId);
+    expect(ids).not.toContain(seed.u.hub.noteId);
+    for (const id of Object.values(seed.u.hub)) expect(res.text).not.toContain(id);
+    for (const h of hubTokenHashes(seed)) expect(res.text).not.toContain(h);
+    expect(await deniedCount(seed.adminA, seed.u.hub.noteId)).toBe(before);
+  });
+
   it("GET /api/content-items lists only the admin's own items", async () => {
     actor.current = { userId: seed.adminA, role: 'admin' };
     const res = await call(API_ROOT, 'content-items', 'GET', {}, { query: { limit: '100' } });
