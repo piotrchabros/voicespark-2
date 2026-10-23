@@ -9,6 +9,15 @@ import {
   exclusionRule,
   filterPreferences,
   getDb,
+  hubCompany,
+  hubFact,
+  hubFile,
+  hubIgnoreRule,
+  hubLink,
+  hubNote,
+  hubPerson,
+  hubProject,
+  hubThread,
   importJob,
   notification,
   ownAnalysisPrompt,
@@ -62,7 +71,16 @@ export type ForeignResourceType =
   | 'profile'
   | 'profile_generation'
   | 'draft'
-  | 'own_prompt_version';
+  | 'own_prompt_version'
+  | 'hub_person'
+  | 'hub_company'
+  | 'hub_project'
+  | 'hub_note'
+  | 'hub_file'
+  | 'hub_link'
+  | 'hub_suggestion'
+  | 'hub_thread'
+  | 'hub_ignore_rule';
 
 interface ForeignResourceTable {
   table: PgTable;
@@ -75,18 +93,34 @@ export const FOREIGN_RESOURCE_TABLES: Record<
   Exclude<ForeignResourceType, 'own_prompt_version'>,
   ForeignResourceTable
 > = {
-  source: { table: connectedSource, idColumn: connectedSource.id, userIdColumn: connectedSource.userId },
+  source: {
+    table: connectedSource,
+    idColumn: connectedSource.id,
+    userIdColumn: connectedSource.userId,
+  },
   content_item: { table: contentItem, idColumn: contentItem.id, userIdColumn: contentItem.userId },
   import_job: { table: importJob, idColumn: importJob.id, userIdColumn: importJob.userId },
-  notification: { table: notification, idColumn: notification.id, userIdColumn: notification.userId },
+  notification: {
+    table: notification,
+    idColumn: notification.id,
+    userIdColumn: notification.userId,
+  },
   deletion_request: {
     table: deletionRequest,
     idColumn: deletionRequest.id,
     userIdColumn: deletionRequest.userId,
   },
   retroscan: { table: retroscan, idColumn: retroscan.id, userIdColumn: retroscan.userId },
-  exclusion_rule: { table: exclusionRule, idColumn: exclusionRule.id, userIdColumn: exclusionRule.userId },
-  identity: { table: signInIdentity, idColumn: signInIdentity.accountId, userIdColumn: signInIdentity.userId },
+  exclusion_rule: {
+    table: exclusionRule,
+    idColumn: exclusionRule.id,
+    userIdColumn: exclusionRule.userId,
+  },
+  identity: {
+    table: signInIdentity,
+    idColumn: signInIdentity.accountId,
+    userIdColumn: signInIdentity.userId,
+  },
   upload: { table: upload, idColumn: upload.id, userIdColumn: upload.userId },
   profile: { table: toneProfile, idColumn: toneProfile.id, userIdColumn: toneProfile.userId },
   profile_generation: {
@@ -95,6 +129,19 @@ export const FOREIGN_RESOURCE_TABLES: Record<
     userIdColumn: profileGeneration.userId,
   },
   draft: { table: draft, idColumn: draft.id, userIdColumn: draft.userId },
+  hub_person: { table: hubPerson, idColumn: hubPerson.id, userIdColumn: hubPerson.userId },
+  hub_company: { table: hubCompany, idColumn: hubCompany.id, userIdColumn: hubCompany.userId },
+  hub_project: { table: hubProject, idColumn: hubProject.id, userIdColumn: hubProject.userId },
+  hub_note: { table: hubNote, idColumn: hubNote.id, userIdColumn: hubNote.userId },
+  hub_file: { table: hubFile, idColumn: hubFile.id, userIdColumn: hubFile.userId },
+  hub_link: { table: hubLink, idColumn: hubLink.id, userIdColumn: hubLink.userId },
+  hub_suggestion: { table: hubFact, idColumn: hubFact.id, userIdColumn: hubFact.userId },
+  hub_thread: { table: hubThread, idColumn: hubThread.id, userIdColumn: hubThread.userId },
+  hub_ignore_rule: {
+    table: hubIgnoreRule,
+    idColumn: hubIgnoreRule.id,
+    userIdColumn: hubIgnoreRule.userId,
+  },
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -21,7 +21,20 @@ const WORKER_PID_FILE = join(STATE_DIR, 'worker.pid');
 /** Marker in the worker's environment: a stale pid is only killed when it still carries it. */
 const WORKER_MARKER = 'VS_E2E_WORKER=1';
 const WORKER_READY_TIMEOUT_MS = 60_000;
-const WARMUP_PATHS = ['/sign-in', '/dashboard', '/drafts'];
+const HUB_WARMUP_ID = '00000000-0000-4000-8000-000000000000';
+const WARMUP_PATHS = [
+  '/sign-in',
+  '/dashboard',
+  '/drafts',
+  // Hub screens and API (the record detail route is compiled even when the id is unknown).
+  ...(['people', 'companies', 'projects'] as const).flatMap((kind) => [
+    `/hub/${kind}`,
+    `/hub/${kind}/new`,
+    `/hub/${kind}/${HUB_WARMUP_ID}`,
+    `/api/hub/${kind}`,
+    `/api/hub/${kind}/${HUB_WARMUP_ID}`,
+  ]),
+];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });
 

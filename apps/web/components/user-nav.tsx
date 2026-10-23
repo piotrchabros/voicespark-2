@@ -14,6 +14,7 @@ const LINKS = [
   { href: '/filters', label: 'Filters' },
   { href: '/profiles', label: 'Profiles' },
   { href: '/drafts', label: 'Drafts' },
+  { href: '/hub', label: 'Hub' },
   { href: '/notifications', label: 'Notifications' },
   { href: '/settings', label: 'Settings' },
 ];

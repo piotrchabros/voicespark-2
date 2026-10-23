@@ -21,6 +21,7 @@ export const config = {
     '/exclusion-rules/:path*',
     '/profiles/:path*',
     '/drafts/:path*',
+    '/hub/:path*',
     '/notifications/:path*',
     '/settings/:path*',
     '/admin/:path*',
