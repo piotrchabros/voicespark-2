@@ -263,7 +263,7 @@ New `packages/db/src/data/analysis-prompts.ts` exports:
 
 The backfill runs `UPDATE ... SET analysis_prompt = build(...) WHERE analysis_prompt IS NULL` for every version, active and superseded, so rollback stays valid. It inserts v2 of the generate and feedback templates when the active version lacks `{{analysisPrompt}}`. It is idempotent.
 
-The builder text starts: `Analyse how {firstName} writes for "{name}". {description} Write one section for each aspect below ...`. Then one line per dimension: name, description, value guidance from the existing `valueSpec` logic, and guidance. `valueSpec` moves into the db package (or is duplicated), and core re-exports it. `packages/db/src/seed.ts` sets `analysis_prompt` through the same builder.
+The builder text starts: `Analyse how the author writes for "{name}". {description} Write one section for each aspect below ...` (a stored default has no user name; exact text in contracts/analysis-prompt.md). Then one line per dimension: name, description, value guidance from the existing `valueSpec` logic, and guidance. `valueSpec` moves into the db package (or is duplicated), and core re-exports it. `packages/db/src/seed.ts` sets `analysis_prompt` through the same builder.
 
 On a fresh database, migrate runs, the backfill is a no-op, and seed inserts the new rows.
 
@@ -309,7 +309,7 @@ Limit: paraphrase is not caught. The guard text covers that case on a best-effor
 
 The notification type is added to `NOTIFICATION_TYPES` in `packages/db/src/schema/notifications.ts`. The migration replaces `notification_type_check`. It is in-app only: it is not added to `EMAILED_NOTIFICATION_TYPES` in `packages/integrations/src/smtp/mailer.ts`. The UI case goes in `describe()` in `apps/web/app/(user)/notifications/page.tsx`. The link goes to `/profiles/{profileId}/analysis-prompt?from=...&to=...`, which shows the default-changes diff and a one-click "Use the default".
 
-Audit metadata on `definition.version_published` and `definition.version_rolled_back` gains `{analysisPromptChanged, notifiedUsers}`. Payloads carry ids and counts only.
+Audit metadata on `definition.version_published` and `definition.rolled_back` gains `{analysisPromptChanged, notifiedUsers}`. Payloads carry ids and counts only.
 
 **Rationale**: FR-012 to FR-014. 1,000 users fan out inline in under 1 second, which meets SC-005 (notified within 1 minute).
 

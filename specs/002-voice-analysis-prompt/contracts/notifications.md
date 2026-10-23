@@ -40,7 +40,7 @@ Ids only. No prompt text, no names, no diff.
 
 ### Audit link
 
-The audit entries `definition.version_published` and `definition.version_rolled_back` get metadata `{analysisPromptChanged: boolean, notifiedUsers: number}`. Counts only.
+The audit entries `definition.version_published` and `definition.rolled_back` get metadata `{analysisPromptChanged: boolean, notifiedUsers: number}`. Counts only.
 
 ### UI
 
@@ -62,7 +62,7 @@ The audit entries `definition.version_published` and `definition.version_rolled_
 ## Changed use: `generation_failed`
 
 - Payload is unchanged: ids and `errorCode`.
-- New error codes in the payload: `invalid_output`, `analysis_prompt_excluded`, `output_excluded`, `feedback_excluded`, `llm_refused` (see contracts/analysis-prompt.md). The page maps each to a short generic message. It shows no content.
+- New error codes in the payload: `invalid_output`, `analysis_prompt_excluded`, `analysis_prompt_missing`, `inspection_failed`, `output_excluded`, `feedback_excluded`, `llm_refused` (see contracts/analysis-prompt.md). The page maps each to a short generic message. It shows no content.
 - `analysis_prompt_excluded` tells the user to edit their own prompt or use the default.
 
 ## Unchanged
