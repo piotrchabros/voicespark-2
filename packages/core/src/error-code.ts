@@ -21,6 +21,8 @@ const KNOWN_ERROR_NAMES = new Set([
   'LlmRefusedError',
   'LlmConfigError',
   'MemoryStoreAuthError',
+  'MemoryStoreBusyError',
+  'MemoryStoreHttpError',
   'ClassifierError',
   'ZodError',
 ]);

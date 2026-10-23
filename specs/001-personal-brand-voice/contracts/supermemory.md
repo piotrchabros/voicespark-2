@@ -1,6 +1,6 @@
 # Contract: Supermemory port (`@voicespark/integrations/supermemory`)
 
-Supermemory v5 (namespaces). SDK: npm `supermemory`. Names below follow the canonical glossary.
+Supermemory v5 (namespaces) or the self-hosted v3 server (see "v3 adapter (self-hosted)" below). SDK: npm `supermemory`. Names below follow the canonical glossary.
 
 ## Port interface
 
@@ -11,9 +11,75 @@ Supermemory v5 (namespaces). SDK: npm `supermemory`. Names below follow the cano
 - `deleteDocuments(ns, ids: string[]): Promise<{count, errors}>` (chunks of 100 internally)
 - `deleteNamespace(ns): Promise<void>`
 
-Implementations: `SupermemoryAdapter` (on the `supermemory` SDK) and `InMemoryMemoryStore` (tests; selected only when `NODE_ENV=test` or `AUTH_TEST_MODE=1`, never in production).
+Implementations: `SupermemoryV3Adapter` (default; plain REST against the self-hosted v3 server), `SupermemoryAdapter` (v5, on the `supermemory` SDK) and `InMemoryMemoryStore` (tests; selected only when `NODE_ENV=test` or `AUTH_TEST_MODE=1`, never in production).
 
-## Upstream API facts (verified)
+## v3 adapter (self-hosted)
+
+`SupermemoryV3Adapter` talks plain REST to the self-hosted server at `SUPERMEMORY_BASE_URL` (default `https://supermemory.voicespark.ai`) with `Authorization: Bearer <SUPERMEMORY_API_KEY>`. It never uses a loopback address. `SUPERMEMORY_API_VERSION` selects the adapter: `v3` (default) or `v5`. `v5` with the voicespark host is rejected at startup.
+
+### Endpoints
+
+| Port method | v3 endpoint | Notes |
+|---|---|---|
+| `addDocuments` | `POST /v3/documents` `{content, customId, containerTag, metadata, documentDate}` | Returns `{id, status: "queued"}`. |
+| `addDocuments` (existing) | `PATCH /v3/documents/{customId}` | Content replaced, metadata merged per key. |
+| `getDocument` | `GET /v3/documents/{customId}` | 404 maps to `null`. |
+| `updateDocumentMetadata` | `PATCH /v3/documents/{customId}` `{metadata, containerTag}` | |
+| `listDocuments` | `POST /v3/documents/list` `{containerTags, filters, page, limit, sort, order}` | `limit` up to 1100. |
+| `search` | `POST /v3/search` `{q, containerTag, limit, onlyMatchingChunks, rerank, rewriteQuery, filters}` | `q` is required (`query` returns 400). `limit` is capped at 100. |
+| `deleteDocuments` | `DELETE /v3/documents/{customId}` | One call per id. |
+| `deleteNamespace` | `DELETE /v3/container-tags/{tag}` | Needs org owner or admin. |
+| `listMemories` | `POST /v4/memories/list` `{containerTags, page, limit}` | Forgotten entries are dropped. |
+
+Filters use `{AND: [...]}` or `{OR: [...]}` with leaves `{key, value, filterType, negate?, numericOperator?}`. Depth is at most 5. A single leaf at the root is wrapped as `{AND: [leaf]}`. `toV3Filter` maps the port operators: `eq`/`neq` to metadata (numbers use `numeric` with `=`), `gt/gte/lt/lte` to `numeric`, `contains` to `string_contains`, `arrayContains` to `array_contains`. The `not` variants set `negate`. Array values are rejected, as in v5.
+
+### Custom id: `{ns}__{id}`
+
+The server looks up `customId` across the whole account, not per container tag, and the account is shared with another app. The adapter therefore stores each document as `customId = {ns}__{id}` and strips the prefix on every read. A prefix mismatch is a hard stop: `listDocuments` throws on any item outside the namespace, `search` skips results without the prefix, and `getDocument` returns `null` when `containerTags` lacks the namespace. The custom id must match `^[A-Za-z0-9_.:-]{1,100}$`.
+
+### Writes: GET before write
+
+The server appends to an existing `customId` on a repeated `POST`, and silently drops writes while a document is processing. So the adapter never posts to an existing id:
+
+1. `GET` the document. A document in another namespace throws.
+2. Absent: `POST`. A 429 retries the same `POST`. A 5xx or transport error goes back to step 1, because the first `POST` may have landed.
+3. Present with identical content and identical sent metadata: no write.
+4. Present and different: wait while it is processing, then `PATCH`. A 404 goes back to step 1. A 409 waits and retries.
+
+Each write step is retried up to 3 times, each restarting at the `GET`.
+
+### Processing wait and `MemoryStoreBusyError`
+
+Statuses `queued`, `extracting`, `chunking`, `embedding` and `indexing` mean the document is processing (30 to 60 seconds for small documents). The adapter polls every `processingPollMs` (default 5 s) for up to `processingWaitMs` (default 15 s). If the document is still processing, it throws `MemoryStoreBusyError` (`code: memory_store_busy`, retryable) without writing. The job retries on its own. `waitUntilProcessed(ns, ids, timeoutMs)` is not on the port; the contract test uses it and it returns the ids still processing.
+
+### Metadata merge
+
+`PATCH` merges metadata per key, and arrays are replaced whole. Callers must pass the full metadata they want, including the complete `vs_source_ids` array.
+
+### Search mapping
+
+One hit per result. `id` is the de-prefixed `documentId`. `content` is the relevant chunks sorted by position and joined with a blank line (all chunks if none is marked relevant). `score` is the result score. Hits are sorted by score, highest first. An empty query returns `[]` without a request. An unknown container tag returns an empty result.
+
+### deleteNamespace fallback chain
+
+1. `DELETE /v3/container-tags/{ns}`. A 2xx, 404 or 403 continues. 401 throws. Anything else throws.
+2. Up to `purgeRounds` (default 10) rounds of `listDocuments` (limit 100) then `deleteDocuments`, until the list is empty.
+3. Documents left after the last round throw `MemoryStoreBusyError('deleteNamespace')`.
+
+The caller then checks that the namespace is empty. A not-found error counts as empty; every other error is rethrown.
+
+### Errors
+
+- 401: `MemoryStoreAuthError`, after exactly one request.
+- 429, 5xx and transport errors (reset, timeout, truncated JSON): retried with back-off `[500, 1000, 2000, 4000]` ms. `Retry-After` is honoured, capped at 30 s. 5xx and transport errors are retried only for idempotent calls. When retries run out, a retryable `MemoryStoreHttpError` is thrown.
+- Other 4xx: not retried. `MemoryStoreHttpError` with code `supermemory_http_<status>`; other codes are `supermemory_network`, `supermemory_timeout`, `supermemory_bad_response` and `supermemory_not_found`.
+- Messages are at most 300 characters and never include document content or the response `data` echo (a 400 echoes the request).
+
+### Known gap
+
+If `addDocuments` fails part way through a batch, documents already written stay in the namespace as orphans. They are cleaned up by the next delete of the item, source or account. This is out of scope here.
+
+## Upstream API facts (verified, v5)
 
 - Path-scoped endpoints: `POST /ns/{namespace}/document`, `POST /ns/{namespace}/document/batch`, `DELETE /ns/{namespace}/document` (body `{ids: [...]}`, 1-100 ids), `POST /ns/{namespace}/list/{documents|chunks|memories}`, `GET /ns/{namespace}/document/{id}`, `DELETE /ns/{namespace}`.
 - SDK: `new Supermemory({apiKey})`, `add(ns, {content, id, metadata})`, `search(ns, {query, filter, limit, searchMode})`, `documents.delete(ns, {ids})`, `list(ns, "documents", {...})`, `namespaces.delete(ns)`.
@@ -67,7 +133,7 @@ Implementations: `SupermemoryAdapter` (on the `supermemory` SDK) and `InMemoryMe
 
 ## Contract tests
 
-Run against `InMemoryMemoryStore` always, and against the live API when `SUPERMEMORY_API_KEY` is set:
+Run against `InMemoryMemoryStore` and `SupermemoryV3Adapter` (on a fake `fetch` server) always. Live runs: v5 when `SUPERMEMORY_API_KEY` is set and `SUPERMEMORY_API_VERSION=v5`; v3 when `SUPERMEMORY_V3_TEST_URL` is set (with `SUPERMEMORY_V3_TEST_KEY`; use a dedicated test key and instance). The live v3 run waits for processing with `waitUntilProcessed` before the search and filter checks.
 
 - namespace isolation
 - idempotent re-add

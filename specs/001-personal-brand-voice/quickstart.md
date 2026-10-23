@@ -46,7 +46,8 @@ openssl rand -base64 32   # use for BETTER_AUTH_SECRET, DEDUP_HMAC_KEY and each 
 | `ENCRYPTION_ACTIVE_KEY_ID` | Active keyring entry | `k1` |
 | `DEDUP_HMAC_KEY` | Content-hash HMAC key | base64 32 bytes |
 | `SUPERMEMORY_API_KEY` | Supermemory auth (required in production) | from Supermemory |
-| `SUPERMEMORY_BASE_URL` | Supermemory API | `https://api.supermemory.ai` |
+| `SUPERMEMORY_API_VERSION` | Supermemory API generation: `v3` (self-hosted) or `v5` (hosted) | `v3` |
+| `SUPERMEMORY_BASE_URL` | Supermemory API | `https://supermemory.voicespark.ai` (use `https://api.supermemory.ai` with `v5`) |
 | `ANTHROPIC_API_KEY` | Claude API auth (required in production) | from Anthropic |
 | `LLM_PROFILE_MODEL` | Tone profile model | `claude-sonnet-5-5` |
 | `LLM_DRAFT_MODEL` | Draft model | `claude-sonnet-5-5` |
