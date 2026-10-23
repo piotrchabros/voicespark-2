@@ -148,7 +148,19 @@ export async function postCheck(
   ctx: DetectorContext = { ownAddresses: [] },
 ): Promise<LockedCategory | null> {
   const neutral = neutraliseTokens(text);
-  const onToken = (s: Span) => neutral.masked.some(([start, end]) => s.start < end && s.end > start);
+  // Placeholders are sorted and disjoint: only the first one ending after the span start can overlap it.
+  const onToken = (s: Span) => {
+    const { masked } = neutral;
+    let lo = 0;
+    let hi = masked.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (masked[mid]![1] > s.start) hi = mid;
+      else lo = mid + 1;
+    }
+    const next = masked[lo];
+    return next !== undefined && next[0] < s.end;
+  };
   for (const category of LOCKED_CATEGORIES) {
     const spans = await LOCKED_DETECTORS[category](neutral.text, ctx);
     if (spans.some((s) => !onToken(s))) return category;
@@ -235,13 +247,31 @@ async function filterTexts(
  * `@`; in normal mode the contacts detector covers `https://jan@acme.example:secret@host` as an email, but
  * hub mode skips that detector, so the userinfo is redacted here as a password instead.
  */
-const URL_USERINFO = /\b[a-z][a-z0-9+.-]*:\/\/([^\s/?#]*:[^\s/?#]*)@[^\s/?#@]+/giu;
+const SCHEME_SEPARATOR = /:\/\/(?<=\b[a-z][a-z0-9+.-]*:\/\/)/giu;
+const AUTHORITY_END = /[\s/?#]/gu;
 
+/**
+ * Userinfo spans, as /\b[a-z][a-z0-9+.-]*:\/\/([^\s/?#]*:[^\s/?#]*)@[^\s/?#@]+/giu matches them (group 1),
+ * in linear time. That regex is quadratic on one long token: its scheme is retried from every word boundary
+ * of an "a.a.a..." run, and the two `[^\s/?#]*` around ":" backtrack against each other. Its userinfo is the
+ * authority up to the last "@" that is followed by a host character and has a ":" before it.
+ */
 function urlUserinfoSpans(text: string): Span[] {
   const spans: Span[] = [];
-  for (const m of text.matchAll(URL_USERINFO)) {
-    const start = m.index + m[0].indexOf('://') + 3;
-    spans.push({ start, end: start + (m[1] ?? '').length, category: 'passwords' });
+  const separator = new RegExp(SCHEME_SEPARATOR.source, SCHEME_SEPARATOR.flags);
+  const authorityEnd = new RegExp(AUTHORITY_END.source, AUTHORITY_END.flags);
+  let m: RegExpExecArray | null;
+  while ((m = separator.exec(text)) !== null) {
+    const start = m.index + 3;
+    authorityEnd.lastIndex = start;
+    const end = authorityEnd.exec(text)?.index ?? text.length;
+    let at = end - 2;
+    while (at >= start && !(text[at] === '@' && text[at + 1] !== '@')) at--;
+    if (at < start || !text.slice(start, at).includes(':')) continue;
+    spans.push({ start, end: at, category: 'passwords' });
+    // The host runs to the authority end or the next "@"; the next match starts after it.
+    const nextAt = text.indexOf('@', at + 1);
+    separator.lastIndex = nextAt >= 0 && nextAt < end ? nextAt : end;
   }
   return spans;
 }

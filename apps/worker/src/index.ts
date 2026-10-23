@@ -3,6 +3,8 @@ import { closeDb } from '@voicespark/db/client';
 import { loadEnv } from '@voicespark/core/env';
 import { jobLogger, logger } from '@voicespark/core/logger';
 import {
+  HUB_CONCURRENCY,
+  JOBS,
   PAYLOAD_SCHEMAS,
   QUEUES,
   QUEUE_PREFIX,
@@ -14,10 +16,11 @@ import {
   type QueueName,
 } from '@voicespark/core/queues';
 import { toErrorCode, toSafeError } from './error-code';
-import type { HandlerMap } from './handlers';
+import { perJobNameSemaphore, type HandlerMap } from './handlers';
 import { handlers as analysisPreview } from './processors/analysis-preview';
 import { handlers as deletion } from './processors/deletion';
 import { handlers as draft } from './processors/draft';
+import { handlers as hubFile } from './processors/hub-file';
 import { handlers as importHandlers } from './processors/import';
 import { handlers as maintenance } from './processors/maintenance';
 import { handlers as notify } from './processors/notify';
@@ -37,7 +40,21 @@ const HANDLERS: HandlerMap = {
   ...retroscan,
   ...notify,
   ...maintenance,
+  ...hubFile,
 };
+
+// Per-job-name limits inside the single `hub` Worker (contracts/jobs.md; sum = its concurrency of 12).
+const hubLimit = perJobNameSemaphore({
+  [JOBS.hubThread]: HUB_CONCURRENCY.thread,
+  [JOBS.hubBackfill]: HUB_CONCURRENCY.backfill,
+  [JOBS.hubSync]: HUB_CONCURRENCY.sync,
+  [JOBS.hubFileExtract]: HUB_CONCURRENCY.fileExtract,
+  [JOBS.hubRefilter]: HUB_CONCURRENCY.refilter,
+});
+
+function dispatchHub(job: Job, token?: string): Promise<unknown> {
+  return hubLimit(job.name, () => dispatch(job, token));
+}
 
 type AnyHandler = (job: Job, token?: string) => Promise<unknown>;
 
@@ -77,6 +94,7 @@ const SCHEDULERS: ReadonlyArray<{
   { id: 'maintenance.stale-imports', repeat: { every: 600_000 } },
   { id: 'maintenance.retroscan-expiry', repeat: { pattern: '0 3 * * *' } },
   { id: 'maintenance.credential-audit', repeat: { pattern: '0 4 * * 0' } },
+  { id: 'maintenance.hub-blob-sweep', repeat: { pattern: '0 5 * * *' } },
 ];
 
 async function main(): Promise<void> {
@@ -86,10 +104,11 @@ async function main(): Promise<void> {
     [QUEUES.import]: env.WORKER_CONCURRENCY_IMPORT,
     [QUEUES.profile]: env.WORKER_CONCURRENCY_LLM,
     [QUEUES.draft]: env.WORKER_CONCURRENCY_LLM,
+    [QUEUES.hub]: 12,
   };
 
   const workers = Object.values(QUEUES).map((queue) => {
-    const worker = new Worker(queue, dispatch, {
+    const worker = new Worker(queue, queue === QUEUES.hub ? dispatchHub : dispatch, {
       connection,
       prefix: QUEUE_PREFIX,
       concurrency: concurrency[queue] ?? 1,

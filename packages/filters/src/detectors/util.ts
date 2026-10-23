@@ -15,6 +15,16 @@ export function shannonEntropy(s: string): number {
   return h;
 }
 
+/**
+ * `s` without its trailing run of characters from `chars`. Replaces `/[...]+$/`, which an unanchored
+ * search retries from every position of a long run of those characters (quadratic time).
+ */
+export function trimTrailing(s: string, chars: string): string {
+  let end = s.length;
+  while (end > 0 && chars.includes(s[end - 1]!)) end--;
+  return s.slice(0, end);
+}
+
 /** All matches of `re` in `text`, regardless of the regex's own `g` flag; never loops on empty matches. */
 export function findAllMatches(re: RegExp, text: string): RegExpExecArray[] {
   const flags = re.flags.includes('g') ? re.flags : `${re.flags}g`;

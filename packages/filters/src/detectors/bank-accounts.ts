@@ -79,11 +79,19 @@ export const detectSync = (text: string): Span[] => {
   spans.push(...anchors);
 
   if (anchors.length > 0) {
+    // Sorted anchor starts, so each account looks only at the anchors within ACCOUNT_PROXIMITY of it.
+    const starts = anchors.map((a) => a.start).sort((a, b) => a - b);
     for (const m of text.matchAll(ACCOUNT_NUMBER)) {
       const span = groupSpan(m, 1);
-      const near = anchors.some(
-        (a) => Math.abs(a.start - span.start) <= ACCOUNT_PROXIMITY && a.start !== span.start,
-      );
+      let near = false;
+      for (let i = firstAtOrAfter(starts, span.start - ACCOUNT_PROXIMITY); i < starts.length; i++) {
+        const start = starts[i]!;
+        if (start > span.start + ACCOUNT_PROXIMITY) break;
+        if (start !== span.start) {
+          near = true;
+          break;
+        }
+      }
       if (near) spans.push(span);
     }
   }
@@ -92,6 +100,18 @@ export const detectSync = (text: string): Span[] => {
 };
 
 export const detect: Detector = async (text) => detectSync(text);
+
+/** Index of the first value `>= min` in ascending `sorted`, or `sorted.length`. */
+function firstAtOrAfter(sorted: readonly number[], min: number): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (sorted[mid]! >= min) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
 
 function dedupe(spans: Span[]): Span[] {
   const seen = new Set<string>();

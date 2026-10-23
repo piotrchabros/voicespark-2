@@ -1,14 +1,29 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppError } from '@voicespark/core/errors';
+import { list as listFiles } from '@voicespark/core/services/hub/files';
+import { list as listNotes } from '@voicespark/core/services/hub/notes';
 import { get } from '@voicespark/core/services/hub/records';
 import { requireUserOrRedirect } from '@/lib/page-auth';
 import { Badge } from '@/components/ui/badge';
+import { FileList } from './file-list';
+import { FileUpload } from './file-upload';
+import { LinkList } from './link-list';
+import { NoteList } from './note-list';
 import { RecordDetailActions } from './record-detail-actions';
-import { KIND_LABELS, STATUS_LABELS, type HubKind, type HubRecord } from './labels';
+import {
+  KIND_LABELS,
+  SERVICE_KIND,
+  STATUS_LABELS,
+  type HubFileItem,
+  type HubKind,
+  type HubLinkItem,
+  type HubNoteItem,
+  type HubRecord,
+} from './labels';
 
-const SERVICE_KIND = { people: 'person', companies: 'company', projects: 'project' } as const;
-const KIND_PATH = { person: 'people', company: 'companies', project: 'projects' } as const;
+// SC-002: a record with up to 100 notes and files renders on one screen; notes and files load in one call each.
+const NOTES_PER_SCREEN = 100;
 
 const SYNC_LABELS: Record<string, string> = {
   pending: 'Waiting to sync',
@@ -26,7 +41,8 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   );
 }
 
-// Shared by the three detail pages; links, notes, files, summaries and sources are added to this screen by US2, US3, US7.
+// Shared by the three detail pages; links, notes and files (US2) are on this screen; summaries and sources come with
+// US3 and US7.
 export async function RecordDetailPage({ kind, id }: { kind: HubKind; id: string }) {
   const ctx = await requireUserOrRedirect();
   let data: Awaited<ReturnType<typeof get>>;
@@ -38,6 +54,10 @@ export async function RecordDetailPage({ kind, id }: { kind: HubKind; id: string
   }
   const { record, links, sync } = data;
   const r = record as HubRecord;
+  const [notes, files] = await Promise.all([
+    listNotes(ctx, SERVICE_KIND[kind], id, { limit: NOTES_PER_SCREEN }),
+    listFiles(ctx, SERVICE_KIND[kind], id),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,28 +123,19 @@ export async function RecordDetailPage({ kind, id }: { kind: HubKind; id: string
         </section>
       ) : null}
 
-      <section aria-label="Linked records" className="space-y-1">
-        <p className="text-muted-foreground text-sm">Links</p>
-        {links.length === 0 ? (
-          <p className="text-sm">No links yet.</p>
-        ) : (
-          <ul>
-            {links.map(({ link, other }) => (
-              <li key={link.id}>
-                <Link
-                  href={`/hub/${KIND_PATH[other.kind]}/${other.id}`}
-                  className="underline underline-offset-4"
-                >
-                  {other.name}
-                </Link>
-                {link.role ? ` (${link.role})` : ''}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       <RecordDetailActions kind={kind} record={r} />
+
+      <LinkList kind={kind} recordId={r.id} links={links as HubLinkItem[]} />
+
+      <NoteList kind={kind} recordId={r.id} notes={notes.items as HubNoteItem[]} />
+
+      <section aria-labelledby="hub-files-heading" className="flex flex-col gap-3">
+        <h2 id="hub-files-heading" className="text-lg font-semibold">
+          Files
+        </h2>
+        <FileUpload kind={kind} recordId={r.id} />
+        <FileList files={files as HubFileItem[]} />
+      </section>
     </div>
   );
 }

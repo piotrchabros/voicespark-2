@@ -79,3 +79,49 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hub notes (note-editor.tsx, note-view.tsx): the shared Tiptap schema rendered without a typography plugin. */
+@layer components {
+  .hub-note {
+    @apply flex flex-col gap-2 text-sm outline-none;
+  }
+  .hub-note h1 {
+    @apply text-xl font-semibold;
+  }
+  .hub-note h2 {
+    @apply text-lg font-semibold;
+  }
+  .hub-note h3 {
+    @apply text-base font-semibold;
+  }
+  .hub-note ul:not([data-type='taskList']) {
+    @apply list-disc pl-5;
+  }
+  .hub-note ol {
+    @apply list-decimal pl-5;
+  }
+  .hub-note ul[data-type='taskList'] li {
+    @apply flex items-start gap-2;
+  }
+  .hub-note ul[data-type='taskList'] li > div {
+    @apply flex-1;
+  }
+  .hub-note a {
+    @apply underline underline-offset-4;
+  }
+  .hub-note blockquote {
+    @apply border-l-2 pl-3 text-muted-foreground;
+  }
+  .hub-note code {
+    @apply rounded bg-muted px-1 font-mono;
+  }
+  .hub-note pre {
+    @apply overflow-x-auto rounded-md bg-muted p-3 font-mono;
+  }
+  .hub-note pre code {
+    @apply bg-transparent p-0;
+  }
+  .hub-note hr {
+    @apply my-2;
+  }
+}

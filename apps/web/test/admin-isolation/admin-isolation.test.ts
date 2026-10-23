@@ -6,7 +6,17 @@ import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { auditLogEntry, closeDb, connectedSource, contentItem, draft, getDb } from '@voicespark/db';
+import {
+  auditLogEntry,
+  closeDb,
+  connectedSource,
+  contentItem,
+  draft,
+  getDb,
+  hubFile,
+  hubLink,
+  hubNote,
+} from '@voicespark/db';
 import { QUEUES, closeQueues, getQueue } from '@voicespark/core/queues';
 import { AppError } from '@voicespark/core/errors';
 import {
@@ -675,6 +685,107 @@ describe("(b) an admin reaching another user's content", () => {
       verb: 'GET',
       params: (sd) => ({ id: sd.u.uploadId }),
       target: (sd) => sd.u.uploadId,
+    },
+    {
+      name: 'hub link role',
+      route: 'hub/links/[id]',
+      verb: 'PATCH',
+      params: (sd) => ({ id: sd.u.hub.linkId }),
+      target: (sd) => sd.u.hub.linkId,
+      body: { role: 'set by an admin' },
+    },
+    {
+      name: 'hub link delete',
+      route: 'hub/links/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ id: sd.u.hub.linkId }),
+      target: (sd) => sd.u.hub.linkId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubLink.id })
+          .from(hubLink)
+          .where(eq(hubLink.id, sd.u.hub.linkId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub record notes',
+      route: 'hub/[kind]/[id]/notes',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+    },
+    {
+      name: 'hub note',
+      route: 'hub/notes/[id]',
+      verb: 'GET',
+      params: (sd) => ({ id: sd.u.hub.noteId }),
+      target: (sd) => sd.u.hub.noteId,
+    },
+    {
+      name: 'hub note edit',
+      route: 'hub/notes/[id]',
+      verb: 'PATCH',
+      params: (sd) => ({ id: sd.u.hub.noteId }),
+      target: (sd) => sd.u.hub.noteId,
+      body: { title: 'overwritten by an admin' },
+    },
+    {
+      name: 'hub note delete',
+      route: 'hub/notes/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ id: sd.u.hub.noteId }),
+      target: (sd) => sd.u.hub.noteId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubNote.id })
+          .from(hubNote)
+          .where(eq(hubNote.id, sd.u.hub.noteId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub record files',
+      route: 'hub/[kind]/[id]/files',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'companies', id: sd.u.hub.companyId }),
+      target: (sd) => sd.u.hub.companyId,
+    },
+    {
+      name: 'hub file',
+      route: 'hub/files/[id]',
+      verb: 'GET',
+      params: (sd) => ({ id: sd.u.hub.fileId }),
+      target: (sd) => sd.u.hub.fileId,
+    },
+    {
+      name: 'hub file rename',
+      route: 'hub/files/[id]',
+      verb: 'PATCH',
+      params: (sd) => ({ id: sd.u.hub.fileId }),
+      target: (sd) => sd.u.hub.fileId,
+      body: { name: 'renamed-by-admin.pdf' },
+    },
+    {
+      name: 'hub file delete',
+      route: 'hub/files/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ id: sd.u.hub.fileId }),
+      target: (sd) => sd.u.hub.fileId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubFile.id })
+          .from(hubFile)
+          .where(eq(hubFile.id, sd.u.hub.fileId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub file download',
+      route: 'hub/files/[id]/download',
+      verb: 'GET',
+      params: (sd) => ({ id: sd.u.hub.fileId }),
+      target: (sd) => sd.u.hub.fileId,
     },
   ];
 

@@ -7,6 +7,7 @@ import { runDeletionSla } from '@voicespark/core/services/deletion-sla';
 import * as imports from '@voicespark/core/services/imports';
 import * as retroscans from '@voicespark/core/services/retroscans';
 import { connectedSource, getDb, importJob, upload } from '@voicespark/db';
+import { orphanBlobKeys } from '@voicespark/db/repos/system/hub';
 import { createMemoryStore, type MemoryStore } from '@voicespark/integrations/supermemory';
 import type { HandlerMap } from '../handlers';
 
@@ -121,6 +122,56 @@ async function retroscanExpiry(): Promise<{ count: number }> {
   return { count: await retroscans.expireStale() };
 }
 
+/** Blobs younger than this are left alone: an upload writes the blob before its row commits. */
+export const HUB_BLOB_MIN_AGE_MS = 3600 * 1000;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const BLOB_NAME_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.bin$/i;
+
+async function listDir(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir);
+  } catch (e) {
+    if (isMissing(e)) return [];
+    throw e;
+  }
+}
+
+/**
+ * `maintenance.hub-blob-sweep` (T063, daily; contracts/jobs.md (16)): deletes `{HUB_FILES_DIR}/{userId}/{key}.bin`
+ * blobs older than 1 h that have no `hub_file` row (failed commits, deletes whose blob removal failed). Never touches
+ * rows.
+ */
+export async function hubBlobSweep(now: Date = new Date()): Promise<{ deleted: number }> {
+  const dir = loadEnv().HUB_FILES_DIR;
+  const cutoff = new Date(now.getTime() - HUB_BLOB_MIN_AGE_MS);
+  let deleted = 0;
+  for (const userDir of await listDir(dir)) {
+    if (!UUID_RE.test(userDir)) continue;
+    const old = new Map<string, string>();
+    for (const name of await listDir(join(dir, userDir))) {
+      const key = BLOB_NAME_RE.exec(name)?.[1];
+      if (!key) continue;
+      const path = join(dir, userDir, name);
+      try {
+        const s = await stat(path);
+        if (s.isFile() && s.mtime < cutoff) old.set(key.toLowerCase(), path);
+      } catch (e) {
+        if (!isMissing(e)) throw e;
+      }
+    }
+    for (const key of await orphanBlobKeys([...old.keys()])) {
+      try {
+        await unlink(old.get(key)!);
+        deleted += 1;
+      } catch (e) {
+        if (!isMissing(e)) throw e;
+      }
+    }
+  }
+  return { deleted };
+}
+
 let store: MemoryStore | undefined;
 
 /** `maintenance.credential-audit` (T167, weekly): locked-category re-scan of a sample of every active namespace. */
@@ -135,4 +186,5 @@ export const handlers: HandlerMap = {
   'maintenance.stale-imports': staleImports,
   'maintenance.retroscan-expiry': retroscanExpiry,
   'maintenance.credential-audit': credentialAudit,
+  'maintenance.hub-blob-sweep': () => hubBlobSweep(),
 };

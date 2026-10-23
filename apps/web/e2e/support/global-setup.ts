@@ -34,6 +34,14 @@ const WARMUP_PATHS = [
     `/api/hub/${kind}`,
     `/api/hub/${kind}/${HUB_WARMUP_ID}`,
   ]),
+  // Links, notes and files (US2); one kind each compiles the dynamic routes.
+  `/api/hub/people/${HUB_WARMUP_ID}/notes`,
+  `/api/hub/people/${HUB_WARMUP_ID}/files`,
+  '/api/hub/links',
+  `/api/hub/links/${HUB_WARMUP_ID}`,
+  `/api/hub/notes/${HUB_WARMUP_ID}`,
+  `/api/hub/files/${HUB_WARMUP_ID}`,
+  `/api/hub/files/${HUB_WARMUP_ID}/download`,
 ];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });

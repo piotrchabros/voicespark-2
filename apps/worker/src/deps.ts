@@ -1,4 +1,5 @@
 import { loadEnv } from '@voicespark/core/env';
+import { createFsBlobStore, type BlobStore } from '@voicespark/core/hub/blob-store';
 import { createFakeGenerationLlm } from '@voicespark/core/prompting';
 import { getClassifier } from '@voicespark/core/services/inspection';
 import { openFetcher } from '@voicespark/core/services/mail-access';
@@ -14,6 +15,8 @@ export interface WorkerDeps {
   openFetcher: (sourceId: string) => Promise<MailFetcher>;
   /** Generation LLM; the deterministic fake only under NODE_ENV=test / AUTH_TEST_MODE (via `createLlm`). */
   llm: LlmClient;
+  /** Hub file blobs (`HUB_FILES_DIR`); read by `hub.file-extract` only, never sent to the LLM or the store. */
+  blobStore: BlobStore;
 }
 
 /** Builds the defaults for whatever `overrides` leaves out. Call lazily (on first job), never at module top level. */
@@ -23,6 +26,7 @@ export function defaultDeps(overrides: Partial<WorkerDeps> = {}): WorkerDeps {
     classifier: overrides.classifier ?? getClassifier(),
     openFetcher: overrides.openFetcher ?? openFetcher,
     llm: overrides.llm ?? lazyLlm(),
+    blobStore: overrides.blobStore ?? createFsBlobStore(),
   };
 }
 
