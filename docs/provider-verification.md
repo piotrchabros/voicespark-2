@@ -4,22 +4,22 @@ External approvals and live checks that must be finished before public launch (T
 research R4, R5). None of them blocks building or testing: development and CI use the mock OAuth server, GreenMail, the
 in-memory or RPC memory store and a fake LLM.
 
-**No real provider credentials exist in this environment.** Nothing below has been started or run against a live
-service. Every status is `not started` and every owner is `TBD - product owner` until assigned.
+**No real provider credentials exist in this environment.** Nothing below has been run against a live service. Every
+status is `not started` (item 0 is `in progress`) and every owner is `TBD - product owner` until assigned.
 
 ## Summary
 
 | # | Item | Owner | Lead time (estimate) | Blocks | Status |
 |---|---|---|---|---|---|
-| 0 | Public legal pages: privacy policy, terms, data deletion instructions | TBD - product owner | 1-2 weeks (legal review) | 1, 2, 4, 5 | not started |
+| 0 | Public legal pages: privacy policy, terms, data deletion instructions | TBD - product owner | 1-2 weeks (legal review) | 1, 2, 4, 5 | in progress |
 | 1 | Google OAuth verification for `gmail.readonly` (restricted scope) | TBD - product owner | 4-8 weeks after submission | Gmail beyond 100 test users | not started |
 | 1a | CASA Tier 2 security assessment (part of 1), renewed every 12 months | TBD - product owner | 2-6 weeks, paid assessor | 1 | not started |
 | 2 | Google sign-in client brand verification (non-sensitive scopes) | TBD - product owner | 2-5 business days | Google sign-in consent screen branding | not started |
 | 3 | Microsoft publisher verification and admin-consent guidance for `Mail.Read` | TBD - product owner | 1-2 weeks (Partner Program enrolment first) | Outlook / Microsoft 365 mailboxes in other tenants | not started |
 | 4 | Apple Services ID, domain and return URL, Private Email Relay | TBD - product owner | 1-3 days | Sign in with Apple; mail to relay addresses | not started |
 | 5 | Facebook app review / Live mode for `email` | TBD - product owner | 1-2 weeks (business verification may add more) | Facebook sign-in for the public | not started |
-| 6 | Supermemory live contract run | TBD - product owner | 1 day once a key exists | Real imports and deletion verification | not started |
-| 7 | Anthropic live smoke | TBD - product owner | 1 day once a key exists | Profiles, drafts, classifier | not started |
+| 6 | Self-hosted Supermemory live contract run, and OpenAI embeddings check | TBD - product owner | 1 day once a test instance and key exist | Real imports and deletion verification | not started |
+| 7 | Anthropic live smoke, and OpenAI retention check | TBD - product owner | 1 day once a key exists | Profiles, drafts, classifier | not started |
 | 8 | Production configuration checks (SMTP, domain, keys) | TBD - product owner | 1 day | Deletion confirmations and notifications | not started |
 
 Lead times are planning estimates from the providers' published guidance as understood at the time of writing. Re-check
@@ -27,15 +27,21 @@ them when each item is started.
 
 ## 0. Legal pages (prerequisite)
 
-`find apps/web/app -type d | rg -i "privacy|terms|legal"` finds nothing: the app has no privacy policy, terms or
-data-deletion page yet. Google, Facebook and Apple all require these URLs on the verified production domain.
+The legal pages are built in the separate marketing site repository (`voicespark-site`) and are **not live until
+`SITE.operator` is filled in and the site is deployed**. Until then the footer links are hidden and the pages are not
+generated. Google, Facebook and Apple all require these URLs on the verified production domain. The apex domain
+`voicespark.ai` is the authorised domain; it covers `app.voicespark.ai`. The sign-in page links to the pages below.
 
-- [ ] Privacy policy at `https://<APP_DOMAIN>/privacy`. It must name the Gmail and Graph data used, the purpose
-  (building the user's writing-style profile), storage, filtering, retention, deletion (24 h SLA) and the Google API
-  Services User Data Policy "Limited Use" commitments.
-- [ ] Terms of service at `https://<APP_DOMAIN>/terms`.
-- [ ] Data deletion instructions at `https://<APP_DOMAIN>/privacy#deletion` (Facebook requires a URL or a callback).
-- [ ] Home page on the same domain that describes the app and links to all of the above.
+- [ ] Privacy policy at `https://voicespark.ai/privacy/` (Polish: `https://voicespark.ai/pl/privacy/`). Built; not live.
+  It must name the Gmail and Graph data used, the purpose (building the user's writing-style profile), storage,
+  filtering, retention, deletion (24 h SLA) and the Google API Services User Data Policy "Limited Use" commitments.
+  Recipients: Contabo GmbH (EU hosting), Anthropic and OpenAI (US, embeddings for our self-hosted memory store) and
+  Cloudflare (US, proxy). Supermemory the company receives no data.
+- [ ] Terms of service at `https://voicespark.ai/terms/` (Polish: `https://voicespark.ai/pl/terms/`). Built; not live.
+- [ ] Data deletion instructions at `https://voicespark.ai/privacy/#deletion` (Facebook requires a URL or a callback).
+  Built; not live.
+- [ ] Home page `https://voicespark.ai` that describes the app and links to all of the above once they are live.
+- [ ] Legal review of the pages, then fill in `SITE.operator` and deploy the site.
 
 ## 1. Google: `gmail.readonly` restricted-scope verification
 
@@ -158,14 +164,19 @@ Live is required in any case.
   - an account without one. Linking must work for Facebook's unverified email, as implemented in D-C2
     (`trustedProviders`, `auth.ts:99-104`).
 
-## 6. Supermemory: live contract checklist
+## 6. Self-hosted Supermemory: live contract checklist
+
+Production uses our own instance of the open-source Supermemory memory server on the Contabo EU server
+(`supermemory.voicespark.ai`). It is not Supermemory cloud, and Supermemory the company receives no data. The instance
+uses the OpenAI API to create embeddings, so OpenAI is the subprocessor for stored text (see the OpenAI items below).
 
 The adapter (`packages/integrations/src/supermemory/adapter.ts`) is written against the published SDK v5 docs and **has
-never run against the live API**. The contract suite runs the same cases against the in-memory store, the RPC store
+never run against a live instance**. The contract suite runs the same cases against the in-memory store, the RPC store
 and, only when a key is set, the live adapter (`packages/integrations/test/supermemory.contract.test.ts:182-187`).
 Until a key is available, all behaviours below are unverified assumptions. This is a follow-up.
 
-Run against a dedicated test project key, never the production one, because the suite creates and deletes namespaces:
+Run against a dedicated test instance or key (`SUPERMEMORY_BASE_URL` pointing at it), never the production instance,
+because the suite creates and deletes namespaces:
 
 ```sh
 SUPERMEMORY_API_KEY=<test key> [SUPERMEMORY_BASE_URL=...] \
@@ -215,6 +226,11 @@ Check each assumption and record the result here. If one is wrong, fix the adapt
 - [ ] **Errors.** 401 maps to `MemoryStoreAuthError` (no retry). 429/5xx are retried by the SDK (`maxRetries: 4`).
 - [ ] **Namespace isolation.** Test "isolates namespaces". Also confirm that the API key cannot enumerate namespaces the
   app did not create.
+- [ ] **OpenAI embeddings (subprocessor).**
+  - Confirm the instance's OpenAI key is stored only in the production secret store and has spend limits set.
+  - Confirm the OpenAI organisation's API data retention and training settings: API data is not used to train models by
+    default, but do not claim zero retention. The privacy policy must say the same.
+  - Confirm the instance is reachable only over HTTPS and is not exposed beyond the app and worker.
 
 ## 7. Anthropic: live smoke
 
@@ -238,7 +254,8 @@ outputs, and maps `stop_reason: 'refusal'` to `LlmRefusedError`
   - `drafts:{user}` and `profile-gen:{user}` rate limits behave.
 - [ ] Confirm that only filtered or redacted text is sent: spot-check one request body in a staging proxy log. Never
   enable request logging in production.
-- [ ] Retention: confirm the organisation's API data retention setting matches the privacy policy.
+- [ ] Retention: confirm the Anthropic organisation's API data retention setting matches the privacy policy. Do the same
+  for the OpenAI organisation used by the memory store (section 6).
 
 ## 8. Production configuration
 

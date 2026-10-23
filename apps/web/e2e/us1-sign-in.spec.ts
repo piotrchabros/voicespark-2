@@ -1,4 +1,5 @@
 import type { Page, TestInfo } from '@playwright/test';
+import { LEGAL_LINKS } from '../lib/legal-links';
 import { expect, test, type SignInProvider } from './fixtures/auth';
 import { api, me } from './support/api';
 import { E2E_BASE_URL } from './support/env';
@@ -237,6 +238,8 @@ test('sign-in page shows the providers and the cancel message @ui', async ({ pag
   for (const provider of PROVIDERS) {
     await expect(page.getByRole('button', { name: `Continue with ${LABELS[provider]}` })).toBeVisible();
   }
+  await expect(page.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', LEGAL_LINKS.terms);
+  await expect(page.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', LEGAL_LINKS.privacy);
 });
 
 test('a suspended account is refused with account_suspended', async ({ page, signInAs }, testInfo) => {
