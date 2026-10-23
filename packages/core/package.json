@@ -25,6 +25,9 @@
     "cli": "tsx --env-file-if-exists=../../.env src/cli.ts"
   },
   "dependencies": {
+    "@tiptap/core": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "@voicespark/db": "workspace:*",
     "@voicespark/filters": "workspace:*",
     "@voicespark/integrations": "workspace:*",

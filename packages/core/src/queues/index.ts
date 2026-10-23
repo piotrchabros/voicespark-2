@@ -15,6 +15,7 @@ export const QUEUES = {
   retroscan: 'retroscan',
   notify: 'notify',
   maintenance: 'maintenance',
+  hub: 'hub',
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
@@ -33,6 +34,14 @@ export const JOBS = {
   maintenanceStaleImports: 'maintenance.stale-imports',
   maintenanceRetroscanExpiry: 'maintenance.retroscan-expiry',
   maintenanceCredentialAudit: 'maintenance.credential-audit',
+  hubThread: 'hub.thread',
+  hubBackfill: 'hub.backfill',
+  hubSync: 'hub.sync',
+  hubFileExtract: 'hub.file-extract',
+  hubRefilter: 'hub.refilter',
+  maintenanceHubThreadSweep: 'maintenance.hub-thread-sweep',
+  maintenanceHubSyncSweep: 'maintenance.hub-sync-sweep',
+  maintenanceHubBlobSweep: 'maintenance.hub-blob-sweep',
 } as const;
 export type JobName = (typeof JOBS)[keyof typeof JOBS];
 
@@ -51,6 +60,14 @@ export const JOB_QUEUE: Record<JobName, QueueName> = {
   'maintenance.stale-imports': QUEUES.maintenance,
   'maintenance.retroscan-expiry': QUEUES.maintenance,
   'maintenance.credential-audit': QUEUES.maintenance,
+  'hub.thread': QUEUES.hub,
+  'hub.backfill': QUEUES.hub,
+  'hub.sync': QUEUES.hub,
+  'hub.file-extract': QUEUES.hub,
+  'hub.refilter': QUEUES.hub,
+  'maintenance.hub-thread-sweep': QUEUES.maintenance,
+  'maintenance.hub-sync-sweep': QUEUES.maintenance,
+  'maintenance.hub-blob-sweep': QUEUES.maintenance,
 };
 
 const id = z.string().uuid();
@@ -73,6 +90,15 @@ export const PAYLOAD_SCHEMAS = {
   'maintenance.stale-imports': emptyPayload,
   'maintenance.retroscan-expiry': emptyPayload,
   'maintenance.credential-audit': emptyPayload,
+  // version is only a dedup key; the job works from the row.
+  'hub.thread': z.object({ userId: id, threadId: id, version: z.number().int().min(0) }).strict(),
+  'hub.backfill': z.object({ userId: id, sourceId: id }).strict(),
+  'hub.sync': z.object({ userId: id }).strict(),
+  'hub.file-extract': z.object({ userId: id, fileId: id }).strict(),
+  'hub.refilter': z.object({ userId: id, policyVersion: z.number().int().min(0) }).strict(),
+  'maintenance.hub-thread-sweep': emptyPayload,
+  'maintenance.hub-sync-sweep': emptyPayload,
+  'maintenance.hub-blob-sweep': emptyPayload,
 } satisfies { [N in JobName]: z.ZodType };
 
 export type JobPayload<N extends JobName> = z.infer<(typeof PAYLOAD_SCHEMAS)[N]>;
@@ -91,6 +117,11 @@ export const jobIds = {
   /** SLA re-enqueue of a `failed` request: the failed `deletion-{id}` job is still kept, so a fresh id (D-U7d). */
   deletionRetry: (deletionRequestId: string, attempt: number) => `deletion-${deletionRequestId}-r${attempt}`,
   retroscan: (retroscanId: string) => `retroscan-${retroscanId}`,
+  hubThread: (threadId: string, version: number | string) => `hubthread-${threadId}-${version}`,
+  hubBackfill: (sourceId: string) => `hubbackfill-${sourceId}`,
+  hubSync: (userId: string) => `hubsync-${userId}`,
+  hubFile: (fileId: string) => `hubfile-${fileId}`,
+  hubRefilter: (userId: string, policyVersion: number | string) => `hubrefilter-${userId}-${policyVersion}`,
 };
 
 export const DEFAULT_JOB_OPTIONS = {
@@ -129,6 +160,17 @@ export const JOB_OPTIONS: Record<JobName, JobsOptions> = {
   'maintenance.stale-imports': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'maintenance.retroscan-expiry': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'maintenance.credential-audit': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
+  'hub.thread': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
+  'hub.backfill': { ...DEFAULT_JOB_OPTIONS, attempts: 5, backoff: exponential(30_000) },
+  'hub.sync': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
+  'hub.file-extract': { ...DEFAULT_JOB_OPTIONS, attempts: 3, backoff: exponential(10_000) },
+  'hub.refilter': { ...DEFAULT_JOB_OPTIONS, attempts: 3, backoff: exponential(30_000) },
+  'maintenance.hub-thread-sweep': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
+  'maintenance.hub-sync-sweep': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
+  'maintenance.hub-blob-sweep': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
 };
+
+// Per-job-name concurrency inside the single `hub` Worker (sum = the Worker's 12).
+export const HUB_CONCURRENCY = { thread: 4, backfill: 1, sync: 4, fileExtract: 2, refilter: 1 } as const;
 
 export * from './client';

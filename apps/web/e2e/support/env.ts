@@ -27,6 +27,7 @@ export const E2E_ENV: Record<string, string> = {
   MAIL_FROM: 'VoiceSpark <noreply@voicespark.test>',
   SYNC_POLL_INTERVAL_MINUTES: '1',
   UPLOAD_TMP_DIR: join(tmpdir(), 'vs-e2e-uploads'),
+  HUB_FILES_DIR: join(tmpdir(), 'vs-e2e-hub-files'),
   WORKER_CONCURRENCY_LLM: '4',
   BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret-00',
   ENCRYPTION_KEYRING: JSON.stringify({ k1: Buffer.alloc(32, 1).toString('base64') }),

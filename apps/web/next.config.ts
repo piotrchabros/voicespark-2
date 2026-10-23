@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
   ],
   serverExternalPackages: ['pg', 'bullmq', 'ioredis', 'pino'],
   typedRoutes: false,
+  experimental: {
+    // Body limit for multipart uploads (26 MB). Replaces the deprecated
+    // `middlewareClientMaxBodySize`. Upload routes sit outside the proxy
+    // matcher, so they also check `content-length` themselves.
+    proxyClientMaxBodySize: '26mb',
+  },
 };
 
 export default nextConfig;

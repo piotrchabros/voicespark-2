@@ -203,6 +203,7 @@ export const DELETION_SCOPES = [
   'account',
   'retroscan_purge',
   'exclusion_report',
+  'hub_source',
 ] as const;
 export type DeletionScope = (typeof DELETION_SCOPES)[number];
 export const deletionScopeEnum = pgEnum('deletion_scope', DELETION_SCOPES);
@@ -268,3 +269,47 @@ export const profileVersionFormatEnum = pgEnum('profile_version_format', PROFILE
 export const ANALYSIS_PROMPT_SOURCES = ['default', 'own'] as const;
 export type AnalysisPromptSource = (typeof ANALYSIS_PROMPT_SOURCES)[number];
 export const analysisPromptSourceEnum = pgEnum('analysis_prompt_source', ANALYSIS_PROMPT_SOURCES);
+
+export const HUB_ORIGINS = ['user', 'email'] as const;
+export type HubOrigin = (typeof HUB_ORIGINS)[number];
+export const hubOriginEnum = pgEnum('hub_origin', HUB_ORIGINS);
+
+export const HUB_PROJECT_STATUSES = ['planned', 'active', 'on_hold', 'completed'] as const;
+export type HubProjectStatus = (typeof HUB_PROJECT_STATUSES)[number];
+export const hubProjectStatusEnum = pgEnum('hub_project_status', HUB_PROJECT_STATUSES);
+
+export const HUB_LINK_KINDS = ['person_company', 'person_project', 'company_project'] as const;
+export type HubLinkKind = (typeof HUB_LINK_KINDS)[number];
+export const hubLinkKindEnum = pgEnum('hub_link_kind', HUB_LINK_KINDS);
+
+export const HUB_EXTRACTION_STATUSES = ['pending', 'extracted', 'empty', 'unsupported', 'failed', 'excluded'] as const;
+export type HubExtractionStatus = (typeof HUB_EXTRACTION_STATUSES)[number];
+export const hubExtractionStatusEnum = pgEnum('hub_extraction_status', HUB_EXTRACTION_STATUSES);
+
+export const HUB_THREAD_STATUSES = ['pending', 'done', 'skipped', 'failed'] as const;
+export type HubThreadStatus = (typeof HUB_THREAD_STATUSES)[number];
+export const hubThreadStatusEnum = pgEnum('hub_thread_status', HUB_THREAD_STATUSES);
+
+export const HUB_SKIP_REASONS = ['automated', 'automated_llm', 'ignored', 'owner_only', 'no_candidates', 'irrelevant', 'unavailable', 'excluded'] as const;
+export type HubSkipReason = (typeof HUB_SKIP_REASONS)[number];
+export const hubSkipReasonEnum = pgEnum('hub_skip_reason', HUB_SKIP_REASONS);
+
+export const HUB_FACT_TYPES = ['person', 'person_email', 'company', 'company_domain', 'project', 'field', 'link', 'link_role'] as const;
+export type HubFactType = (typeof HUB_FACT_TYPES)[number];
+export const hubFactTypeEnum = pgEnum('hub_fact_type', HUB_FACT_TYPES);
+
+export const HUB_FACT_STATES = ['applied', 'suggested', 'rejected', 'overridden', 'superseded'] as const;
+export type HubFactState = (typeof HUB_FACT_STATES)[number];
+export const hubFactStateEnum = pgEnum('hub_fact_state', HUB_FACT_STATES);
+
+export const HUB_FACT_BASES = ['header', 'domain', 'signature', 'text'] as const;
+export type HubFactBasis = (typeof HUB_FACT_BASES)[number];
+export const hubFactBasisEnum = pgEnum('hub_fact_basis', HUB_FACT_BASES);
+
+export const HUB_SYNC_STATUSES = ['pending', 'stored', 'failed'] as const;
+export type HubSyncStatus = (typeof HUB_SYNC_STATUSES)[number];
+export const hubSyncStatusEnum = pgEnum('hub_sync_status', HUB_SYNC_STATUSES);
+
+export const HUB_SYNC_ENTITIES = ['person', 'company', 'project', 'note', 'file', 'summary'] as const;
+export type HubSyncEntity = (typeof HUB_SYNC_ENTITIES)[number];
+export const hubSyncEntityEnum = pgEnum('hub_sync_entity', HUB_SYNC_ENTITIES);

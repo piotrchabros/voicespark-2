@@ -23,6 +23,7 @@
     "unpdf": "^1.9.1",
     "mammoth": "^1.13.0",
     "file-type": "^22.2.0",
+    "fflate": "0.8.3",
     "supermemory": "^5.0.2",
     "@anthropic-ai/sdk": "^1.1.0",
     "nodemailer": "^7.0.13",

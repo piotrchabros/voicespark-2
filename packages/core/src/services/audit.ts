@@ -35,12 +35,27 @@ export const DEFAULT_AUDIT_METADATA: z.ZodType = z.record(
 
 const filterCategory = z.enum(FILTER_CATEGORIES);
 
+const count = z.number().int().min(0);
+const slug = z.string().regex(/^[a-z0-9_.-]{1,64}$/);
+const hubCounts = (keys: string[]) =>
+  z.object(Object.fromEntries(keys.map((k) => [k, count]))).strict();
+
 export const AUDIT_METADATA_SCHEMAS: Partial<Record<AuditAction, z.ZodType>> = {
   'filter.preferences_changed': z
     .object({ added: z.array(filterCategory), removed: z.array(filterCategory) })
     .strict(),
   'filter.audit_hit': z.object({ category: filterCategory, count: z.number().int().min(0) }).strict(),
   'settings.changed': z.object({ key: z.string().regex(/^[a-z0-9_.]{1,64}$/) }).strict(),
+  'hub.mailbox_enabled': z.object({ sourceId: z.uuid(), consentTextVersion: slug }).strict(),
+  'hub.mailbox_disabled': z.object({ sourceId: z.uuid(), hubData: z.enum(['keep', 'delete']) }).strict(),
+  'hub.mailbox_data_deleted': z.object({ sourceId: z.uuid() }).extend(hubCounts(['threads', 'records', 'links', 'values']).shape).strict(),
+  'hub.record_deleted': z.object({ kind: slug }).extend(hubCounts(['notes', 'files', 'links']).shape).strict(),
+  'hub.records_merged': z.object({ kind: slug }).strict(),
+  'hub.suggestions_bulk_decided': hubCounts(['accepted', 'rejected', 'failed']),
+  'hub.ignore_rule_created': z.object({ kind: slug }).strict(),
+  'hub.ignore_rule_deleted': z.object({ kind: slug }).strict(),
+  'hub.resync_requested': hubCounts(['items']),
+  'hub.file_excluded': z.object({ category: slug }).strict(),
 };
 
 export function validateAuditMetadata(action: AuditAction, metadata: unknown): Record<string, unknown> {

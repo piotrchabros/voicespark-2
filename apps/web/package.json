@@ -15,6 +15,10 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",
+    "@tiptap/extension-list": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "@voicespark/core": "workspace:*",
     "@voicespark/db": "workspace:*",
     "@voicespark/filters": "workspace:*",

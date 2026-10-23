@@ -4,6 +4,7 @@ import {
   JOB_OPTIONS,
   JOB_QUEUE,
   PAYLOAD_SCHEMAS,
+  HUB_CONCURRENCY,
   QUEUES,
   cappedExponentialBackoff,
   jobIds,
@@ -44,11 +45,50 @@ describe('queue payload schemas', () => {
 describe('job ids', () => {
   it('never contain a colon', () => {
     const ids = Object.values(jobIds).map((fn) => fn(uuid, 1));
-    expect(ids).toHaveLength(11);
+    expect(ids).toHaveLength(16);
     for (const value of ids) expect(value).not.toContain(':');
     expect(jobIds.import(uuid)).toBe(`import-${uuid}`);
     expect(jobIds.deletionVerify(uuid)).toBe(`deletion-${uuid}-verify`);
     expect(jobIds.preview(uuid)).toBe(`preview-${uuid}`);
+  });
+});
+
+describe('context hub jobs', () => {
+  it('accepts strict hub payloads and rejects extras', () => {
+    expect(PAYLOAD_SCHEMAS['hub.thread'].safeParse({ userId: uuid, threadId: uuid, version: 2 }).success).toBe(true);
+    expect(PAYLOAD_SCHEMAS['hub.backfill'].safeParse({ userId: uuid, sourceId: uuid }).success).toBe(true);
+    expect(PAYLOAD_SCHEMAS['hub.sync'].safeParse({ userId: uuid }).success).toBe(true);
+    expect(PAYLOAD_SCHEMAS['hub.file-extract'].safeParse({ userId: uuid, fileId: uuid }).success).toBe(true);
+    expect(PAYLOAD_SCHEMAS['hub.refilter'].safeParse({ userId: uuid, policyVersion: 3 }).success).toBe(true);
+    expect(PAYLOAD_SCHEMAS['maintenance.hub-blob-sweep'].safeParse({}).success).toBe(true);
+    expect(PAYLOAD_SCHEMAS['hub.thread'].safeParse({ userId: uuid, threadId: uuid, version: 1, body: 'x' }).success).toBe(false);
+    expect(PAYLOAD_SCHEMAS['hub.sync'].safeParse({ userId: uuid, sourceId: uuid }).success).toBe(false);
+    expect(PAYLOAD_SCHEMAS['hub.thread'].safeParse({ userId: uuid, threadId: 'nope', version: 1 }).success).toBe(false);
+    expect(PAYLOAD_SCHEMAS['maintenance.hub-sync-sweep'].safeParse({ x: 1 }).success).toBe(false);
+  });
+
+  it('routes hub jobs to hub and sweeps to maintenance', () => {
+    for (const n of ['hub.thread', 'hub.backfill', 'hub.sync', 'hub.file-extract', 'hub.refilter'] as const) {
+      expect(JOB_QUEUE[n]).toBe(QUEUES.hub);
+    }
+    for (const n of ['maintenance.hub-thread-sweep', 'maintenance.hub-sync-sweep', 'maintenance.hub-blob-sweep'] as const) {
+      expect(JOB_QUEUE[n]).toBe(QUEUES.maintenance);
+      expect(JOB_OPTIONS[n].attempts).toBe(1);
+    }
+  });
+
+  it('sets attempts, backoff, ids and concurrency', () => {
+    expect(JOB_OPTIONS['hub.thread'].attempts).toBe(1);
+    expect(JOB_OPTIONS['hub.sync'].attempts).toBe(1);
+    expect(JOB_OPTIONS['hub.backfill']).toMatchObject({ attempts: 5, backoff: { type: 'exponential', delay: 30_000 } });
+    expect(JOB_OPTIONS['hub.file-extract']).toMatchObject({ attempts: 3, backoff: { type: 'exponential', delay: 10_000 } });
+    expect(JOB_OPTIONS['hub.refilter']).toMatchObject({ attempts: 3, backoff: { type: 'exponential', delay: 30_000 } });
+    expect(jobIds.hubThread(uuid, 4)).toBe(`hubthread-${uuid}-4`);
+    expect(jobIds.hubBackfill(uuid)).toBe(`hubbackfill-${uuid}`);
+    expect(jobIds.hubSync(uuid)).toBe(`hubsync-${uuid}`);
+    expect(jobIds.hubFile(uuid)).toBe(`hubfile-${uuid}`);
+    expect(jobIds.hubRefilter(uuid, 7)).toBe(`hubrefilter-${uuid}-7`);
+    expect(HUB_CONCURRENCY).toEqual({ thread: 4, backfill: 1, sync: 4, fileExtract: 2, refilter: 1 });
   });
 });
 
