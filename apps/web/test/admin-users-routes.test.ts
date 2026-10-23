@@ -102,21 +102,45 @@ describe('GET /api/admin/users', () => {
   });
 });
 
+// Context Hub counts (FR-029): numbers only, every key present.
+const hub = {
+  recordCount: 3,
+  noteCount: 2,
+  fileCount: 1,
+  pendingSuggestionCount: 4,
+  syncFailedCount: 0,
+  hubMailboxCount: 1,
+};
+
+const detail = {
+  ...summary,
+  createdAt: created,
+  lastSignInAt: null,
+  suspendedAt: null,
+  identities: [],
+  sources: [],
+  profiles: [],
+  hub,
+};
+
 describe('GET /api/admin/users/[id]', () => {
-  it('returns the detail', async () => {
-    mocks.detail.mockResolvedValue({
-      ...summary,
-      createdAt: created,
-      lastSignInAt: null,
-      suspendedAt: null,
-      identities: [],
-      sources: [],
-      profiles: [],
-    });
+  it('returns the detail with hub counts', async () => {
+    mocks.detail.mockResolvedValue(detail);
     const { GET } = adminUsersIdRoute;
     const res = await GET(new Request('http://x'), params);
     expect(res.status).toBe(200);
     expect(mocks.detail).toHaveBeenCalledWith(ID);
+    expect((await res.json()).hub).toEqual(hub);
+  });
+
+  it('fails closed when hub carries anything but its counts', async () => {
+    const { GET } = adminUsersIdRoute;
+    mocks.detail.mockResolvedValue({ ...detail, hub: { ...hub, name: 'leak' } });
+    const extra = await GET(new Request('http://x'), params);
+    expect(extra.status).toBe(500);
+    expect(await extra.text()).not.toContain('leak');
+    mocks.detail.mockResolvedValue({ ...detail, hub: { ...hub, noteCount: 'two' } });
+    expect((await GET(new Request('http://x'), params)).status).toBe(500);
   });
 
   it('returns 404 for a missing or malformed id', async () => {

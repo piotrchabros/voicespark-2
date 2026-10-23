@@ -1,3 +1,5 @@
+import { access } from 'node:fs/promises';
+import { join } from 'node:path';
 import { and, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import {
   connectedSource,
@@ -6,6 +8,7 @@ import {
   deletionRequest,
   exclusionReport,
   getDb,
+  hubThread,
   importJob,
   mailboxCredential,
   retroscan,
@@ -32,7 +35,8 @@ import {
 import { decrypt, encrypt, subjectRef } from '../crypto';
 import { loadEnv } from '../env';
 import { AppError, type ServiceContext } from '../errors';
-import { QUEUES, enqueue, jobIds, removeScheduler } from '../queues';
+import { createFsBlobStore, type BlobStore } from '../hub/blob-store';
+import { QUEUES, enqueue, getQueue, jobIds, removeScheduler } from '../queues';
 import { assertNotLastActiveAdmin } from './admin-users';
 import { audit } from './audit';
 import { loadRevocableToken } from './mail-access';
@@ -221,6 +225,8 @@ export interface DeletionDeps {
   revokeGoogleToken?: (token: string) => Promise<void>;
   /** Default: `loadEnv().APP_URL`. */
   appUrl?: string;
+  /** Hub file blobs (T073). Default: `createFsBlobStore()` on `HUB_FILES_DIR`. */
+  blobStore?: BlobStore;
 }
 
 export type DeletionRunResult =
@@ -765,6 +771,11 @@ async function deleteAccount(
     await store.deleteNamespace(ns);
     if (!(await namespaceEmpty(store, ns))) throw new DeletionError('verify_failed', true);
 
+    // Hub file blobs go before the user row so a retry still knows whose directory to remove (FR-030).
+    await (deps.blobStore ?? createFsBlobStore()).deleteUser(userId);
+    if (!(await hubDirGone(userId))) throw new DeletionError('verify_failed', true);
+    await removeHubJobs(db, userId);
+
     await db.delete(user).where(eq(user.id, userId));
   } else {
     await markInProgress(db, row.id);
@@ -801,6 +812,45 @@ async function deleteAccount(
     await markCompleted(tx, row.id, deletedDocuments);
   });
   return { outcome: 'completed', scope: 'account', deletedCount: deletedDocuments };
+}
+
+/** Verify step after `blobStore.deleteUser`: only a missing `{HUB_FILES_DIR}/{userId}` counts as gone. */
+async function hubDirGone(userId: string): Promise<boolean> {
+  try {
+    await access(join(loadEnv().HUB_FILES_DIR, userId.toLowerCase()));
+    return false;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException | null)?.code === 'ENOENT') return true;
+    throw err;
+  }
+}
+
+/**
+ * Best effort (jobs contract): queued `hub` jobs for the user are removed; any left over re-check that the user
+ * exists and is active, so a failure here never blocks the deletion. Active (locked) jobs cannot be removed.
+ */
+async function removeHubJobs(db: DbOrTx, userId: string): Promise<void> {
+  try {
+    const queue = getQueue(QUEUES.hub);
+    const threads = await db
+      .select({ id: hubThread.id, version: hubThread.version })
+      .from(hubThread)
+      .where(eq(hubThread.userId, userId));
+    const ids = new Set([
+      jobIds.hubSync(userId),
+      ...threads.map((t) => jobIds.hubThread(t.id, t.version)),
+    ]);
+    const refilterPrefix = jobIds.hubRefilter(userId, '');
+    const queued = await queue
+      .getJobs(['waiting', 'delayed', 'prioritized', 'paused'])
+      .catch(() => []);
+    for (const job of queued) {
+      if (job?.id?.startsWith(refilterPrefix)) ids.add(job.id);
+    }
+    await Promise.allSettled([...ids].map((id) => queue.remove(id)));
+  } catch {
+    // Best effort only.
+  }
 }
 
 /**

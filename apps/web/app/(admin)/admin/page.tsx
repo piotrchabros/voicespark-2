@@ -108,6 +108,34 @@ export default async function AdminDashboardPage({
 
       <Card>
         <CardHeader>
+          <CardTitle>Context Hub</CardTitle>
+          <CardDescription>
+            System-wide aggregates only; today is since UTC midnight.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+            {(
+              [
+                ['LLM calls today', health.hub.llmCallsToday],
+                ['Input tokens today', health.hub.inputTokensToday],
+                ['Output tokens today', health.hub.outputTokensToday],
+                ['Threads pending', health.hub.threadsPending],
+                ['Threads failed', health.hub.threadsFailed],
+                ['Failed syncs', health.hub.syncFailed],
+              ] as const
+            ).map(([label, value]) => (
+              <div key={label} className="flex flex-col">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Ratings</CardTitle>
           <CardDescription>Aggregate counts only.</CardDescription>
         </CardHeader>

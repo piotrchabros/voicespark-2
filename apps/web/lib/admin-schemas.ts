@@ -65,6 +65,26 @@ const count = z.number().int().nonnegative();
 const versionRef = z.strictObject({ id, versionNumber: z.number().int().positive() });
 const actorRef = z.strictObject({ id, name: z.string().nullable() });
 
+// Context Hub (FR-029): admins see counts and aggregates only, strict objects of numbers.
+
+const hubCounts = z.strictObject({
+  recordCount: count,
+  noteCount: count,
+  fileCount: count,
+  pendingSuggestionCount: count,
+  syncFailedCount: count,
+  hubMailboxCount: count,
+});
+
+const hubAggregates = z.strictObject({
+  llmCallsToday: count,
+  inputTokensToday: count,
+  outputTokensToday: count,
+  threadsPending: count,
+  threadsFailed: count,
+  syncFailed: count,
+});
+
 // Users
 
 const userSummary = z.strictObject({
@@ -128,6 +148,7 @@ const adminUserDetail = z.strictObject({
       lastGeneratedAt: iso.nullable(),
     }),
   ),
+  hub: hubCounts,
 });
 
 // Definitions
@@ -333,6 +354,7 @@ export const ADMIN_RESPONSE_SCHEMAS: Record<string, z.ZodType> = {
     queues: z.record(z.string(), queueCounts),
     overdueDeletions: count,
     credentialAuditHits: count,
+    hub: hubAggregates,
   }),
   'GET /api/admin/metrics/ratings': z.strictObject({
     profiles: ratingAggregate,

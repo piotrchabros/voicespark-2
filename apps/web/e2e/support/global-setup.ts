@@ -42,6 +42,13 @@ const WARMUP_PATHS = [
   `/api/hub/notes/${HUB_WARMUP_ID}`,
   `/api/hub/files/${HUB_WARMUP_ID}`,
   `/api/hub/files/${HUB_WARMUP_ID}/download`,
+  // Admin screens and routes with the hub counts, and the account deletion dialog (US8). The warm-up user is not an
+  // admin, so these compile the route and render the 403 panel.
+  '/admin',
+  `/admin/users/${HUB_WARMUP_ID}`,
+  `/api/admin/users/${HUB_WARMUP_ID}`,
+  '/api/admin/system/health',
+  '/settings/account',
 ];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });

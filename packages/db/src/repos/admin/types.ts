@@ -48,6 +48,8 @@ export interface AdminUserDetail {
     versionCount: number;
     lastGeneratedAt: string | null;
   }[];
+  /** Context Hub counts (FR-029): numbers only. */
+  hub: AdminHubCounts;
 }
 
 export interface VersionRef {
