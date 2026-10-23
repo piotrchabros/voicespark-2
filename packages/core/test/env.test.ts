@@ -24,6 +24,21 @@ describe('parseEnv', () => {
     expect(env.SYNC_POLL_INTERVAL_MINUTES).toBe(5);
     expect(env.AUTH_TEST_MODE).toBe(false);
     expect(env.ENCRYPTION_KEYRING).toEqual({ k1: key });
+    expect(env.SUPERMEMORY_API_VERSION).toBe('v3');
+    expect(env.SUPERMEMORY_BASE_URL).toBe('https://supermemory.voicespark.ai');
+  });
+
+  it('validates the Supermemory API version against the base URL', () => {
+    expect(() => parseEnv({ ...base, SUPERMEMORY_API_VERSION: 'v4' })).toThrow(EnvError);
+    expect(() => parseEnv({ ...base, SUPERMEMORY_API_VERSION: 'v5' })).toThrow(
+      /SUPERMEMORY_API_VERSION/,
+    );
+    const v5 = parseEnv({
+      ...base,
+      SUPERMEMORY_API_VERSION: 'v5',
+      SUPERMEMORY_BASE_URL: 'https://api.supermemory.ai',
+    });
+    expect(v5.SUPERMEMORY_API_VERSION).toBe('v5');
   });
 
   it('treats blank values as unset and parses flags and lists', () => {
@@ -62,6 +77,9 @@ describe('parseEnv', () => {
     expect(parseEnv(prod).NODE_ENV).toBe('production');
     expect(() => parseEnv({ ...prod, AUTH_TEST_MODE: '1' })).toThrow(/AUTH_TEST_MODE/);
     expect(() => parseEnv({ ...prod, SUPERMEMORY_API_KEY: '' })).toThrow(/SUPERMEMORY_API_KEY/);
+    expect(() => parseEnv({ ...prod, SUPERMEMORY_API_KEY: undefined })).toThrow(
+      /SUPERMEMORY_API_KEY is required/,
+    );
     expect(() => parseEnv({ ...prod, ANTHROPIC_API_KEY: undefined })).toThrow(/ANTHROPIC_API_KEY/);
     expect(() => parseEnv({ ...prod, SMTP_URL: '' })).toThrow(/SMTP_URL is required/);
     expect(() => parseEnv({ ...prod, MAIL_FROM: undefined })).toThrow(/MAIL_FROM is required/);

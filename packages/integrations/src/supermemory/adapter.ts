@@ -1,22 +1,16 @@
 import { Supermemory, SupermemoryError } from 'supermemory';
 import type { FilterExpression, GetDocumentsResponse } from 'supermemory';
+import { MemoryStoreAuthError } from './errors';
 import type { FilterNode, MemoryDoc, MemoryMetadata, MemoryStore } from './port';
 
 /** Chunks, not extracted memories: the profile pipeline needs source text (contracts/supermemory.md). */
 export const SEARCH_MODE = 'chunks';
 
+export { MemoryStoreAuthError } from './errors';
+
 const DELETE_CHUNK = 100;
 // The SDK retries 408/409/429/5xx with exponential back-off; 401 is never retried.
 const MAX_RETRIES = 4;
-
-/** 401 from Supermemory: fatal, raises an admin alert, no retry. */
-export class MemoryStoreAuthError extends Error {
-  readonly status = 401;
-  constructor(message = 'Supermemory rejected the API key (401)') {
-    super(message);
-    this.name = 'MemoryStoreAuthError';
-  }
-}
 
 function statusOf(err: unknown): number | undefined {
   return err instanceof SupermemoryError ? err.statusCode : undefined;

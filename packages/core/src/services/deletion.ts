@@ -799,13 +799,23 @@ async function deleteAccount(
   return { outcome: 'completed', scope: 'account', deletedCount: deletedDocuments };
 }
 
-/** R19 verify step after `deleteNamespace`: a missing namespace (thrown 404) counts as empty. */
-async function namespaceEmpty(store: MemoryStore, ns: string): Promise<boolean> {
+/**
+ * R19 verify step after `deleteNamespace`: only a not-found (404) counts as empty. Detected structurally
+ * (error name + status/code) so auth failures and the foreign-document guard still propagate.
+ */
+export async function namespaceEmpty(store: MemoryStore, ns: string): Promise<boolean> {
   try {
     const res = await store.listDocuments(ns, { page: 1, limit: 1 });
     return res.documents.length === 0;
-  } catch {
-    return true;
+  } catch (err) {
+    const e = err as { name?: unknown; status?: unknown; code?: unknown } | null;
+    if (
+      e?.name === 'MemoryStoreHttpError' &&
+      (e.status === 404 || e.code === 'supermemory_not_found')
+    ) {
+      return true;
+    }
+    throw err;
   }
 }
 

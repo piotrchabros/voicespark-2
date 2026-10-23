@@ -18,7 +18,7 @@ status is `not started` (item 0 is `in progress`) and every owner is `TBD - prod
 | 3 | Microsoft publisher verification and admin-consent guidance for `Mail.Read` | TBD - product owner | 1-2 weeks (Partner Program enrolment first) | Outlook / Microsoft 365 mailboxes in other tenants | not started |
 | 4 | Apple Services ID, domain and return URL, Private Email Relay | TBD - product owner | 1-3 days | Sign in with Apple; mail to relay addresses | not started |
 | 5 | Facebook app review / Live mode for `email` | TBD - product owner | 1-2 weeks (business verification may add more) | Facebook sign-in for the public | not started |
-| 6 | Self-hosted Supermemory live contract run, and OpenAI embeddings check | TBD - product owner | 1 day once a test instance and key exist | Real imports and deletion verification | not started |
+| 6 | Self-hosted Supermemory (v3) live contract run, and OpenAI embeddings check (v5 legacy) | TBD - product owner | 1 day once a test instance and key exist | Real imports and deletion verification | not started |
 | 7 | Anthropic live smoke, and OpenAI retention check | TBD - product owner | 1 day once a key exists | Profiles, drafts, classifier | not started |
 | 8 | Production configuration checks (SMTP, domain, keys) | TBD - product owner | 1 day | Deletion confirmations and notifications | not started |
 
@@ -175,8 +175,33 @@ never run against a live instance**. The contract suite runs the same cases agai
 and, only when a key is set, the live adapter (`packages/integrations/test/supermemory.contract.test.ts:182-187`).
 Until a key is available, all behaviours below are unverified assumptions. This is a follow-up.
 
-Run against a dedicated test instance or key (`SUPERMEMORY_BASE_URL` pointing at it), never the production instance,
-because the suite creates and deletes namespaces:
+The default adapter is now the self-hosted v3 REST adapter (`packages/integrations/src/supermemory/adapter-v3.ts`),
+selected by `SUPERMEMORY_API_VERSION=v3`. Its contract run is always on against a fake server. The live run is gated on
+`SUPERMEMORY_V3_TEST_URL`. The v5 checklist below applies only to `SUPERMEMORY_API_VERSION=v5`. The v5 live run now also
+needs `SUPERMEMORY_API_VERSION=v5`.
+
+Run the v3 suite against a dedicated test key or instance, never the production one, because it creates and deletes
+namespaces:
+
+```sh
+SUPERMEMORY_V3_TEST_URL=https://supermemory.voicespark.ai SUPERMEMORY_V3_TEST_KEY=<key> \
+  pnpm --filter @voicespark/integrations exec vitest run --project unit test/supermemory.contract.test.ts
+```
+
+v3 assumptions to check and record:
+
+- [ ] **Content.** `GET /v3/documents/{customId}` returns the original text verbatim in `content`.
+- [ ] **Metadata-only PATCH.** `PATCH` with only `metadata` is accepted. Keys merge, arrays are replaced.
+- [ ] **Scoping.** `POST /v3/documents/list` with `containerTags` returns only that namespace.
+- [ ] **Search ids.** `documentId` in search results equals the `customId`.
+- [ ] **Memories cascade.** Deleting a document also removes its memories (`/v4/memories/list` is empty afterwards).
+- [ ] **Namespace delete.** `DELETE /v3/container-tags/{tag}` returns 200, or 403 when the key is not an org owner or
+  admin. On 403 the adapter falls back to list and delete.
+- [ ] **Boolean filters.** Boolean metadata values work in filters.
+
+The v5 checklist follows.
+
+Run against a dedicated test project key, never the production one, because the suite creates and deletes namespaces:
 
 ```sh
 SUPERMEMORY_API_KEY=<test key> [SUPERMEMORY_BASE_URL=...] \

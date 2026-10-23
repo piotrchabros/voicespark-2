@@ -7,7 +7,8 @@ checked, how, and the result, with file and line references. Anything that does 
 
 - Reviewed: 2026-10-22, against the working tree (the repository has no commits yet, so the file list below comes from
   `git ls-files --cached --others --exclude-standard`, not `git ls-files`).
-- Versions in use: better-auth 1.7.12, drizzle-orm 0.45.4, pino 9.x, arctic 3.x, imapflow 2.x, supermemory SDK 5.x.
+- Versions in use: better-auth 1.7.12, drizzle-orm 0.45.4, pino 9.x, arctic 3.x, imapflow 2.x, supermemory SDK 5.x (legacy adapter). The default adapter calls the self-hosted Supermemory v3 REST API directly
+  over HTTPS with a Bearer key, with no SDK.
 - Result: **pass with open issues**. The one medium issue (OI-1: raw error messages reach the worker log and Redis) is
   fixed. The rest are low severity or need a decision.
 

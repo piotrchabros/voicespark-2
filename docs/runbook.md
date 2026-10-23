@@ -11,6 +11,9 @@ the repository root with the production environment loaded.
   (the `.env.example` placeholder sender is refused), and the process refuses to start if `AUTH_TEST_MODE`,
   `TEST_MEMORY_STORE_URL` or `TEST_IMAP_INSECURE_TLS` is set. Both `worker` and `web` check at start (web through
   `apps/web/instrumentation.ts`). A start failure with "Unsafe production configuration" names the offending variables.
+- `SUPERMEMORY_API_VERSION` selects the Supermemory adapter: `v3` (default, the self-hosted server at
+  `SUPERMEMORY_BASE_URL`, default `https://supermemory.voicespark.ai`) or `v5` (the hosted API). `v5` is refused with the
+  self-hosted URL.
 - `ENCRYPTION_ACTIVE_KEY_ID` must exist in `ENCRYPTION_KEYRING` (each key is base64 of 32 bytes).
 - Migrations run on every `docker compose up` through `migrate`. Seed once: `docker compose run --rm migrate pnpm db:seed`.
 - The worker registers its own schedulers at start: `maintenance.tmp-sweep` (hourly), `maintenance.deletion-sla` (every
@@ -65,6 +68,16 @@ import, regenerate the profile). Deletion jobs recover through the SLA job.
 A `MemoryStoreAuthError` in worker logs means the Supermemory key is rejected. Imports, sync, profile generation and
 deletions all fail. Set a valid `SUPERMEMORY_API_KEY`, then `docker compose up -d web worker`. Failed deletions retry on the
 SLA schedule; paused imports are resumed by users. Check overdue deletions afterwards.
+
+With the self-hosted server (`v3`), the key is the one issued for that server, and the Caddy in front of it checks the
+bearer token. A 401 can come from Caddy before the request reaches Supermemory. Check that the key and
+`SUPERMEMORY_BASE_URL` belong to the same server.
+
+## Supermemory busy
+
+A `MemoryStoreBusyError` (`memory_store_busy`) means the server is still processing a document, which takes 30 to 60
+seconds for small ones. The adapter waits a short time, then gives up so the job can retry. Jobs retry on their own, so
+do nothing unless the same jobs keep failing. Then check the server: `systemctl status supermemory-voicespark`.
 
 ## SMTP failures
 

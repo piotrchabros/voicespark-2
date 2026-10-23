@@ -71,7 +71,9 @@ export const envSchema = z
     ENCRYPTION_ACTIVE_KEY_ID: z.string().min(1),
     DEDUP_HMAC_KEY: z.string().min(1),
     SUPERMEMORY_API_KEY: optionalString,
-    SUPERMEMORY_BASE_URL: z.string().url().default('https://api.supermemory.ai'),
+    SUPERMEMORY_BASE_URL: z.string().url().default('https://supermemory.voicespark.ai'),
+    // v3 = self-hosted REST server; v5 = hosted api.supermemory.ai.
+    SUPERMEMORY_API_VERSION: z.enum(['v5', 'v3']).default('v3'),
     ANTHROPIC_API_KEY: optionalString,
     LLM_PROFILE_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
     LLM_DRAFT_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
@@ -104,6 +106,16 @@ export const envSchema = z
         code: 'custom',
         path: ['ENCRYPTION_ACTIVE_KEY_ID'],
         message: 'must be a key id present in ENCRYPTION_KEYRING',
+      });
+    }
+    if (
+      env.SUPERMEMORY_API_VERSION === 'v5' &&
+      new URL(env.SUPERMEMORY_BASE_URL).hostname === 'supermemory.voicespark.ai'
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SUPERMEMORY_API_VERSION'],
+        message: 'v5 cannot be used with the self-hosted supermemory.voicespark.ai (it speaks v3)',
       });
     }
   })
