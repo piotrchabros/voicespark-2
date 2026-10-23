@@ -175,7 +175,7 @@ The hub follows VoiceSpark's privacy rules. Admins see no hub content. When the 
 - Two users exchange mail with each other: each gets a person record for the other in their own hub; nothing is shared between hubs.
 - A conversation mixes a newsletter footer with a real reply: the real reply is processed; footers and quoted history do not create records.
 - A person uses a free-mail address (for example gmail.com): no company is created from that domain.
-- A sender writes from several addresses: the addresses are attached to one person when the evidence is strong; otherwise a merge is suggested.
+- A sender writes from several addresses: the addresses are attached to one person when the evidence is strong; otherwise the address is suggested for the existing same-name person; the user can also merge records manually.
 - A message arrives in a thread that was already summarised: the summary is updated; the thread is not counted twice.
 - Mail processing fails for one conversation: that conversation is retried later and the rest continue; repeated failures are shown to the user.
 - The memory store rejects an item: the item stays saved in VoiceSpark, shows "failed", and can be retried.
@@ -256,11 +256,11 @@ The hub follows VoiceSpark's privacy rules. Admins see no hub content. When the 
 - **Note**: formatted text on one record; title, body, dates.
 - **File**: a document on one record; name, description, type, size, extracted text status and reason, dates.
 - **Conversation Summary**: a short summary of one email conversation; subject, dates, participants, message count, language, link to the original; attached to the records involved; tied to the mailboxes it came from.
-- **Finding / Suggestion**: a fact proposed from email (new record, value or link); confidence, whether it conflicts with user data, evidence, source conversations, state (applied, waiting, accepted, rejected, overridden).
+- **Finding / Suggestion**: a fact proposed from email (new record, value or link); confidence, whether it conflicts with user data, evidence, source conversations, state (applied, suggested, rejected, overridden, superseded).
 - **Block Marker**: a record that the user deleted or rejected a specific item, so it is not re-added automatically.
 - **Ignore Rule**: a sender address or domain the user does not want in the hub.
 - **Hub Mailbox Setting**: per connected mailbox, whether the hub is on, and its processing counters and last run.
-- **Sync Item**: the memory-store status of one hub item (stored, waiting, failed) and its last error code.
+- **Sync Item**: the memory-store status of one hub item (stored, waiting, failed; `pending` is shown as 'waiting') and its last error code.
 
 ## Success Criteria *(mandatory)*
 

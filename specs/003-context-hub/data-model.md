@@ -17,7 +17,7 @@ Feature: `003-context-hub`. Store: PostgreSQL 17 through Drizzle (`@voicespark/d
 
 | Kind | Object |
 |---|---|
-| Altered table | `draft` (+`hub_record_kind`, `hub_record_id`, `hub_record_label_enc`) |
+| Altered table | `draft` (+`hub_record_kind`, `hub_record_id`, `hub_record_label_enc`, `hub_context_status`) |
 | Altered enum | `deletion_scope` (+`hub_source`) |
 | Altered list | `AUDIT_ACTIONS` (+ hub actions) |
 | Altered type | `KeyPurpose` (+`'hub-files'`) |
@@ -60,13 +60,14 @@ Existing columns are unchanged.
 | hub_record_kind | added | text | nullable; CHECK `in ('person','company','project')` |
 | hub_record_id | added | uuid | nullable; no FK, so the pin survives record deletion |
 | hub_record_label_enc | added | text | nullable; content-class; the record name at creation |
+| hub_context_status | added | text | nullable; CHECK `in ('used','missing','inspection_failed')`; set by the draft worker |
 
 Rules:
 - All three are set together or all are null. CHECK `draft_hub_record_all_or_none` (FR-027).
 - The service checks that the record belongs to the user before it stores the pin. A foreign id returns 404.
 - The label is shown in the draft list and detail even after the record is deleted (AS6.3).
 - Regenerate copies the three columns to the new draft.
-- If the record is gone when the worker runs, the draft runs without context and records the info flag `hub_context_missing`. It is not an error.
+- If the record is gone when the worker runs, the draft runs without context and sets `hub_context_status = 'missing'`. It is not an error.
 
 ### deletion_scope enum
 
@@ -80,7 +81,7 @@ No column change. `AUDIT_ACTIONS` gains the actions below. Metadata holds ids an
 |---|---|
 | `hub.mailbox_enabled` | `{sourceId, consentTextVersion}` |
 | `hub.mailbox_disabled` | `{sourceId, hubData}` |
-| `hub.mailbox_data_deleted` | `{sourceId, threads, records, links, files: 0}` (counts) |
+| `hub.mailbox_data_deleted` | `{sourceId, threads, records, links, values}` (counts; values = cleared fields + deleted emails/domains) |
 | `hub.record_deleted` | `{kind, notes, files, links}` |
 | `hub.records_merged` | `{kind}` |
 | `hub.suggestions_bulk_decided` | `{accepted, rejected, failed}` |
@@ -261,15 +262,15 @@ Constraints and indexes:
 - Unique `hub_file_storage_key_uq` on `(storage_key)`.
 - Indexes on each owner FK and on `(user_id, extraction_status)`.
 
-Reason codes in `extraction_reason`: `no_text_extraction_for_type`, `image_not_searchable`, `empty`, `timeout`, `corrupt`, and the filter category key when status is `excluded`.
+Reason codes in `extraction_reason`: `no_text_extraction_for_type`, `image_not_searchable`, `empty`, `timeout`, `corrupt`, `inspection_failed` (status `failed`), and the filter category key when status is `excluded`.
 
 Rules:
 - Allowed extensions (20): pdf, docx, odt, doc, rtf, xlsx, ods, csv, xls, pptx, odp, ppt, txt, md, markdown, png, jpg, jpeg, gif, webp. SVG is refused.
-- Over 25 MB is `413 file_too_large`. A wrong type is `415 unsupported_file_type` with the allowed list (FR-009).
+- Over 25 MB is `413 too_large`. A wrong type is `415 unsupported_type` with the allowed list (FR-009).
 - Extraction runs in the worker (`hub.file-extract`, 30 s timeout). The row is created with `pending`.
 - `pdf`, `docx`, `xlsx`, `pptx`, `odt`, `ods`, `odp`, `csv`, `txt`, `md` can reach `extracted`. `rtf`, `doc`, `xls`, `ppt` give `unsupported` / `no_text_extraction_for_type`. Images give `unsupported` / `image_not_searchable` (FR-010).
 - Extracted text passes `inspectForUser` (kind `file`, full policy) before it is stored, indexed or synced. A whole-item exclusion sets `excluded`, discards the text and writes the audit entry `hub.file_excluded`.
-- The blob is kept unmodified (see LEAD DECISIONS in the design, FR-009). Only derived text is filtered.
+- The blob is kept unmodified (see spec Clarifications, FR-009). Only derived text is filtered.
 
 ## New tables: mail threads
 
@@ -304,7 +305,7 @@ Constraints and indexes:
 - Unique `hub_thread_user_key_uq` on `(user_id, thread_key)`.
 - CHECK `hub_thread_processed_le_version`: `processed_version <= version`.
 - CHECK `hub_thread_skip_reason_when_skipped`: `skip_reason is null or status = 'skipped'`.
-- Index `hub_thread_due_idx` on `(next_attempt_at)` where `status = 'pending'`. It serves `hub.thread-sweep`.
+- Index `hub_thread_due_idx` on `(next_attempt_at)` where `status = 'pending'`. It serves `maintenance.hub-thread-sweep`.
 - Index on `(user_id, status)` for the failed-thread list and counters.
 
 State machine (`status`):
@@ -313,15 +314,15 @@ State machine (`status`):
 |---|---|---|---|
 | (new) | first message recorded | pending | `version = 1`, `next_attempt_at = now + 60 s` |
 | done, skipped, failed | message with a new `message_id_hash` recorded | pending | `version + 1`, `next_attempt_at = now + 60 s`, `attempts = 0` |
-| pending | claimed and processed | done | `processed_version = claimed version`, only if the lease is still held; summary stored |
-| pending | skipped by classification, ignore rule, filter or no records | skipped | `skip_reason` set; no summary |
+| pending | claimed and processed | done, or pending | only if the lease is still held: `processed_version = claimed version`; `status = CASE WHEN version = claimed version THEN 'done' ELSE 'pending' END`; summary stored. When it stays pending (a message bumped `version` during the run) `next_attempt_at = now()` is kept so the sweep re-claims it |
+| pending | skipped by classification, ignore rule, filter or no records | skipped, or pending | `skip_reason` set; `processed_version = claimed version`; no summary; `status = CASE WHEN version = claimed version THEN 'skipped' ELSE 'pending' END`, with `next_attempt_at = now()` when it stays pending |
 | pending | no connected hub mailbox holds the messages | pending | retry in 15 min, `attempts` unchanged |
-| pending | LLM refusal, or bad output twice, or 8 failed attempts | failed | `last_error_code` set (`llm_refused`, `llm_bad_output`, ...) |
+| pending | LLM refusal, or bad output twice, or 8 failed attempts | failed | `next_attempt_at = null`; `last_error_code` set (`llm_refused`, `llm_bad_output`, ...) |
 | failed | user retry | pending | `attempts = 0`, `next_attempt_at = now` |
 
 Rules:
 - A message already known by `message_id_hash` does not bump `version`. A second mailbox with the same message does not cause reprocessing (FR-020).
-- The claim takes a row only when `version > processed_version` and `next_attempt_at <= now`. The lease is 600 s.
+- The claim takes a row only when `status = 'pending'`, `version > processed_version` and `next_attempt_at <= now`. The lease is 600 s.
 - Backoff is `min(5 s * 2^(n-1), 15 min)` with +/-20% jitter.
 - Error codes only. Content never appears in logs or audit.
 - Two threads that a new message links are merged into the older one. Messages, sources, facts and records move. The younger summary document is tombstoned in the outbox.
@@ -456,7 +457,7 @@ State machine (`state`):
 | suggested | the dependency fact is rejected | rejected | no marker for the dependent |
 
 Rules:
-- Accept and reject run one fact per transaction, in dependency order. A fact not in `suggested` returns `409 suggestion_not_pending` (FR-023).
+- Accept and reject run one fact per transaction, in dependency order. A single accept or reject of a fact not in `suggested` returns `409 suggestion_not_pending`. Bulk decide reports `suggestion_not_pending` for that id in its results and does not fail the call (FR-023).
 - The accept of a fact whose `depends_on_fact_id` is still `suggested` applies the dependency first.
 - FR-018 source display is derived from facts in state `applied` or `overridden`, joined to `hub_thread`. Extra evidence threads are in `hub_fact_evidence`.
 - Targets are `SET NULL` so a record deletion keeps the fact for diagnostics. Deleted-record facts are not shown.
@@ -489,16 +490,16 @@ Marker keys (only the HMAC is stored):
 
 | Key | Written when |
 |---|---|
-| `person:email:{addr}` | a person, or one email, is deleted |
-| `company:domain:{d}` | a company, or one domain, is deleted |
-| `company:name:{n}` | a company is deleted |
-| `project:name:{n}` | a project is deleted |
-| `link:{kind}:{idA}:{idB}` | a link is deleted |
-| `field:{kind}:{id}:{field}:{hash(value)}` | an email value is cleared or rejected |
-| `fact:{fingerprint}` | a suggestion is rejected |
+| `person:email:{address}` | a person email is deleted or its suggestion rejected |
+| `company:domain:{domain}` | a company domain is deleted or rejected |
+| `company:name:{name}` | a company is deleted or its name suggestion rejected |
+| `project:name:{name}` | a project is deleted or its suggestion rejected |
+| `link:{kind}:{idA}:{idB}` | a link is deleted or rejected |
+| `field:{kind}:{id}:{field}:{hash(value)}` | a suggested field value is rejected |
+| `fact:{fingerprint}` | any fact suggestion is rejected |
 
 Rules:
-- A matching marker turns an auto decision into a suggestion with reason `tombstoned`. A suggestion below 0.70 confidence with a marker is still dropped only if the marker is a rejection of the same fingerprint. New evidence can surface a suggestion again (FR-017).
+- A matching marker turns an auto decision into a suggestion with reason `tombstoned`. A suggestion below 0.70 is dropped unless it is tombstoned; a fingerprint rejected with this thread among its evidence is dropped. New evidence can surface a suggestion again (FR-017).
 - A merge writes no markers.
 - Markers go with the user on account deletion. They are kept when a mailbox purge runs, because they hold only HMACs.
 
@@ -586,13 +587,8 @@ Indexes and constraints:
 - GIN `hub_search_doc_tokens_gin` on `(tokens)`.
 - Index on `(user_id, item_type)`.
 
-Token rules:
-- Tokenise lower-cased text with `/[\p{L}\p{N}]+/gu`. Tokens are up to 32 chars.
-- Index every prefix of length 2 to `min(len, 15)`, plus the full token when it is longer than 15.
-- Each token is the first 16 hex chars of `hmacHex('hubsearch:{userId}:' + t)`.
-- Indexed text by item type: records index name, role, emails, domains, website, industry. Notes index title and body text. Files index name, description and the first 90,000 chars of filtered extracted text.
-- Query: split the same way (at most 32 tokens), hash each in prefix form (cut to 15 chars), then `tokens @> $1` with an optional `item_type = ANY($2)` and `LIMIT 200`.
-- The app decrypts the candidates, verifies the real match (this drops hash collisions), ranks, pages (default 20, max 100) and builds snippets. The server sends no HTML.
+Token, query and ranking rules: contracts/hub-search.md.
+
 - Index writes happen in the same transaction as the domain write. Delete removes the row. A refilter rewrites the tokens.
 - Residual leakage (token frequency and document length for someone with database access) is documented in research and the security review. It matches the trust level of `sender_hash` and `message_id_hash`.
 
@@ -640,11 +636,12 @@ State machine (`status`):
 
 Rules:
 - "Stored" means the write was accepted by the store. Remote indexing (32 to 60 s on v3) is not awaited.
-- The worker claims due rows with `FOR UPDATE SKIP LOCKED`, batches of 10, under a 120 s lease.
+- The worker claims due rows with `WHERE user_id=$1 AND (status <> 'stored' OR synced_version < version) AND (next_attempt_at IS NULL OR next_attempt_at <= now()) AND (lease_until IS NULL OR lease_until < now()) ORDER BY next_attempt_at LIMIT 10 FOR UPDATE SKIP LOCKED` (matches `hub_sync_item_due_idx`) and sets `lease_until = now() + 120 s`.
 - It builds each document from the current state: re-decrypt, then `buildHubDocument` under the current policy. Postgres is the source of truth, so a failed sync never loses content (FR-026).
 - A tombstone (`deleted = true`) sends `deleteDocuments`. A not-found result counts as success.
 - Fan-out: a rename, or a link create, change or delete, marks the record, its notes and files, the linked records, and the summaries attached to the record. A delete tombstones the record, its notes and files, then marks linked trees. A merge tombstones the merged-away record and marks the kept tree.
 - A filter-preference version bump enqueues `hub.refilter`. It re-inspects stored summaries, notes, file text and fields, re-encrypts, re-indexes and marks all items dirty.
+- Final failure of `hub.refilter` is fail-closed (Principle VI). After the last attempt the items it could not re-inspect have their memory-store documents deleted (sync status `pending`, `last_error_code = refilter_pending`), so nothing filtered under the old policy stays in the memory store. The items stay in the app and are excluded from search indexing updates until refiltered. The daily `maintenance.hub-refilter-retry` re-enqueues `hub.refilter` for users with `refilter_pending` items, and the user gets an in-app notification.
 - Retroscan and the credential audit skip ids that start with `hub_`. A credential-audit hit on a hub document marks the sync item and its source row for `hub.refilter`.
 
 ## Relationships
@@ -745,11 +742,9 @@ export type HubLlmText = string & { readonly __brand: 'HubLlmText' };
  *  hub_person.phone_enc and hub_company_domain, and in memory docs when policy allows. */
 export type ContactValue = string & { readonly __brand: 'ContactValue' };
 
-export interface HubInspectionResult {
-  text: HubLlmText;
-  excluded: false;
-  redactions: number;
-}
+export type HubInspectionResult =
+  | { excluded: false; text: HubLlmText; counts: CategoryCount[]; redactedValues: number }
+  | { excluded: true; category: FilterCategoryKey | 'inspection_failed' };
 
 export type HubFactValue =
   | { kind: 'text'; value: string }
@@ -766,11 +761,12 @@ export interface HubPolicyV1 {
 }
 
 export interface HubSearchResult {
-  itemType: 'person' | 'company' | 'project' | 'note' | 'file';
-  itemId: string;
+  type: 'person' | 'company' | 'project' | 'note' | 'file';
+  id: string;
+  title: string;
   owner: { kind: 'person' | 'company' | 'project'; id: string; name: string } | null;
-  title: { text: string; highlights: [number, number][] };
   snippets: { text: string; highlights: [number, number][] }[]; // up to 2, about 20 words each
+  updatedAt: string; // ISO
 }
 
 export interface BlobStore {
@@ -815,7 +811,7 @@ export interface AdminHubCounts {
 
 Notes:
 - Confidences are clamped to 0..1. Fields are trimmed and capped. Unknown refs and ids are dropped in post-validation.
-- Memory-store metadata keys (all `vs_` prefixed) are `vs_kind`, `vs_hub_item_id`, `vs_hub_owner_kind`, `vs_hub_owner_id`, `vs_hub_linked_keys[]`, `vs_item_ts`, `vs_hub_version`, `vs_lang`, plus `vs_hub_email_hashes[]` on people and `vs_hub_domain_hashes[]` on companies. They hold no names, addresses or domains. There is no `vs_authorship` and no `vs_source_ids`.
+- Memory-store metadata keys (all `vs_` prefixed) are `vs_kind`, `vs_hub_item_id`, `vs_hub_owner_kind`, `vs_hub_owner_id`, `vs_hub_linked_keys[]`, `vs_item_ts`, `vs_hub_version`, `vs_lang`, `vs_filter_policy_version` (existing key), plus `vs_hub_email_hashes[]` on people and `vs_hub_domain_hashes[]` on companies. They hold no names, addresses or domains. There is no `vs_authorship` and no `vs_source_ids`.
 
 ## Provenance and owner_fields
 
@@ -876,12 +872,12 @@ Consequences:
 | Project `end_date >= start_date`; status in enum | `validation_failed` | FR-002 |
 | Same `name_key` for same kind returns `similar:[{id,name}]` in the response, not an error | none | FR-003 |
 | Delete preview returns `{notes, files, links}` counts | none | FR-004 |
-| Merge needs two distinct records of one kind; kept values win | `validation_failed` | FR-005 |
+| Merge needs two distinct records of one kind; kept values win | `merge_invalid` (409) | FR-005 |
 | Lists sortable by name and by last change | none | FR-006 |
 | Link kind in the three kinds; same-kind pair rejected; duplicate pair rejected; role <= 100 | `invalid_link`, `link_exists`, `validation_failed` | FR-007 |
 | Note body valid against the schema, <= 1 MB, <= 100,000 chars; title <= 300; href protocol allowlist | `validation_failed` | FR-008 |
 | Note with a whole-item exclusion is refused | `note_excluded` | FR-008, FR-028 |
-| File extension on allowlist, magic bytes match, <= 25 MB, name <= 255 with no `/ \` or control chars | `unsupported_file_type`, `file_too_large`, `validation_failed` | FR-009 |
+| File extension on allowlist, magic bytes match, <= 25 MB, name <= 255 with no `/ \` or control chars | `unsupported_type`, `too_large`, `validation_failed` | FR-009 |
 | File text not extractable is kept and marked with a reason | none | FR-010 |
 | Search query split into at most 32 tokens; page size <= 100 | `validation_failed` | FR-011 |
 | Enable needs `acknowledgeAi: true` | `validation_failed` | FR-012 |
@@ -946,7 +942,7 @@ Rules:
 
 File: `packages/db/drizzle/0008_context_hub.sql`, generated by `drizzle-kit generate` with hand-written edits for CHECKs, partial and GIN indexes, enum creation and the `deletion_scope` value. Journal entry in `packages/db/drizzle/meta`.
 
-If the work is phased, the same content may split into `0008` to `0010`. The default is one file.
+One migration: `0008_context_hub.sql`.
 
 SQL steps, in order:
 1. `CREATE TYPE` for the 11 new enums. `ALTER TYPE deletion_scope ADD VALUE 'hub_source'`. This statement cannot run inside the same transaction block that uses the value, so it is the first statement and nothing in the migration inserts that value.
@@ -955,7 +951,7 @@ SQL steps, in order:
 4. `CREATE TABLE` for the thread tables (`hub_thread`, `hub_message`, `hub_message_source`, `hub_thread_source`, `hub_thread_record`, `hub_llm_call`).
 5. `CREATE TABLE` for `hub_fact` (self FK), `hub_fact_evidence`, `hub_block_marker`, `hub_ignore_rule`, `hub_merge_redirect`.
 6. `CREATE TABLE` for `hub_mailbox_setting`, `hub_search_doc` (with the GIN index) and `hub_sync_item`.
-7. `ALTER TABLE draft ADD COLUMN hub_record_kind, hub_record_id, hub_record_label_enc` and the all-or-none CHECK.
+7. `ALTER TABLE draft ADD COLUMN hub_record_kind, hub_record_id, hub_record_label_enc` and the all-or-none CHECK, plus `hub_context_status text null CHECK (hub_context_status IN ('used','missing','inspection_failed'))`.
 
 No data backfill. `AUDIT_ACTIONS` is a TypeScript list, not a database enum, so no SQL is needed for it. Existing mailboxes get no `hub_mailbox_setting` row. The hub is off until the user enables it.
 

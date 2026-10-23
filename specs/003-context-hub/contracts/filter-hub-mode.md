@@ -25,7 +25,7 @@ Hub mode never softens the other categories. A phone number inside a redacted sp
 
 ```ts
 type HubInspectionResult =
-  | { excluded: false; text: HubLlmText; redactions: Redaction[] }
+  | { excluded: false; text: HubLlmText; counts: CategoryCount[]; redactedValues: number }
   | { excluded: true; category: FilterCategoryKey | 'inspection_failed' };
 ```
 
@@ -76,7 +76,7 @@ type SegmentsResult =
 | Contact values from the model or headers | `validateContactValue` | validity plus locked detectors |
 | Note save and edit | `inspectSegments` | full policy |
 | Record free-text fields | `inspectSegments` | full policy |
-| File extracted text | `inspect` kind `file` | full policy |
+| File extracted text | `inspectForUser` (core wrapper of `inspect`, kind `file`) | full policy |
 | Memory store documents | `buildHubDocument` | full policy, contact rule |
 | Draft record context | `inspect` of every segment | full policy |
 | Tone-of-voice content | unchanged | full policy |
@@ -91,4 +91,4 @@ New fixtures in `packages/filters/test/corpus/hub/`. Tests are written failing f
 - `inspectSegments`: segment boundaries, a classifier span that crosses a boundary, link hrefs, rebuilt JSON.
 - `buildHubDocument`: contacts omitted when `third_party_contacts` is selected, included when not, domains always included.
 - Compile-time tests: `HubLlmText` is rejected by `MemoryDoc`, a plain string is rejected as `ContactValue`.
-- The CI corpus gate gains a hub-mode run. Locked-category recall in hub mode must be 100% (same threshold as normal mode). Precision gates for hard negatives are reported separately.
+- The CI corpus gate gains a hub-mode run. Locked-category recall in hub mode must be 100% (same threshold as normal mode). Precision gates for hard negatives are reported separately. Overall item-level recall in hub mode (locked plus selected optional items) must be at least 99%.

@@ -30,7 +30,7 @@ These facts come from the code as it stands. Each one shaped a decision below.
 9. **Infrastructure.**
    - `SYNC_POLL_INTERVAL_MINUTES` defaults to 5.
    - `UPLOAD_MAX_BYTES` is 10 MB.
-   - `apps/web/next.config.ts` has no CSP and no proxy body-size setting. `apps/web/middleware.ts` exists.
+   - `apps/web/next.config.ts` has no CSP and no proxy body-size setting. `apps/web/proxy.ts` exists (Next 16); its matcher excludes `/api/**`.
    - `packages/integrations/src/files/extract.ts` supports pdf, docx, txt/md and html only.
 10. **Migrations** stop at `0007_analysis_prompts.sql`. The next is `0008_context_hub.sql`.
 
@@ -58,7 +58,7 @@ Verified dependency versions (checked with `npm view <pkg> version time --json` 
 - Mail: `hub_thread`, `hub_message`, `hub_message_source`, `hub_thread_source`, `hub_thread_record`.
 - Extraction state: `hub_fact`, `hub_fact_evidence`, `hub_block_marker`, `hub_ignore_rule`, `hub_merge_redirect`, `hub_mailbox_setting`, `hub_llm_call`.
 - Search and sync: `hub_search_doc`, `hub_sync_item`.
-- `draft` gains `hub_record_kind`, `hub_record_id` (no FK) and `hub_record_label_enc`.
+- `draft` gains four columns: `hub_record_kind`, `hub_record_id` (no FK), `hub_record_label_enc` and `hub_context_status` (`used`, `missing` or `inspection_failed`).
 - New enums: `hub_origin`, `hub_project_status`, `hub_link_kind`, `hub_extraction_status`, `hub_thread_status`, `hub_skip_reason`, `hub_fact_type`, `hub_fact_state`, `hub_fact_basis`, `hub_sync_status`, `hub_sync_entity`. `deletion_scope` gains `hub_source`. `AUDIT_ACTIONS` gain hub actions (R9). `KeyPurpose` gains `'hub-files'`.
 
 Key shapes (the full column list goes in `data-model.md`):
@@ -97,7 +97,7 @@ Key shapes (the full column list goes in `data-model.md`):
   - The key id is stored per row. Old keys stay in the keyring. Rewrap is a follow-up, not v1.
 - **Allowlist.** 20 extensions: pdf, docx, odt, doc, rtf, xlsx, ods, csv, xls, pptx, odp, ppt, txt, md/markdown, png, jpg/jpeg, gif, webp.
   - Magic bytes are checked with the existing `file-type` 22. doc, xls and ppt must sniff as `cfb`. txt, md and csv must be strict UTF-8 with no NUL. SVG is refused.
-  - Limit 25 MB (`HUB_FILE_MAX_BYTES` = 26214400). Over the limit returns 413 `file_too_large`. A wrong type returns 415 `unsupported_file_type` with the allowed list.
+  - Limit 25 MB (`HUB_FILE_MAX_BYTES` = 26214400). Over the limit returns 413 `too_large`. A wrong type returns 415 `unsupported_type` with the allowed list.
 - **Extraction** runs in the worker (`hub.file-extract`), not in the request, as VoiceSpark uploads do. Timeout 30 s.
   - pdf: existing `unpdf`. docx: existing `mammoth`.
   - xlsx, pptx, odt, ods, odp: new `extractOoxmlOdf()` in `packages/integrations/src/files/office.ts` using `fflate` 0.8.3 unzip plus element text collection (`w:t`, `xl/sharedStrings.xml` and worksheets, `a:t` in slides, `text:p`/`text:h` in `content.xml`).
@@ -107,7 +107,7 @@ Key shapes (the full column list goes in `data-model.md`):
   - Stored extracted text is capped at 1,000,000 chars. The search index takes the first 90,000 chars.
 - **Filtering.** Extracted text passes `inspectForUser` (kind `file`, full user policy) before it is stored encrypted, indexed or synced. Redaction counts are shown (AS2.7). A whole-item exclusion (credential delivery, mostly sensitive, inspection failure) sets `extraction_status=excluded` with the category key. The text is discarded and the file is marked not searchable.
 - **Original binary (spec-owner decision, ACCEPTED 2026-10-23).** The filter applies to text derived from files. The original blob is kept unmodified and encrypted. It is owner-only for download and is never sent to the AI service or the memory store. The spec records this in Clarifications, FR-009 and US2 AS7.
-- **Next 16 body limit.** Because `apps/web/middleware.ts` exists, Next buffers request bodies with a default of about 10 MB. Set the proxy client max body size in `apps/web/next.config.ts` to 26 MB. The exact Next 16 key name must be verified at implementation (Risk 5).
+- **Next 16 body limit.** Because `apps/web/proxy.ts` exists, Next buffers request bodies with a default of about 10 MB. Set `experimental.proxyClientMaxBodySize: '26mb'` in `apps/web/next.config.ts` (Next 16.4.2; `middlewareClientMaxBodySize` is deprecated). Upload routes are outside the proxy matcher, so the route rejects `content-length > HUB_FILE_MAX_BYTES + 1048576` with 413 before `req.formData()`.
 
 **Rationale**:
 - Row writes are transactional and blob deletion runs after commit. Backups stay out of Postgres. The volume follows the `UPLOAD_TMP_DIR` pattern. No new service (Principle V).
@@ -155,7 +155,7 @@ Key shapes (the full column list goes in `data-model.md`):
 **Decision**: A per-user keyed blind token index in `hub_search_doc.tokens` (`char(16)[]`, GIN index).
 
 - **Index time.** Lower-case the text. Tokenise with `/[\p{L}\p{N}]+/gu`, tokens up to 32 chars. Index every prefix of length 2 to `min(len, 15)`, plus the full token when it is longer than 15. Store each as the first 16 hex chars of `hmacHex('hubsearch:{userId}:' + t)`.
-- **What is indexed.** Records: name with role, emails, domains, website, industry. Notes: title and body. Files: name, description and the first 90,000 chars of filtered extracted text.
+- **What is indexed.** Per contracts/hub-search.md: person name, role, emails, phone; company name, domains, website, industry; project name, status word; record descriptions; note title and body; file name, description and first 90,000 chars.
 - **Query time.** Split the query the same way (at most 32 tokens). Hash each in prefix form (cut to 15). Join with AND as `tokens @> $1`, with optional `item_type = ANY($2)` and `LIMIT 200` candidates.
 - **After the query.** The app decrypts the candidates, verifies real matches (drops hash collisions), ranks (name or title hit, then matched-term count, then `updated_at`), pages (default 20, max 100) and builds snippets of up to 2 fragments of about 20 words. The API returns `{text, highlights:[[start,end]]}` and the client renders `<mark>`. The server sends no HTML.
 - Index writes happen in the same transaction as the domain write.
@@ -210,7 +210,7 @@ Key shapes (the full column list goes in `data-model.md`):
 - On upsert, resolve in order: an existing `hub_message` whose hash is in this message's reference or in-reply-to hashes; the thread key; a new thread. A message that links two threads merges them into the older one (messages, sources, facts, records move; the younger summary document is tombstoned).
 - Gmail `threadId` is not needed. It stays an optional future hint for broken references.
 
-**Processing a thread (`hub.thread`, queue `hub`, concurrency 4).**
+**Processing a thread (`hub.thread`, queue `hub`, job-name concurrency 4 of a single `hub` Worker with concurrency 12).**
 1. Claim the row if `version > processed_version` and it is due, with a 600 s lease.
 2. Pick a `hub_message_source` row per message whose source is `connected` and hub-enabled. If none works, release and retry in 15 min with attempts unchanged.
 3. Re-fetch with `deps.openFetcher(sourceId)` and `fetchMessages`. Missing messages are skipped. If all are missing, skip as `unavailable`.
@@ -254,7 +254,7 @@ Key shapes (the full column list goes in `data-model.md`):
 - `buildHubDocument(kind, parts)` is the only producer of hub memory docs. It takes `FilteredText` fields and `ContactValue[]`.
   - **Spec-owner decision, ACCEPTED 2026-10-23 (FR-028):** contact values go into memory documents only when the policy does **not** select `third_party_contacts`. The exception is limited to VoiceSpark's own record fields. Domains are included either way.
 - Drafts use full-policy inspection, so contact fields do not reach tone-of-voice content when the category is selected.
-- Corpus (`packages/filters/test/corpus/hub/`): hub mode keeps emails and phones but redacts every locked category at 100% recall, plus cards, IBANs, ids and postal addresses. Hard negatives: signatures with phones must survive hub mode. `validateContactValue` must reject `jan@acme.com password: x` and tokens in phone fields. The CI gate adds a hub-mode run with locked recall at 100%.
+- Corpus (`packages/filters/test/corpus/hub/`): hub mode keeps emails and phones but redacts every locked category at 100% recall (and overall item-level recall of at least 99% in hub mode), plus cards, IBANs, ids and postal addresses. Hard negatives: signatures with phones must survive hub mode. `validateContactValue` must reject `jan@acme.com password: x` and tokens in phone fields. The CI gate adds a hub-mode run with locked recall at 100%.
 
 **Rationale**: FR-028 needs the AI call to see contact details so it can match people, while keeping locked categories sealed. A separate brand makes the exception a compile-time property. Output validation stops the model from smuggling other data into contact fields.
 
@@ -289,16 +289,7 @@ Key shapes (the full column list goes in `data-model.md`):
 
 **Decision**: `HUB_POLICY_V1` in `packages/core/src/hub/policy.ts`, a straight port of the reference app's POLICY_V1, applied in one transaction under `pg_advisory_xact_lock(hashtext('hub-apply:'||userId))`. The LLM call happens outside the lock.
 
-- **Thresholds:** `autoConfidence` 0.80, `strongAutoConfidence` 0.85, `suggestFloor` 0.70, `maxOwnerToRecipients` 5. A generic project stoplist (project, projekt, deal, umowa, oferta, zlecenie, sprawa, temat, wspolpraca, wdrozenie, implementation, proposal and similar).
-- **Downgrades:** a fingerprint rejected with this thread as evidence is dropped; any block marker on the decision's keys turns auto into suggest (`tombstoned`); a suggestion below 0.70 is dropped unless tombstoned.
-- **Companies first.** Match by domain hash, else by name; one name match at 0.8 or more attaches the new domain. A business domain (not free mail, owner domain or ignored) creates a company automatically. Industry is auto only when the field is empty and `industryConfidence` is at least 0.85.
-- **People.** Skip non-human, automated, owner, role and ignored. An address hash match is a match. A same-name candidate linked to the company that owns the address's domain gets an auto `person_email` attach; otherwise a `person_email` suggestion (`name_only_match`). With no match, create automatically if the person sent a message or was a direct To on an owner-sent message with at most 5 To; otherwise suggest. Role and phone are auto when the basis is signature or header, confidence is at least 0.8 and the field is empty or email-set. An owner-set field with a different value becomes a conflict suggestion carrying `previous_value`. An equal value is corroboration.
-- **Projects.** Auto when explicitly named, confidence is at least 0.85 and the name is not generic. Inferred projects become suggestions (`inferred_project`).
-- **Links.** Auto at confidence 0.8 or more when neither end is an owner-domain company. Suggested when an end is pending (`depends_on_fact_id` set) or for `person_company` with basis `text`. Roles: below 0.7 drop; `role_owner_set` gives a conflict; auto for project links at 0.85 or works-at links with signature basis.
-- **Edits mid-flight:** the user's edit wins because `owner_fields` is read inside the lock (SC-007).
-- **Merged-away ids** resolve through `hub_merge_redirect` (AS4.4).
-- **Summary:** stored only if `relevant=true` and at least one record is attached through `hub_thread_record`. Otherwise skip as `irrelevant` or `no_candidates`.
-- **Completion:** set `processed_version` to the claimed version only if the lease is still held. Mark summary, record and link sync items dirty. Bump mailbox counters.
+Rules: contracts/hub-extraction.md §9.
 
 **Rationale**: The policy is already tuned against a synthetic set. Porting it as table tests (every rule) gives a measurable baseline. Doing the LLM call outside the lock keeps the lock short. Block markers and `owner_fields` make user decisions durable.
 
@@ -330,10 +321,10 @@ Key shapes (the full column list goes in `data-model.md`):
 - User-entered data stays (AS8.2). The deletion job owns retries (12 attempts, capped exponential) and the SLA.
 - **Single record or note deletion** is immediate and synchronous: a row delete plus a sync tombstone. It is not a `deletion_request`.
 - **Admin counts.** The admin user detail gains `hub:{recordCount, noteCount, fileCount, pendingSuggestionCount, syncFailedCount, hubMailboxCount}` from `packages/db/src/repos/admin/hub-counts.ts`, which uses `count(*)` only and selects no `_enc` columns. Admin system health adds an aggregate `hubLlmCallsToday` and token totals.
-- **Lint** (admin block of `eslint.config.js`): ban `@voicespark/core/services/hub`, `@voicespark/core/services/hub/*`, `@voicespark/core/hub/*`, `@voicespark/db/repos/user/hub*` and `./hub*`.
-- **`apps/web/lib/admin-schemas.ts`.** The admin hub schema is a strict object with numeric fields only. Add `summary`, `evidence`, `description`, `participants`, `emails`, `phone`, `domains`, `role`, `roleTitle`, `industry`, `website`, `extractedText` and `fileName` to `ADMIN_FORBIDDEN_FIELDS`. (`name` cannot be added because the user's name is shown.)
+- **Lint** (admin block of `eslint.config.js`): ban `@voicespark/core/services/hub`, `@voicespark/core/services/hub/*`, `@voicespark/core/hub/*`, `@voicespark/db/repos/user/hub*`, `./hub`, `./hub/*` and `../hub/*` (the same patterns as T043).
+- **`apps/web/lib/admin-schemas.ts`.** The admin hub schema is a strict object with numeric fields only. Add `summary`, `evidence`, `participants`, `emails`, `phone`, `domains`, `roleTitle`, `industry`, `website`, `extractedText` and `fileName` (11 keys, as in contracts/http-api.md) to `ADMIN_FORBIDDEN_FIELDS`. `description` and `role` are not listed because they collide with other admin fields; the sentinel scan and the strict numeric hub schemas cover them. (`name` cannot be added because the user's name is shown.)
 - **Isolation suite** (`apps/web/test/admin-isolation/`): seed hub data with sentinel strings and assert no admin route returns them. Foreign access to `/api/hub/**` returns 404 plus `auditForeignAccess`.
-- **Audit actions** (ids and counts only): `hub.mailbox_enabled`, `hub.mailbox_disabled` (`{hubData}`), `hub.mailbox_data_deleted`, `hub.record_deleted` (`{kind, notes, files, links}`), `hub.records_merged` (`{kind}`), `hub.suggestions_bulk_decided` (`{accepted, rejected, failed}`), `hub.ignore_rule_created`, `hub.ignore_rule_deleted` (`{kind}`), `hub.resync_requested`, `hub.file_excluded` (`{category}`).
+- **Audit actions** (ids and counts only): `hub.mailbox_enabled` (`{sourceId, consentTextVersion}`), `hub.mailbox_disabled` (`{sourceId, hubData}`), `hub.mailbox_data_deleted`, `hub.record_deleted` (`{kind, notes, files, links}`), `hub.records_merged` (`{kind}`), `hub.suggestions_bulk_decided` (`{accepted, rejected, failed}`), `hub.ignore_rule_created`, `hub.ignore_rule_deleted` (`{kind}`), `hub.resync_requested` (`{items}`), `hub.file_excluded` (`{category}`).
 - **Notifications.** None required. Counters and failed-thread lists are in the UI. A `hub_backfill_done` notification is left out of v1.
 
 **Rationale**: Reusing the deletion machinery (scopes, SLA job, verify step) gives FR-030 and FR-031 and SC-012 with little new code. Count-only admin repos make Principle III a structural property. `SET NULL` on source FKs is what makes "keep" possible.
@@ -364,7 +355,7 @@ Key shapes (the full column list goes in `data-model.md`):
 
 - **Namespace.** Reuse `vs_user_{userId}`. Account deletion through `deleteNamespace` already covers it, and outside assistants see one space.
 - **Ids.** `hub_person_{uuid}`, `hub_company_{uuid}`, `hub_project_{uuid}`, `hub_note_{uuid}`, `hub_file_{uuid}`, `hub_summary_{threadUuid}`. The longest customId is 94 chars (limit 100). Not being UUIDs, they are excluded from content-items search (`core/services/content-items.ts:101`).
-- **Metadata** (all prefixed `vs_`, the full set sent on every write): `vs_kind`, `vs_hub_item_id`, `vs_hub_owner_kind`, `vs_hub_owner_id`, `vs_hub_linked_keys[]`, `vs_item_ts`, `vs_hub_version`, `vs_lang`. Person documents add `vs_hub_email_hashes[]` and company documents add `vs_hub_domain_hashes[]` (HMAC). No names, addresses or domains in metadata. There is no `vs_authorship` and no `vs_source_ids`, so profile sampling (`processors/profile.ts:144`) and source-deletion sweeps ignore hub documents.
+- **Metadata** (all prefixed `vs_`, the full set sent on every write): `vs_kind`, `vs_hub_item_id`, `vs_hub_owner_kind`, `vs_hub_owner_id`, `vs_hub_linked_keys[]`, `vs_item_ts`, `vs_hub_version`, `vs_lang`, `vs_filter_policy_version`. Person documents add `vs_hub_email_hashes[]` and company documents add `vs_hub_domain_hashes[]` (HMAC). No names, addresses or domains in metadata. There is no `vs_authorship` and no `vs_source_ids`, so profile sampling (`processors/profile.ts:144`) and source-deletion sweeps ignore hub documents.
 - **Content templates** (markdown from `buildHubDocument`): records (type, role, policy-gated email and phone, links with roles, description); notes (title, owner, links, dates, note text); files (name, type, size, owner, description, text status, extracted text only when `extracted`); summaries (subject, dates, message count, participants with policy-gated addresses, related records, attachment names, the summary). Never message text.
 - **Outbox.** `markDirty` (version +1, `next_attempt_at = now() + 2 s`) runs in the same transaction as the domain write. Fan-out: a rename or a link create, change or delete marks the record tree (the record, its notes and files, linked records, attached summaries). A delete tombstones the record, its notes and files, then marks linked trees. Merge tombstones the merged-away record and marks the kept tree.
 - **Worker.** `hub.sync`, one per user (`jobId hubsync-{userId}`, delay 2 s). It claims due rows with `FOR UPDATE SKIP LOCKED` in batches of 10 under a 120 s lease, rebuilds each document from current state, calls `addDocuments` or `deleteDocuments` (not-found counts as success), and sets `synced_version` only if the version is unchanged. Backoff is `min(5 s * 2^(n-1), 15 min)` +/-20% with no maximum attempts. `MemoryStoreBusyError` retries in 10 s. `maintenance.hub-sync-sweep` runs every minute. Status `failed` shows from the first failure. Postgres is the source of truth, so content is never lost.
@@ -379,7 +370,7 @@ Key shapes (the full column list goes in `data-model.md`):
 - `POST /api/drafts` accepts an optional `hubRecord:{kind,id}`. The service checks ownership and stores `hub_record_kind`, `hub_record_id` and `hub_record_label_enc` (the name at creation, so the label survives deletion).
 - The worker (`apps/worker/src/processors/draft.ts`) assembles context in `packages/core/src/services/hub/draft-context.ts` within an 8,000-char budget: name, role, industry or status or dates; up to 10 links with roles; up to 5 recent notes (title plus first 1,500 chars); up to 5 recent summaries. Contact fields are included only as filtered text and every segment passes the draft `inspect`. Contacts are dropped under the default policy (AS6.4).
 - The block is appended by code after `render()` as `<record_context kind="person">...</record_context>`, with a fixed instruction to treat it as background and not to quote private details. It is not a template variable.
-- If the record is deleted by run time, the draft runs without context and records `hub_context_missing` as an info flag, not an error.
+- If the record is deleted by run time, the draft runs without context and sets `draft.hub_context_status = 'missing'`, not an error. The column is `used` when context was added, `missing` when the record was gone, and `inspection_failed` when the record context could not be inspected and was left out.
 - Draft list and detail show the label (AS6.3). Regenerate inherits the pin.
 
 **Rationale**:
@@ -418,9 +409,9 @@ Key shapes (the full column list goes in `data-model.md`):
 
 - Record POST and PATCH return `{record, similar:[{id,name}]}` (FR-003). `GET ?deletePreview=1` returns `{notes, files, links}` counts.
 - File upload is multipart and returns 202. Download sends `Content-Disposition: attachment`, `nosniff` and `Cache-Control: private, no-store`.
-- `POST suggestions/decide {ids, action}` runs each id in its own transaction in dependency order and returns 409 `suggestion_not_pending` when needed.
+- `POST suggestions/decide {ids, action}` runs each id in its own transaction in dependency order. A fact no longer `suggested` is reported as `suggestion_not_pending` for that id in the results and does not fail the call. A merge that is not valid returns 409 `merge_invalid`.
 - A suggestion badge with the pending count sits in the hub layout (FR-024). `sources/[sourceId]` and the disconnect dialog get the hub choice. Radio group names carry a per-source id to avoid a known shared-name bug. `drafts/new` gets a record picker.
-- Error codes: `validation_failed`, `not_found`, `conflict`, `link_exists` (with `{linkId}`), `invalid_link`, `file_too_large` (413), `unsupported_file_type` (415), `note_excluded` (422 with category), `suggestion_not_pending` (409).
+- Error codes: `validation_failed`, `not_found`, `conflict`, `link_exists` (with `{linkId}`), `invalid_link`, `too_large` (413), `unsupported_type` (415), `merge_invalid` (409), `note_excluded` (422 with category), `suggestion_not_pending` (409).
 
 **Rationale**: Reusing the existing route helpers keeps auth, rate limits and error shape uniform.
 
@@ -433,7 +424,7 @@ Key shapes (the full column list goes in `data-model.md`):
 **Decision**: Filters first, failing first (hub-mode corpus, `validateContactValue`, `inspectSegments`, `buildHubDocument` gating, a compile-time `@ts-expect-error` check that `HubLlmText` cannot become a `MemoryDoc`). Then unit tests (thread key, automated classifier, body cleaning, normalisation, every policy rule as a table test, tokeniser, ranking, snippets, Tiptap validator, office extractors, blob envelope), then integration tests on Postgres 127.0.0.1:55432 and Redis 56379 (GreenMail IMAP 3993 and SMTP 3025), admin isolation, and Playwright e2e on port 3110 under `flock`. A `BODY-SENTINEL` test checks that no message body appears in `pg_dump` of hub tables, memory documents or logs (SC-008).
 
 **Evaluation set (SC-004 to SC-006).**
-- Port the synthetic conversation set from `/root/herirawarigares/apps/api/eval/conversations/{pl,en,x}-NN.json` (53 files, invented people, `.example` domains, no real mail) with a script into raw MIME plus an `expected` block.
+- Port the synthetic conversation set from `/root/herirawarigares/apps/api/eval/conversations/{pl,en,x}-NN.json` (53 files, invented people, `.example` domains, no real mail) with a script into raw MIME plus an `expected` block. The eval lives in `apps/worker/eval/hub/`. The port script takes `--from <dir>` (no hard-coded path), is run once locally against `/root/herirawarigares/apps/api/eval/conversations`, and its output is committed under `apps/worker/eval/hub/conversations/`. It builds MIME from the FetchedMessage fields and ports `seed` blocks, `summaryMentions` labels and the per-thread mailbox override of `x-*` files. The script fails on any domain that is not `*.example`, `example.com`, or a `FREE_MAIL_DOMAINS` entry from `packages/core/src/hub/lists.ts`.
 - Add at least 15 new held-out conversations. The reference app's 100% figure is in-sample and 9 labels changed after results were read, so it is not evidence.
 - CI scores recorded extraction outputs through the real policy and apply code. A live run (`HUB_EVAL_LIVE=1`, needs `ANTHROPIC_API_KEY`) is manual or nightly and never runs in PR CI. Held-out results are reported separately.
 - Grader rules: pending policy-correct suggestions count as hits for SC-004; project names match when normalised-equal or by whole-word containment.
@@ -452,7 +443,7 @@ Risks 1 and 2 are closed by the lead decisions of 2026-10-23. The rest stay open
 2. **CLOSED. FR-028 and the memory store.** Accepted: contact values go to memory documents only when `third_party_contacts` is not selected. The spec is updated (Clarifications, FR-028). See R6.
 3. **Re-fetch dependency.** Thread processing needs a connected, hub-enabled mailbox that still holds the messages. Messages deleted at the provider shrink the thread. Disconnect with keep means no further updates, as the spec wants.
 4. **Backfill cost and quota.** Re-downloading a mailbox counts against Gmail and Graph quotas, and LLM cost is about $27 per 10k messages per user. Mitigation: the daily cap and aggregate cost counters for admins.
-5. **Next 16 body limit.** About 10 MB by default with middleware. The config must be raised to 26 MB. Verify the exact key name for the installed Next 16 version.
+5. **Next 16 body limit.** About 10 MB by default with the proxy. The config must be raised to 26 MB with `experimental.proxyClientMaxBodySize` (Next 16.4.2). Upload routes also check `content-length` before reading the body.
 6. **CSP.** None exists in the app (Caddy may add one). ProseMirror uses inline style attributes, so check `style-src` if a CSP is added.
 7. **Shared namespace.** Existing scanners (retroscan, credential audit, `apps/web/e2e/support/memory.ts`) must tolerate `hub_` documents. Tasks must patch them (R11).
 8. **Blind-index leakage** (R4). Accepted and documented. `DEDUP_HMAC_KEY` rotation needs a reindex job. That is out of v1.

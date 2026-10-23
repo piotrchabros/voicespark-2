@@ -105,9 +105,23 @@ Specs cover US1 to US8: create, edit, delete and warn; link, note checklist, PDF
 
 ## 6. Evaluation set (SC-004 to SC-006)
 
-The set is synthetic. All people are invented and all domains end in `.example`. It holds no real mail. It has the 53 ported conversations and at least 15 new held-out conversations. See [hub-extraction.md](./contracts/hub-extraction.md) for the policy and grader rules.
+The set is synthetic. All people are invented and domains are `*.example`, `example.com` or listed free-mail domains. It holds no real mail. It has the 53 ported conversations and at least 15 new held-out conversations. See [hub-extraction.md](./contracts/hub-extraction.md) for the policy and grader rules.
 
-Recorded run (fake LLM replaying stored outputs). Runs in CI:
+The eval lives in `apps/worker/eval/hub/`. The root script `pnpm hub:eval` runs `pnpm --filter @voicespark/worker hub:eval` (`tsx --env-file-if-exists=../../.env eval/hub/run.ts`).
+
+Port the reference set once, locally. The script takes `--from <dir>` and its output is committed under `apps/worker/eval/hub/conversations/`:
+
+```bash
+pnpm --filter @voicespark/worker exec tsx eval/hub/port-reference-set.ts --from /root/herirawarigares/apps/api/eval/conversations
+```
+
+Record extraction outputs (needs `ANTHROPIC_API_KEY`). Writes one `apps/worker/eval/hub/recorded/{id}.json` per conversation. Record the held-out files before thresholds are read:
+
+```bash
+HUB_EVAL_LIVE=1 pnpm hub:eval --record
+```
+
+Recorded run (fake LLM replaying the stored outputs). Runs in CI:
 
 ```bash
 pnpm hub:eval
@@ -130,7 +144,7 @@ HUB_EVAL_LIVE=1 pnpm hub:eval --model <model-id>
 
 - It calls a real model and costs tokens. It writes to the test database and the in-memory store only.
 - Expected: same thresholds on the held-out subset. Record the run and update the stored fixtures only on purpose.
-- Check the extraction schema stays within the model's nullable-parameter limit (see risks in [plan.md](./plan.md)).
+- Check the extraction schema stays within the model's nullable-parameter limit (see risks in [research.md](./research.md)).
 
 ## 7. Encryption and leak checks
 
@@ -191,7 +205,7 @@ Shapes and errors: [contracts/](./contracts/). Tables and enums: [data-model.md]
 | Edge: thread update | Add a new message to a summarised thread. | Summary updated. Thread not counted twice. |
 | US3.8, FR-021 | Ignore a sender, then a domain. Import mail. Undo. | Ignored senders create and update nothing. Undo restores processing. |
 | Edge: footer | Import a real reply with a newsletter footer and quoted history. | Reply processed. Footer and quotes create no records. |
-| Edge: multiple addresses | Import mail from one person with two addresses, strong then weak evidence. | Strong: one person. Weak: a merge suggestion. |
+| Edge: multiple addresses | Import mail from one person with two addresses, strong then weak evidence. | Strong: one person. Weak: an address suggestion on the existing same-name person; manual merge available. |
 | Edge: failure | Make the fake LLM fail for one conversation. | That conversation retries later. The rest continue. Repeated failures are shown. |
 | FR-022 | Open the mailbox hub status. | Counts for processed, skipped, failed and the last run time. |
 | SC-004 to SC-006 | Run the eval (section 6). | Thresholds met. |
@@ -270,7 +284,7 @@ Expected: count 0 for every hub table. The directory does not exist.
 ## 9. Operations notes
 
 - The hub reads mail through the existing mailbox connection. A thread is re-fetched from the provider, so a connected hub-enabled mailbox is required for updates. Re-downloading counts against provider quota.
-- Extraction calls cost tokens. The daily cap limits the cost of a backfill. See the risks in [plan.md](./plan.md).
+- Extraction calls cost tokens. The daily cap limits the cost of a backfill. See the risks in [research.md](./research.md).
 - The live eval is the check for model drift. Run it before changing the extraction prompt, schema or model.
 - `HUB_FILES_DIR` must be a persistent volume in production. Losing it loses original files, not their extracted text.
-- Existing scanners must tolerate `hub_` documents in the shared namespace (see the risks in [plan.md](./plan.md)).
+- Existing scanners must tolerate `hub_` documents in the shared namespace (see the risks in [research.md](./research.md)).

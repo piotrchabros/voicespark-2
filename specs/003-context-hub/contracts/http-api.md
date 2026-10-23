@@ -25,7 +25,7 @@ Link     {"id","kind":"person_company|person_project|company_project","personId"
 - Contact values (email, phone, domain) pass `validateContactValue`. A rejected value returns 422 `sensitive_content` with `details.fields`.
 - Free text (name, role, description, industry, website, link role) passes `inspectSegments` under the user's full policy. Redacted values are stored redacted. The response includes `redactedValues` (a count) when it is above zero.
 
-New error codes: `link_exists` (409, `details.linkId`), `invalid_link` (409), `file_too_large` (413), `unsupported_file_type` (415, `details.allowed`), `note_excluded` (422, `details.category`), `suggestion_not_pending` (409), `merge_invalid` (409), `hub_not_enabled` (409), `hub_data_choice_required` (422). Existing codes `validation_failed`, `not_found`, `conflict`, `sensitive_content` and `rate_limited` also apply.
+New error codes: `link_exists` (409, `details.linkId`), `invalid_link` (409), `inspection_unavailable` (503), `note_excluded` (422, `details.category`), `suggestion_not_pending` (409), `merge_invalid` (409), `hub_not_enabled` (409), `hub_data_choice_required` (422). Existing codes `validation_failed`, `not_found`, `conflict`, `sensitive_content`, `rate_limited`, `too_large` (413) and `unsupported_type` (415, `details.allowed`) also apply. Codes are registered in `ERROR_STATUS` of `packages/core/src/errors.ts`.
 
 ## Records (US1)
 
@@ -57,11 +57,11 @@ New error codes: `link_exists` (409, `details.linkId`), `invalid_link` (409), `f
 ## Files (US2)
 
 - `GET /api/hub/{kind}/{id}/files` returns `{items: [File]}`.
-- `POST /api/hub/{kind}/{id}/files` is `multipart/form-data` with part `file` and optional `description`. Returns 202 `{file}` with `extractionStatus: "pending"`. Limit 25 MB (`HUB_FILE_MAX_BYTES`). Errors: 413 `file_too_large`, 415 `unsupported_file_type` with `details.allowed`.
+- `POST /api/hub/{kind}/{id}/files` is `multipart/form-data` with part `file` and optional `description`. Returns 202 `{file}` with `extractionStatus: "pending"`. Limit 25 MB (`HUB_FILE_MAX_BYTES`). Errors: 413 `too_large`, 415 `unsupported_type` with `details.allowed`.
 - Allowed extensions: pdf, docx, odt, doc, rtf, xlsx, ods, csv, xls, pptx, odp, ppt, txt, md, markdown, png, jpg, jpeg, gif, webp. Magic bytes are checked (doc, xls and ppt must sniff as `cfb`; txt, md and csv must be strict UTF-8 with no NUL). SVG is refused.
 - `File = {id, ownerKind, ownerId, name, description, mimeType, extension, sizeBytes, extractionStatus, extractionReason, redactedValues, createdAt, updatedAt}`.
   - `extractionStatus`: `pending`, `extracted`, `empty`, `unsupported`, `failed`, `excluded`.
-  - `extractionReason` codes: `no_text_extraction_for_type`, `image_not_searchable`, `empty`, `timeout`, `corrupt`, or the filter category key for `excluded`.
+  - `extractionReason` codes: `no_text_extraction_for_type`, `image_not_searchable`, `empty`, `timeout`, `corrupt`, `inspection_failed` (status `failed`), or the filter category key for `excluded`.
 - `GET /api/hub/files/{id}` returns `{file}`. `PATCH` takes `{name?, description?}`. `name` is 1..255 with no `/`, `\` or control chars. `DELETE` returns 204 and removes the blob after commit.
 - `GET /api/hub/files/{id}/download` streams the decrypted original. Headers: `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store`. Owner only. The original is never sent to the AI service or the memory store.
 - A whole-file exclusion sets `extractionStatus = excluded`, discards the extracted text and keeps the blob. Audit `hub.file_excluded` (`{category}`).
@@ -118,8 +118,8 @@ See contracts/hub-search.md for the index and ranking.
 ## Mailboxes and ignore rules (US3, US8)
 
 - `GET /api/hub/mailboxes` returns `{items: [{sourceId, accountLabel, status, enabled, enabledAt, backfillState: "none|pending|running|done", pausedUntil|null, threadsProcessed, threadsSkipped, threadsFailed, lastRunAt|null, dataChoice: "keep|delete|null", failedThreads: [{id, subjectAvailable: false, errorCode, attempts, lastAttemptAt}]}]}`. FR-022. `pausedUntil` is set when the daily cap is reached.
-- `POST /api/hub/mailboxes/{sourceId}/enable` with `{acknowledgeAi: true}` returns `{mailbox}`. Without `acknowledgeAi: true`: 422 `validation_failed`. Records the consent text version, sets `backfillState = pending` and enqueues `hub.backfill`. 409 `conflict` if already enabled. Audit `hub.mailbox_enabled`. FR-012.
-- `POST /api/hub/mailboxes/{sourceId}/disable` with `{hubData: "keep" | "delete"}` returns `{mailbox, deletionRequestId|null}`. `delete` creates a `deletion_request` with scope `hub_source`. 409 `hub_not_enabled` if not enabled. Audit `hub.mailbox_disabled` (`{hubData}`). FR-031.
+- `POST /api/hub/mailboxes/{sourceId}/enable` with `{acknowledgeAi: true}` returns `{mailbox}`. Without `acknowledgeAi: true`: 422 `validation_failed`. Records the consent text version, sets `backfillState = pending` and enqueues `hub.backfill`. 409 `conflict` if already enabled. Audit `hub.mailbox_enabled` (`{sourceId, consentTextVersion}`). FR-012.
+- `POST /api/hub/mailboxes/{sourceId}/disable` with `{hubData: "keep" | "delete"}` returns `{mailbox, deletionRequestId|null}`. `delete` creates a `deletion_request` with scope `hub_source`. 409 `hub_not_enabled` if not enabled. Audit `hub.mailbox_disabled` (`{sourceId, hubData}`). FR-031.
 - `POST /api/hub/mailboxes/{sourceId}/threads/{threadId}/retry` returns 202. The thread must be `failed`. It resets `attempts` and enqueues `hub.thread`. 409 `conflict` otherwise.
 - `GET /api/hub/ignore-rules` returns `{items: [{id, kind: "address"|"domain", value, createdAt}]}`.
 - `POST /api/hub/ignore-rules` with `{kind, value}` returns 201 `{rule}`. A domain rule covers subdomains. Address lower-cased; domain normalised as for company domains. 409 `conflict` if it exists. Audit `hub.ignore_rule_created` (`{kind}`). FR-021.
@@ -131,7 +131,7 @@ See contracts/memory-store-hub.md.
 
 - `GET /api/hub/sync?status=pending|stored|failed&cursor&limit` returns `{counts: {stored, pending, failed}, items: [{id, entityType, entityId, label, status, attempts, lastErrorCode, lastSyncedAt}]}`. `label` is the decrypted item name. FR-026.
 - `POST /api/hub/sync/retry` with `{ids?: uuid[]}` returns 202 `{requeued: number}`. Without ids it retries every `failed` row.
-- `POST /api/hub/sync/resync` returns 202 `{requeued: number}`. It back-fills missing rows and marks every non-deleted row dirty. It never deletes the namespace. Audit `hub.resync_requested`.
+- `POST /api/hub/sync/resync` returns 202 `{requeued: number}`. It back-fills missing rows and marks every non-deleted row dirty. It never deletes the namespace. Audit `hub.resync_requested` (`{items}`).
 - Every record, note and file response carries `sync: {status: "stored"|"pending"|"failed", lastSyncedAt|null}`.
 
 ## Delta: disconnect and delete a source (FR-031)
@@ -148,19 +148,19 @@ See contracts/memory-store-hub.md.
 - `POST /api/drafts` gains the optional field `hubRecord: {kind: "person" | "company" | "project", id: uuid}`. The record must belong to the user, otherwise 404 `not_found`. The response is unchanged: 202 `{draftId}`.
 - `POST /api/drafts/{id}/regenerate` inherits the pin. The body is unchanged.
 - `GET /api/drafts` items and `GET /api/drafts/{id}` gain `hubRecord: {kind, id|null, label} | null`. `label` is the name at creation and survives record deletion. `id` is null when the record was deleted.
-- The draft detail may carry the info flag `hub_context_missing` when the record was deleted before the run. It is not an error.
+- The draft detail carries `hubContextStatus` (`used`, `missing` or `inspection_failed`, or null), read from `draft.hub_context_status`. `missing` means the record was deleted before the run. It is not an error.
 
 ## Delta: admin (FR-029)
 
 - `GET /api/admin/users/{id}` gains `hub: {recordCount, noteCount, fileCount, pendingSuggestionCount, syncFailedCount, hubMailboxCount}`. Numbers only. The repo uses `count(*)` and selects no `_enc` columns.
-- `GET /api/admin/system` (health) gains aggregate `hub: {llmCallsToday, inputTokensToday, outputTokensToday, threadsPending, threadsFailed, syncFailed}`. Numbers only.
-- The admin schema is a strict object. `ADMIN_FORBIDDEN_FIELDS` gains `summary`, `evidence`, `description`, `participants`, `emails`, `phone`, `domains`, `role`, `roleTitle`, `industry`, `website`, `extractedText`, `fileName`.
+- `GET /api/admin/system/health` gains aggregate `hub: {llmCallsToday, inputTokensToday, outputTokensToday, threadsPending, threadsFailed, syncFailed}`. Numbers only.
+- The admin schema is a strict object. `ADMIN_FORBIDDEN_FIELDS` gains `summary`, `evidence`, `participants`, `emails`, `phone`, `domains`, `roleTitle`, `industry`, `website`, `extractedText`, `fileName`. The words `description` and `role` are not listed (they collide with other admin fields); the sentinel scan plus strict numeric hub schemas cover them.
 - New setting `hub.daily_thread_cap_per_user` (integer, default 500) via the existing settings route.
 - No admin route reads or lists hub records, notes, files, summaries, suggestions or links.
 
 ## Delta: audit actions
 
-`hub.mailbox_enabled`, `hub.mailbox_disabled` (`{hubData}`), `hub.mailbox_data_deleted` (counts), `hub.record_deleted` (`{kind, notes, files, links}`), `hub.records_merged` (`{kind}`), `hub.suggestions_bulk_decided` (`{accepted, rejected, failed}`), `hub.ignore_rule_created` and `hub.ignore_rule_deleted` (`{kind}`), `hub.resync_requested`, `hub.file_excluded` (`{category}`). Metadata holds ids and counts only, never names or content.
+`hub.mailbox_enabled` (`{sourceId, consentTextVersion}`), `hub.mailbox_disabled` (`{sourceId, hubData}`), `hub.mailbox_data_deleted` (`{sourceId, threads, records, links, values}`; values = cleared fields plus deleted emails and domains), `hub.record_deleted` (`{kind, notes, files, links}`), `hub.records_merged` (`{kind}`), `hub.suggestions_bulk_decided` (`{accepted, rejected, failed}`), `hub.ignore_rule_created` and `hub.ignore_rule_deleted` (`{kind}`), `hub.resync_requested` (`{items}`), `hub.file_excluded` (`{category}`). Metadata holds ids and counts only, never names or content.
 
 ## Requirement to route map
 

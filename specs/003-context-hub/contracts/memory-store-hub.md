@@ -114,7 +114,7 @@ Never message text. Subject, participants and summary pass the user's full polic
 
 ## Outbox: `hub_sync_item`
 
-One row per synced entity: `entity_type` (`person|company|project|note|file|summary`), `entity_id` (no foreign key, so it outlives deleted rows), `doc_id` (unique, as in the table above), `version`, `synced_version` (never above `version`), `deleted`, `status` (`pending|stored|failed`), `attempts`, `next_attempt_at`, `last_error_code`, `last_synced_at`.
+One row per synced entity: `entity_type` (`person|company|project|note|file|summary`), `entity_id` (no foreign key, so it outlives deleted rows), `doc_id` (unique, as in the table above), `version`, `synced_version` (never above `version`), `deleted`, `status` (`pending|stored|failed`), `attempts`, `next_attempt_at`, `last_error_code`, `last_synced_at`, `lease_until`.
 
 - `markDirty` runs in the same transaction as the domain write: `version + 1`, `status = pending`, `next_attempt_at = now() + 2 s`, and ensures a `hub.sync` job for the user (jobId `hubsync-{userId}`, delay 2 s).
 - Fan-out (which rows become dirty):
@@ -135,7 +135,7 @@ One row per synced entity: `entity_type` (`person|company|project|note|file|summ
 
 ## Worker rules (job `hub.sync`)
 
-- Claim due rows with `FOR UPDATE SKIP LOCKED`, batches of 10, 120 s lease.
+- Claim due rows with `WHERE user_id=$1 AND (status <> 'stored' OR synced_version < version) AND (next_attempt_at IS NULL OR next_attempt_at <= now()) AND (lease_until IS NULL OR lease_until < now()) ORDER BY next_attempt_at LIMIT 10 FOR UPDATE SKIP LOCKED` (matches `hub_sync_item_due_idx`), batches of 10, 120 s lease (`lease_until = now() + 120 s`).
 - Rebuild the document from current Postgres state each time (re-decrypt, then `buildHubDocument` under the current policy). Never use a copy from an earlier run.
 - Write with `addDocuments` or remove with `deleteDocuments`. A not-found on delete counts as success.
 - After the write, set `synced_version = V` and `status = stored` only if `version` is still `V`. If it changed, leave the row `pending` for the next pass.

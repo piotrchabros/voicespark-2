@@ -37,7 +37,7 @@ No new service, package or queue technology is added. There is one new BullMQ qu
 - Rejected: `officeparser` 8.1.1 (pulls in tesseract.js and pdfjs-dist), `exceljs` 4.4.0 (heavy and stale), `@tiptap/static-renderer` and `@tiptap/html` (not needed)
 
 **Storage**:
-- PostgreSQL 17 with migration `0008_context_hub.sql` (or 0008 to 0010 if delivered in phases)
+- PostgreSQL 17 with migration `0008_context_hub.sql`
 - Redis 7.4, with a new BullMQ queue name `hub`
 - Supermemory, in the same `vs_user_{id}` namespace
 - New persistent volume `HUB_FILES_DIR` for encrypted blobs (AES-256-GCM, new key purpose `hub-files`)
@@ -83,16 +83,16 @@ No new service, package or queue technology is added. There is one new BullMQ qu
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Evaluated against constitution v1.0.0 (`.specify/memory/constitution.md`, ratified 2026-10-19). Gates G1–G7 map one-to-one to Principles I–VII.
+Evaluated against constitution v1.1.0 (`.specify/memory/constitution.md`, ratified 2026-10-19, amended 2026-10-23). Gates G1–G7 map one-to-one to Principles I–VII.
 
 | Gate | Source | Pre-design | Post-design | Evidence |
 |------|--------|------------|-------------|----------|
 | G1 / I. Privacy by Design: every hub write to the memory store goes through `buildHubDocument` (`FilteredText` plus `ContactValue`); extraction input is `HubLlmText` from hub-mode inspect (locked categories, rules and the classifier on credential-redacted text); extraction outputs, notes, file text and fields are inspected; draft record context is inspected; triage receives redacted text only | FR-019, FR-025, FR-027, FR-028 | PASS | PASS | contracts/filter-hub-mode.md; contracts/hub-extraction.md; contracts/memory-store-hub.md; research (hub-mode filter, contact exception) |
 | G2 / II. Least-Privilege Access: no new scopes; thread re-fetch uses the existing read-only `fetchMessages` (IMAP `BODY.PEEK`) | Plan scope | PASS | PASS | research (email ingestion); no change to sign-in or mailbox adapters |
 | G3 / III. Admins Never See Content: all hub content is in `*_enc` columns read only by user and system services; admins get a counts repository only; lint import bans, forbidden response fields, an isolation suite with sentinels, and foreign-access 404 with audit | FR-001, FR-029, SC-011 | PASS | PASS | data-model "Content-class columns"; contracts/http-api.md "Admin"; research (admin isolation) |
-| G4 / IV. Test-First Filtering: hub-mode corpus and unit tests are written failing first; locked-category recall stays at 100% in hub mode | FR-028 | PASS | PASS | contracts/filter-hub-mode.md "Corpus gates"; quickstart.md |
+| G4 / IV. Test-First Filtering: hub-mode corpus and unit tests are written failing first; locked-category recall stays at 100% in hub mode and overall item-level recall is at least 99% in hub mode | FR-028 | PASS | PASS | contracts/filter-hub-mode.md "Corpus gates"; quickstart.md |
 | G5 / V. Simplicity: no new package, service or queue technology; one new queue name and one volume (Docker volumes are not services); new dependencies justified in research | Plan scope | PASS | PASS | research (dependencies, queue); contracts/jobs.md |
-| G6 / VI. Fail-Closed and Audited: an inspection failure drops the message or field, a thread with nothing left is skipped as `excluded`, a note save is refused, a file is marked `excluded`; governance events write audit entries; typed loggers carry ids and codes only | FR-026, FR-028, FR-032 | PASS | PASS | contracts/hub-extraction.md "Error codes"; data-model "Audit"; contracts/jobs.md |
+| G6 / VI. Fail-Closed and Audited: an inspection failure drops the message or field, a thread with nothing left is skipped as `excluded`, a note save is refused, a file is marked `excluded`; governance events write audit entries; typed loggers carry ids and codes only | FR-026, FR-028, FR-032 | PASS | PASS | contracts/hub-extraction.md "Error codes"; data-model "Audit"; contracts/jobs.md; constitution VI hub-file exception (v1.1.0) |
 | G7 / VII. Secrets Encrypted at Rest: all content columns are `_enc`; blobs use AES-256-GCM with key purpose `hub-files`; the search index uses keyed HMAC tokens, and its leakage is documented (note) | FR-009, FR-011 | PASS (note) | PASS (note) | data-model "Content-class columns"; contracts/hub-search.md "Leakage"; research (search under Principle VII) |
 
 ## Project Structure
@@ -125,12 +125,13 @@ This lists only what this feature adds or changes. The rest of the tree is as in
 packages/
   db/                           # @voicespark/db
     src/schema/hub.ts                           # new
-    src/schema/enums.ts  audit.ts  drafts.ts  index.ts   # changed: audit actions, deletion scope, 3 draft columns
+    src/schema/enums.ts  audit.ts  drafts.ts  settings.ts  index.ts   # changed: audit actions, deletion scope, 4 draft columns, hub settings
     drizzle/0008_context_hub.sql  drizzle/meta/  # new migration and journal
     src/repos/user/hub-records.ts  hub-content.ts  hub-mail.ts  hub-sync.ts   # new
     src/repos/system/hub.ts                     # new
     src/repos/admin/hub-counts.ts  src/repos/admin/types.ts   # new, changed
   filters/                      # @voicespark/filters
+    src/internal/brand.ts                       # changed
     src/hub.ts                  # new: inspectForHubExtraction, HubLlmText, validateContactValue,
                                 #      ContactValue, inspectSegments, buildHubDocument
     src/pipeline.ts  categories.ts  index.ts    # changed: contactMode option, brands, exports
@@ -143,14 +144,15 @@ packages/
     src/supermemory/port.ts                     # changed: hub metadata keys
   core/                         # @voicespark/core
     src/crypto/keyring.ts  aead.ts              # changed: hub-files purpose, binary envelope
-    src/env.ts                                  # changed: new variables
+    src/env.ts  errors.ts                       # changed: new variables, hub error codes in ERROR_STATUS
     src/queues/index.ts                         # changed: queue hub; jobs hub.thread, hub.backfill, hub.sync,
                                                 #   hub.file-extract, hub.refilter, maintenance.hub-thread-sweep,
-                                                #   maintenance.hub-sync-sweep, maintenance.hub-blob-sweep
+                                                #   maintenance.hub-sync-sweep, maintenance.hub-blob-sweep,
+                                                #   maintenance.hub-refilter-retry
     src/hub/                                    # new: content-schema, normalize, lists, thread-key, fingerprint,
-                                                #   policy, prompts, extraction-schema, search-tokens, blob-store, doc-builder
-    src/services/hub/                           # new: records, links, notes, files, search, merge, suggestions,
-                                                #   ignore-rules, mailboxes, ingest, extraction, apply, sync, purge,
+                                                #   policy, prompts, extraction-schema, search-tokens, blob-store
+    src/services/hub/                           # new: common, sources, records, links, notes, files, search, merge, suggestions,
+                                                #   ignore-rules, mailboxes, ingest, extraction, apply, sync, doc-builder, purge,
                                                 #   draft-context, counts
     src/services/deletion.ts  sources.ts  drafts.ts  credential-audit.ts
       filter-preferences.ts  audit.ts  settings.ts   # changed
@@ -160,32 +162,42 @@ apps/
     src/import/process-item.ts  processors/import.ts   # changed: ingest hook, PageContext.hub
     src/processors/hub-thread.ts  hub-backfill.ts  hub-sync.ts  hub-file.ts  hub-refilter.ts   # new
     src/processors/draft.ts  retroscan.ts  maintenance.ts   # changed: record context, skip hub_, sweeps
-    src/index.ts  handlers.ts  deps.ts          # changed
+    src/index.ts  handlers.ts  deps.ts  llm-limiter.ts   # changed (llm-limiter.ts new or changed: shared LLM limiter)
+    package.json                                # changed: dependencies
     test/hub-*.integration.test.ts  test/fixtures/hub/*.eml   # new
   web/                          # @voicespark/web
     app/(user)/hub/**  app/api/hub/**           # new
     app/(user)/sources/[sourceId]  drafts/new  drafts/[draftId]   # changed
     components/hub/*                            # new
     components/sources/source-actions.tsx  components/drafts/draft-form.tsx   # changed
+    proxy.ts  lib/guards.ts                     # changed: hub route guards
     lib/admin-schemas.ts  next.config.ts  user-nav.tsx   # changed: forbidden keys, body limit, nav
     test/hub-*-routes.test.ts  test/admin-isolation/*  e2e/hub-*.spec.ts   # new
-eval/hub/                       # new: conversations/*.json, runner script, README (or apps/worker/eval/hub)
+apps/worker/eval/hub/           # new: conversations/*.json, recorded/*.json, runner script, README
 eslint.config.js                # changed: ban hub content modules for admin code
 docker-compose*.yml  .env.example   # changed: HUB_FILES_DIR volume, new variables
+package.json                    # changed: root scripts (hub:eval)
+docs/*                          # new: runbook, security-review
 ```
 
 **Structure Decision**: The feature fits the existing monorepo. No package is added. Hub content sits in new `_enc` tables, and the memory store reuses the user's existing namespace with `hub_*` ids. Hub-mode filtering lives in `@voicespark/filters` so `FilteredText` and `ContactValue` can only be minted there. Pure hub logic lives in `@voicespark/core/src/hub`, services in `core/src/services/hub`, and the worker runs the jobs on the new `hub` queue. Thread text is re-fetched on demand and never stored. Admin code never imports hub content modules, and lint enforces it.
 
 **Delivery increments** (detail for `tasks.md`):
 - Setup and Foundational first: dependencies, env, volume, migration, filter hub APIs with corpus (test-first), owner-scoped repos, search tokens, outbox library, Tiptap schema, blob store, admin lint and isolation scaffolding.
-- Increment 1 (MVP): US1 records, US2 links, notes and files with extraction, and US8a account deletion with admin counts, isolation and audit. The manual hub is fully usable and private.
+- Increment 1 (MVP): US1 records, US2 links, notes and files with extraction, and US8 (account) data deletion with admin counts, isolation and audit. The manual hub is fully usable and private.
 - Increment 2: US7 memory-store sync. It ships before any email ingestion so summaries sync and deletion covers them.
 - Increment 3: US5 search UI and API.
-- Increment 4: US3 email in steps (a) to (g), then US8b mailbox data deletion.
+- Increment 4: US3 email in steps (a) mailbox settings and consent, (b) MIME parsing, automated classifier and body cleaning, (c) ingest hook, thread key and backfill, (d) hub-mode inspection, triage, prompt and schema, (e) policy and apply, (f) `hub.thread` job, sweep and retries, (g) ignore rules and sources display, then US8 (mailbox) data deletion.
 - Increment 5: US4 suggestions review and merge.
 - Increment 6: US6 drafts with record context.
 - Final phase: eval set port and held-out set, live eval run, SC timing checks, security review.
 
 ## Complexity Tracking
 
-No violations. Every Constitution Check gate passes without a justified exception. The G7 note records the blind search index: it uses keyed HMAC tokens, and its leakage is accepted and documented in `contracts/hub-search.md`.
+One justified exception, under constitution VI as amended in v1.1.0. Every other gate passes without an exception.
+
+| Violation | Why needed | Simpler alternative rejected because |
+|-----------|------------|--------------------------------------|
+| Original hub file blob kept when its derived text is excluded or inspection fails | Constitution VI exception v1.1.0; blob is AES-256-GCM, owner-only download, never sent to an LLM, memory store or external service | Deleting the blob loses the user's own document (e.g. a contract with a bank account number); refusing such files blocks normal documents |
+
+The G7 note records the blind search index: it uses keyed HMAC tokens, and its leakage is accepted and documented in `contracts/hub-search.md`.
