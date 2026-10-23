@@ -18,6 +18,7 @@ describe('queue payload schemas', () => {
     expect(PAYLOAD_SCHEMAS['notify.send'].safeParse({ notificationId: uuid }).success).toBe(true);
     expect(PAYLOAD_SCHEMAS['maintenance.tmp-sweep'].safeParse({}).success).toBe(true);
     expect(PAYLOAD_SCHEMAS['deletion.execute'].safeParse({ deletionRequestId: uuid, waitCount: 3 }).success).toBe(true);
+    expect(PAYLOAD_SCHEMAS['analysis.preview'].safeParse({ definitionVersionId: uuid, adminId: uuid }).success).toBe(true);
   });
 
   it('rejects content-like extra fields and non-uuid ids', () => {
@@ -25,6 +26,9 @@ describe('queue payload schemas', () => {
     expect(PAYLOAD_SCHEMAS['maintenance.deletion-sla'].safeParse({ body: 'x' }).success).toBe(false);
     expect(PAYLOAD_SCHEMAS['sync.poll'].safeParse({ userId: 'nope', sourceId: uuid }).success).toBe(false);
     expect(PAYLOAD_SCHEMAS['deletion.execute'].safeParse({ deletionRequestId: uuid, waitCount: -1 }).success).toBe(false);
+    expect(PAYLOAD_SCHEMAS['analysis.preview'].safeParse({ definitionVersionId: uuid, adminId: uuid, prompt: 'x' }).success).toBe(false);
+    expect(PAYLOAD_SCHEMAS['analysis.preview'].safeParse({ definitionVersionId: uuid }).success).toBe(false);
+    expect(PAYLOAD_SCHEMAS['analysis.preview'].safeParse({ definitionVersionId: 'nope', adminId: uuid }).success).toBe(false);
   });
 
   it('maps every job to a known queue and has options and a schema', () => {
@@ -40,10 +44,18 @@ describe('queue payload schemas', () => {
 describe('job ids', () => {
   it('never contain a colon', () => {
     const ids = Object.values(jobIds).map((fn) => fn(uuid, 1));
-    expect(ids).toHaveLength(10);
+    expect(ids).toHaveLength(11);
     for (const value of ids) expect(value).not.toContain(':');
     expect(jobIds.import(uuid)).toBe(`import-${uuid}`);
     expect(jobIds.deletionVerify(uuid)).toBe(`deletion-${uuid}-verify`);
+    expect(jobIds.preview(uuid)).toBe(`preview-${uuid}`);
+  });
+});
+
+describe('analysis.preview', () => {
+  it('runs on the profile queue with a single attempt', () => {
+    expect(JOB_QUEUE['analysis.preview']).toBe(QUEUES.profile);
+    expect(JOB_OPTIONS['analysis.preview'].attempts).toBe(1);
   });
 });
 

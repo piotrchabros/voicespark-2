@@ -1,6 +1,7 @@
 import { asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { getDb } from '../../client';
 import { toneDefinition, toneDefinitionVersion, userDefinitionChoice } from '../../schema';
+import { countInUseByDefinition } from '../system/own-prompts';
 import { versionHistory } from './history';
 import type { AdminDefinitionListItem, DefinitionVersionView, HistoryEntry } from './types';
 
@@ -14,6 +15,7 @@ export function toDefinitionVersionView(v: VersionRow): DefinitionVersionView {
     name: v.name,
     description: v.description,
     dimensions: v.dimensions,
+    analysisPrompt: v.analysisPrompt,
     createdAt: v.createdAt.toISOString(),
     createdBy: v.createdBy,
     publishedAt: v.publishedAt ? v.publishedAt.toISOString() : null,
@@ -30,7 +32,7 @@ async function listItems(definitionId?: string): Promise<AdminDefinitionListItem
     .orderBy(asc(toneDefinition.createdAt), asc(toneDefinition.id));
   if (defs.length === 0) return [];
 
-  const [versions, choices] = await Promise.all([
+  const [versions, choices, ownPromptCounts] = await Promise.all([
     db
       .select({
         id: toneDefinitionVersion.id,
@@ -49,6 +51,7 @@ async function listItems(definitionId?: string): Promise<AdminDefinitionListItem
       .from(userDefinitionChoice)
       .where(isNull(userDefinitionChoice.removedAt))
       .groupBy(userDefinitionChoice.definitionId),
+    countInUseByDefinition(db),
   ]);
   const choiceCount = new Map(choices.map((c) => [c.definitionId, c.count]));
 
@@ -64,6 +67,7 @@ async function listItems(definitionId?: string): Promise<AdminDefinitionListItem
         : null,
       draftVersionId: draft?.id ?? null,
       userChoiceCount: choiceCount.get(d.id) ?? 0,
+      ownPromptCount: ownPromptCounts.get(d.id) ?? 0,
     };
   });
 }

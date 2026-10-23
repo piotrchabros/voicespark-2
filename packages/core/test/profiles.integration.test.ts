@@ -18,8 +18,10 @@ import {
   prose,
   publishPromptVersion,
   sampleBody,
+  sampleDocument,
   seedAuthoredContent,
   seedDefinition,
+  seedOwnPrompt,
   setAvailability,
   setMinWords,
   withSoleAvailableDefinition,
@@ -35,6 +37,24 @@ vi.mock('@voicespark/core/queues', async (importOriginal) => ({
   upsertScheduler: vi.fn(async () => undefined),
   removeScheduler: vi.fn(async () => undefined),
 }));
+// Lets a test make every inspection incomplete (classifier failure -> whole-item `inspection_failed`).
+const inspection = vi.hoisted(() => ({ fail: false }));
+vi.mock('@voicespark/core/services/inspection', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@voicespark/core/services/inspection')>();
+  return {
+    ...actual,
+    inspectForUser: vi.fn(async (...args: Parameters<typeof actual.inspectForUser>) =>
+      inspection.fail
+        ? {
+            outcome: 'excluded' as const,
+            counts: [
+              { category: 'inspection_failed' as const, redactedValues: 0, wholeItem: true },
+            ],
+          }
+        : actual.inspectForUser(...args),
+    ),
+  };
+});
 
 process.env.DATABASE_URL ??= 'postgres://voicespark:voicespark@localhost:55432/voicespark_test';
 process.env.BETTER_AUTH_SECRET ??= 'test-secret-test-secret-test-secret-00';
@@ -109,9 +129,11 @@ const generationsOf = async (userId: string) =>
       status: string;
       definition_version_id: string;
       prompt_version_id: string;
+      own_prompt_version_id: string | null;
       feedback_enc: string | null;
     }>(
-      `select id, profile_id, kind, status, definition_version_id, prompt_version_id, feedback_enc
+      `select id, profile_id, kind, status, definition_version_id, prompt_version_id, own_prompt_version_id,
+              feedback_enc
        from profile_generation where user_id = $1 order by requested_at, id`,
       [userId],
     )
@@ -147,6 +169,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.mocked(enqueue).mockClear();
+  inspection.fail = false;
 });
 
 afterAll(async () => {
@@ -344,6 +367,8 @@ describe('profiles.adjust', () => {
       expect(version.versionNumber).toBe(2);
       expect(version.promptVersion).toBeNull();
       expect(version.definitionVersion.id).toBe(def.versionId);
+      expect(version.format).toBe('structured');
+      if (version.format !== 'structured') return;
       const dims = new Map(version.body.dimensions.map((d) => [d.key, d]));
       expect(dims.get('formality')).toMatchObject({ value: 4, explanation: 'Mostly casual.' });
       expect(dims.get('signature')?.value).toBe('Opens with a question.');
@@ -628,4 +653,421 @@ describe('profiles.autoGenerateIfFirstEligible', () => {
     const [g] = await generationsOf(f.ctx.userId);
     expect(g?.definition_version_id).toBe(only.versionId);
   }, 30_000);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 002: generation pins, direct document edit, version view (T044)
+
+/** A fixture whose (single) profile has a `document` latest version (aspects tempo, warmth; 2 excerpts). */
+async function userWithDocument(
+  def: SeededDefinition,
+  opts: { own?: boolean } = {},
+): Promise<Fixture & { profileId: string; versionId: string; ownVersionId: string | null }> {
+  const f = await userWith([def]);
+  const promptVersionId = await ensureActivePrompt('tone_profile.generate');
+  const own = opts.own
+    ? await seedOwnPrompt({
+        userId: f.ctx.userId,
+        definitionId: def.definitionId,
+        text: '- Tempo: how fast it reads',
+        basedOnDefinitionVersionId: def.versionId,
+      })
+    : null;
+  const versionId = await insertVersion({
+    profileId: f.profileIds[0]!,
+    body: sampleDocument(f.itemIds[0]!),
+    format: 'document',
+    promptSource: own ? 'own' : 'default',
+    ownPromptVersionId: own?.versionId ?? null,
+    definitionVersionId: def.versionId,
+    promptVersionId,
+    sourceIds: [f.sourceId],
+    authoredWords: MIN_WORDS + 10,
+  });
+  return { ...f, profileId: f.profileIds[0]!, versionId, ownVersionId: own?.versionId ?? null };
+}
+
+function editInput(baseVersionId: string) {
+  return {
+    baseVersionId,
+    summary: 'Calm and clear.',
+    sections: [
+      { heading: 'Tempo', markdown: 'Slow and steady.' },
+      { heading: 'Warmth', markdown: 'Warm greetings.' },
+    ],
+    doList: ['Be kind'],
+    dontList: ['Rush'],
+    keepExcerpts: [0],
+  };
+}
+
+const versionRows = async (profileId: string) =>
+  (
+    await getPool().query<{
+      id: string;
+      origin: string;
+      format: string;
+      prompt_source: string | null;
+      own_prompt_version_id: string | null;
+      prompt_version_id: string | null;
+      body_enc: string;
+    }>(
+      `select id, origin, format, prompt_source, own_prompt_version_id, prompt_version_id, body_enc
+       from profile_version where profile_id = $1 order by version_number`,
+      [profileId],
+    )
+  ).rows;
+
+describe('profiles.createGenerations pins (002)', () => {
+  itStable(
+    'pins the active definition version, the wrapper version and no own prompt by default',
+    async () => {
+      const def = await seedDefinition();
+      const f = await userWith([def]);
+      const promptVersionId = await ensureActivePrompt('tone_profile.generate');
+      await profiles.generate(f.ctx);
+      const [g] = await generationsOf(f.ctx.userId);
+      expect(g).toMatchObject({
+        definition_version_id: def.versionId,
+        prompt_version_id: promptVersionId,
+        own_prompt_version_id: null,
+      });
+    },
+  );
+
+  itStable('pins the current own version while in use, and none after a reset', async () => {
+    const def = await seedDefinition();
+    const f = await userWithVersion(def);
+    const own = await seedOwnPrompt({
+      userId: f.ctx.userId,
+      definitionId: def.definitionId,
+      text: '- Tempo: how fast it reads',
+      basedOnDefinitionVersionId: def.versionId,
+    });
+    await profiles.regenerate(f.ctx, f.profileId);
+    await profiles.feedback(f.ctx, f.profileId, 'Warmer please.');
+    const gens = await generationsOf(f.ctx.userId);
+    expect(gens.map((g) => g.own_prompt_version_id)).toEqual([own.versionId, own.versionId]);
+
+    await getPool().query('update own_analysis_prompt set in_use = false where id = $1', [
+      own.ownPromptId,
+    ]);
+    await getPool().query(`update profile_generation set status = 'failed' where user_id = $1`, [
+      f.ctx.userId,
+    ]);
+    await profiles.regenerate(f.ctx, f.profileId);
+    const after = await generationsOf(f.ctx.userId);
+    expect(after).toHaveLength(3);
+    expect(after[2]!.own_prompt_version_id).toBeNull();
+  });
+});
+
+describe('profiles.editDocument', () => {
+  itStable(
+    'stores a manual_edit document keeping the base prompt source, own version and aspect keys',
+    async () => {
+      const def = await seedDefinition();
+      const f = await userWithDocument(def, { own: true });
+      const input = editInput(f.versionId);
+      input.sections.push({ heading: 'Rhythm', markdown: 'Short lines.' });
+
+      const { version } = await profiles.editDocument(f.ctx, f.profileId, input);
+      expect(version).toMatchObject({ origin: 'manual_edit', versionNumber: 2 });
+      expect(Number.isNaN(Date.parse(version.createdAt))).toBe(false);
+
+      const rows = await versionRows(f.profileId);
+      expect(rows).toHaveLength(2);
+      expect(rows[1]).toMatchObject({
+        id: version.id,
+        origin: 'manual_edit',
+        format: 'document',
+        prompt_source: 'own',
+        own_prompt_version_id: f.ownVersionId,
+        prompt_version_id: null,
+      });
+      const body = JSON.parse(decrypt('user-content', rows[1]!.body_enc));
+      expect(body.summary).toBe('Calm and clear.');
+      expect(body.sections.map((s: { aspectKey: string }) => s.aspectKey)).toEqual([
+        'tempo',
+        'warmth',
+        'custom_3',
+      ]);
+      expect(body.aspects).toEqual([
+        { key: 'tempo', name: 'Tempo' },
+        { key: 'warmth', name: 'Warmth' },
+        { key: 'custom_3', name: 'Rhythm' },
+      ]);
+      expect(body.excerpts).toHaveLength(1);
+      expect(body.excerpts[0].contentItemId).toBe(f.itemIds[0]);
+      expect(body.doList).toEqual(['Be kind']);
+      expect(body.dontList).toEqual(['Rush']);
+
+      const latest = await getPool().query(
+        'select latest_version_id from tone_profile where id = $1',
+        [f.profileId],
+      );
+      expect(latest.rows[0].latest_version_id).toBe(version.id);
+
+      const audits = await getPool().query<{
+        actor_type: string;
+        actor_user_id: string;
+        target_type: string;
+        target_id: string;
+        metadata: Record<string, unknown>;
+      }>(
+        `select actor_type, actor_user_id, target_type, target_id, metadata from audit_log_entry
+         where action = 'profile.document_edited' and actor_user_id = $1`,
+        [f.ctx.userId],
+      );
+      expect(audits.rows).toEqual([
+        {
+          actor_type: 'user',
+          actor_user_id: f.ctx.userId,
+          target_type: 'profile',
+          target_id: f.profileId,
+          metadata: {
+            profileId: f.profileId,
+            versionId: version.id,
+            baseVersionId: f.versionId,
+            sectionCount: 3,
+            excerptCount: 1,
+          },
+        },
+      ]);
+    },
+  );
+
+  itStable('refuses a stale base or a structured latest version with 409 conflict', async () => {
+    const def = await seedDefinition();
+    const f = await userWithDocument(def);
+    await profiles.editDocument(f.ctx, f.profileId, editInput(f.versionId));
+    await expectCode(
+      profiles.editDocument(f.ctx, f.profileId, editInput(f.versionId)),
+      'conflict',
+      409,
+    );
+    expect(await versionRows(f.profileId)).toHaveLength(2);
+
+    const s = await userWithVersion(def);
+    await expectCode(
+      profiles.editDocument(s.ctx, s.profileId, editInput(s.versionId)),
+      'conflict',
+      409,
+    );
+    const other = await userWithDocument(def);
+    await expectCode(
+      profiles.editDocument(other.ctx, f.profileId, editInput(f.versionId)),
+      'not_found',
+    );
+  });
+
+  itStable('validates the limits and names the field', async () => {
+    const def = await seedDefinition();
+    const f = await userWithDocument(def);
+    const base = () => editInput(f.versionId);
+    const cases: [ReturnType<typeof base>, string][] = [
+      [{ ...base(), summary: '  ' }, 'summary'],
+      [{ ...base(), summary: 'x'.repeat(1201) }, 'summary'],
+      [{ ...base(), sections: [] }, 'sections'],
+      [
+        {
+          ...base(),
+          sections: Array.from({ length: 21 }, (_, i) => ({ heading: `H${i}`, markdown: 'x' })),
+        },
+        'sections',
+      ],
+      [{ ...base(), sections: [{ heading: '', markdown: 'x' }] }, 'sections[0].heading'],
+      [
+        { ...base(), sections: [{ heading: 'x'.repeat(121), markdown: 'x' }] },
+        'sections[0].heading',
+      ],
+      [
+        {
+          ...base(),
+          sections: [
+            { heading: 'A', markdown: 'x' },
+            { heading: 'B', markdown: 'x'.repeat(4001) },
+          ],
+        },
+        'sections[1].markdown',
+      ],
+      [{ ...base(), doList: [] }, 'doList'],
+      [{ ...base(), doList: Array.from({ length: 11 }, () => 'x') }, 'doList'],
+      [{ ...base(), doList: ['x'.repeat(201)] }, 'doList'],
+      [{ ...base(), dontList: [''] }, 'dontList'],
+      [{ ...base(), keepExcerpts: [] }, 'keepExcerpts'],
+      [{ ...base(), keepExcerpts: [2] }, 'keepExcerpts'],
+      [{ ...base(), keepExcerpts: [-1] }, 'keepExcerpts'],
+    ];
+    for (const [input, field] of cases) {
+      const err = await expectCode(
+        profiles.editDocument(f.ctx, f.profileId, input),
+        'validation_failed',
+        422,
+      );
+      expect(err.details).toMatchObject({ field });
+    }
+    expect(await versionRows(f.profileId)).toHaveLength(1);
+  });
+
+  itStable(
+    'refuses excluded or redacted text with 422 sensitive_content naming the fields only',
+    async () => {
+      const def = await seedDefinition();
+      const f = await userWithDocument(def);
+      await addKeywordRule(f.ctx.userId, 'zanzibar');
+      const input = editInput(f.versionId);
+      input.summary = `deploy with api_key = ${API_KEY} today`;
+      input.sections[1]!.markdown = `login password: ${PASSWORD}`;
+      input.sections[0]!.heading = 'Zanzibar trips';
+      input.doList = ['Be kind', 'Talk about Zanzibar'];
+      input.dontList = ['Rush'];
+
+      const err = await expectCode(
+        profiles.editDocument(f.ctx, f.profileId, input),
+        'sensitive_content',
+        422,
+      );
+      expect(err.details).toEqual({
+        fields: ['doList[1]', 'sections[0].heading', 'sections[1].markdown', 'summary'],
+      });
+      const raw = JSON.stringify({ message: err.message, details: err.details });
+      expect(raw).not.toContain(API_KEY);
+      expect(raw).not.toContain(PASSWORD);
+      expect(await versionRows(f.profileId)).toHaveLength(1);
+    },
+  );
+
+  itStable('fails closed when inspection cannot complete', async () => {
+    const def = await seedDefinition();
+    const f = await userWithDocument(def);
+    inspection.fail = true;
+    const err = await expectCode(
+      profiles.editDocument(f.ctx, f.profileId, editInput(f.versionId)),
+      'sensitive_content',
+      422,
+    );
+    expect((err.details as { fields: string[] }).fields).toContain('summary');
+    expect(await versionRows(f.profileId)).toHaveLength(1);
+  });
+
+  itStable('adjust refuses a document latest version with 409 conflict', async () => {
+    const def = await seedDefinition();
+    const f = await userWithDocument(def);
+    await expectCode(
+      profiles.adjust(f.ctx, f.profileId, { dimensions: { formality: 3 } }),
+      'conflict',
+      409,
+    );
+    expect(await versionRows(f.profileId)).toHaveLength(1);
+  });
+});
+
+describe('profiles version view (002)', () => {
+  itStable(
+    'a document version shows format, prompt source, analysis prompt and excerpt sources',
+    async () => {
+      const def = await seedDefinition();
+      const f = await userWithDocument(def);
+      const view = await profiles.version(f.ctx, f.profileId, f.versionId);
+      expect(view.format).toBe('document');
+      expect(view.promptSource).toBe('default');
+      expect(view.analysisPrompt).toEqual({
+        kind: 'default',
+        definitionVersion: { id: def.versionId, versionNumber: 1 },
+      });
+      if (view.format !== 'document') return;
+      expect(view.body.sections.map((s) => s.aspectKey)).toEqual(['tempo', 'warmth']);
+      const today = new Date().toISOString().slice(0, 10);
+      expect(view.excerptSources).toEqual({
+        [f.itemIds[0]!]: { kind: 'note', itemDate: expect.any(String), sourceLabels: ['Uploads'] },
+      });
+      expect(view.excerptSources[f.itemIds[0]!]!.itemDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(view.excerptSources[f.itemIds[0]!]!.itemDate <= today).toBe(true);
+
+      // A deleted item maps to null; get() returns the latest in the same shape.
+      await getPool().query('delete from content_item where id = $1', [f.itemIds[0]]);
+      const got = await profiles.get(f.ctx, f.profileId);
+      expect(got.latestVersion?.format).toBe('document');
+      expect(got.latestVersion?.excerptSources).toEqual({ [f.itemIds[0]!]: null });
+    },
+  );
+
+  itStable(
+    'own versions show the own version number; legacy versions have null prompt fields',
+    async () => {
+      const def = await seedDefinition();
+      const f = await userWithDocument(def, { own: true });
+      const view = await profiles.version(f.ctx, f.profileId, f.versionId);
+      expect(view.promptSource).toBe('own');
+      expect(view.analysisPrompt).toEqual({
+        kind: 'own',
+        ownVersion: { id: f.ownVersionId, versionNumber: 1 },
+      });
+
+      const legacy = await userWithVersion(def);
+      const old = await profiles.version(legacy.ctx, legacy.profileId, legacy.versionId);
+      expect(old.format).toBe('structured');
+      expect(old.promptSource).toBeNull();
+      expect(old.analysisPrompt).toBeNull();
+      expect(old.excerptSources).toEqual({
+        [legacy.itemIds[0]!]: {
+          kind: 'note',
+          itemDate: expect.any(String),
+          sourceLabels: ['Uploads'],
+        },
+      });
+    },
+  );
+});
+
+describe('profiles.storeGeneratedDocument and loadGenerationForRun (002)', () => {
+  itStable(
+    'stores a document version with the generation pins and notifies profile_ready',
+    async () => {
+      const def = await seedDefinition();
+      const f = await userWithVersion(def);
+      const own = await seedOwnPrompt({
+        userId: f.ctx.userId,
+        definitionId: def.definitionId,
+        text: '- Tempo: how fast it reads',
+        basedOnDefinitionVersionId: def.versionId,
+      });
+      const { generationId } = await profiles.regenerate(f.ctx, f.profileId);
+
+      const run = await profiles.loadGenerationForRun(generationId);
+      expect(run?.ownPromptVersion).toMatchObject({ id: own.versionId, versionNumber: 1 });
+      expect(profiles.decryptOwnPromptText(run!.ownPromptVersion!)).toBe(
+        '- Tempo: how fast it reads',
+      );
+
+      const input = {
+        document: sampleDocument(f.itemIds[0]!),
+        languages: ['en'],
+        contributingSourceIds: [f.sourceId],
+        contributingItemCount: 1,
+        authoredWordsNow: MIN_WORDS + 10,
+      };
+      const { versionId } = await profiles.storeGeneratedDocument(generationId, input);
+      // A retried job returns the stored version.
+      expect((await profiles.storeGeneratedDocument(generationId, input)).versionId).toBe(
+        versionId,
+      );
+
+      const rows = await versionRows(f.profileId);
+      expect(rows).toHaveLength(2);
+      expect(rows[1]).toMatchObject({
+        id: versionId,
+        origin: 'regenerated',
+        format: 'document',
+        prompt_source: 'own',
+        own_prompt_version_id: own.versionId,
+      });
+      expect(await notificationsOf(f.ctx.userId, 'profile_ready')).toEqual([
+        { payload: { profileId: f.profileId, versionId } },
+      ]);
+      const view = await profiles.version(f.ctx, f.profileId, versionId);
+      expect(view.format).toBe('document');
+    },
+  );
 });

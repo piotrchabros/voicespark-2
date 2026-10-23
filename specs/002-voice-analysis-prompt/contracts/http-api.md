@@ -7,7 +7,7 @@ This file is a delta against `specs/001-personal-brand-voice/contracts/http-api.
 - All `/api/analysis-prompts/**` routes are user routes. They use `requireUser()`: 401 `unauthenticated`, 403 `account_suspended`. They are owner-scoped. A foreign or unknown id returns 404 `not_found`.
 - `{definitionId}` must be a definition the user has chosen or has a profile for. Otherwise 404 `not_found`.
 - An admin calling a user route for another user's data gets 404 `not_found` and an `admin.content_access_denied` audit entry.
-- Admin routes use `requireAdmin()`: 403 `admin_required`. Admin responses never contain own prompt text or document bodies (SC-010).
+- Admin routes use `requireAdmin()`: 403 `admin_required`. Admin responses never contain own prompt text or document bodies (SC-007).
 - `DiffOp = {op: "equal" | "insert" | "delete", value: string}`. Diffs are line-based, with word-level ops inside changed lines. They are computed on the server, per request.
 - Limit constant: `maxChars = 20000` for default and own prompts.
 
@@ -176,7 +176,7 @@ Request and response shapes are unchanged. What changes:
 
 - The generation row pins `definitionVersionId` (the active version), the wrapper `promptVersionId` and `ownPromptVersionId` (the current own version if `in_use`, else null) at request time, in the same transaction that locks the own prompt row (FR-019).
 - A feedback generation on a legacy structured profile produces a `document` (FR-024).
-- Possible `errorCode` values on `GET /api/profile-generations/{id}`: `invalid_output`, `analysis_prompt_excluded`, `output_excluded`, `feedback_excluded`, `llm_refused`, plus the 001 codes.
+- Possible `errorCode` values on `GET /api/profile-generations/{id}`: `invalid_output`, `analysis_prompt_excluded`, `analysis_prompt_missing`, `inspection_failed`, `output_excluded`, `feedback_excluded`, `llm_refused`, plus the 001 codes.
 - Existing errors, rate limits and guards are unchanged.
 
 ### `GET /api/drafts/{id}` (unchanged shape)

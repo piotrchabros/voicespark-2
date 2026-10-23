@@ -23,6 +23,7 @@ export const JOBS = {
   syncPoll: 'sync.poll',
   uploadProcess: 'upload.process',
   profileGenerate: 'profile.generate',
+  analysisPreview: 'analysis.preview',
   draftGenerate: 'draft.generate',
   deletionExecute: 'deletion.execute',
   retroscanScan: 'retroscan.scan',
@@ -40,6 +41,7 @@ export const JOB_QUEUE: Record<JobName, QueueName> = {
   'sync.poll': QUEUES.syncPoll,
   'upload.process': QUEUES.upload,
   'profile.generate': QUEUES.profile,
+  'analysis.preview': QUEUES.profile,
   'draft.generate': QUEUES.draft,
   'deletion.execute': QUEUES.deletion,
   'retroscan.scan': QUEUES.retroscan,
@@ -59,6 +61,7 @@ export const PAYLOAD_SCHEMAS = {
   'sync.poll': z.object({ userId: id, sourceId: id }).strict(),
   'upload.process': z.object({ userId: id, uploadId: id, importJobId: id }).strict(),
   'profile.generate': z.object({ userId: id, generationId: id }).strict(),
+  'analysis.preview': z.object({ definitionVersionId: id, adminId: id }).strict(),
   'draft.generate': z.object({ userId: id, draftId: id }).strict(),
   'deletion.execute': z
     .object({ deletionRequestId: id, waitCount: z.number().int().min(0).optional() })
@@ -81,6 +84,7 @@ export const jobIds = {
   poll: (sourceId: string) => `poll-${sourceId}`,
   upload: (uploadId: string) => `upload-${uploadId}`,
   profile: (generationId: string) => `profile-${generationId}`,
+  preview: (previewId: string) => `preview-${previewId}`,
   draft: (draftId: string) => `draft-${draftId}`,
   deletion: (deletionRequestId: string) => `deletion-${deletionRequestId}`,
   deletionVerify: (deletionRequestId: string) => `deletion-${deletionRequestId}-verify`,
@@ -111,6 +115,7 @@ export const JOB_OPTIONS: Record<JobName, JobsOptions> = {
   'sync.poll': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'upload.process': { ...DEFAULT_JOB_OPTIONS, attempts: 3, backoff: exponential(10_000) },
   'profile.generate': { ...DEFAULT_JOB_OPTIONS, attempts: 3, backoff: exponential(20_000) },
+  'analysis.preview': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'draft.generate': { ...DEFAULT_JOB_OPTIONS, attempts: 2, backoff: { type: 'fixed', delay: 5_000 } },
   'deletion.execute': {
     ...DEFAULT_JOB_OPTIONS,

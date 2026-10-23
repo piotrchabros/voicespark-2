@@ -252,15 +252,8 @@ test.describe('US6 administration', () => {
         key: `e2e_admin_${Date.now().toString(36)}`,
         name: 'E2E admin voice',
         description: 'A second definition created by the US6 e2e spec.',
-        dimensions: [
-          {
-            key: 'directness',
-            name: 'Directness',
-            description: 'How directly the writer gets to the point.',
-            valueType: 'scale',
-            scale: { min: 1, max: 5, minLabel: 'roundabout', maxLabel: 'blunt' },
-          },
-        ],
+        analysisPrompt:
+          'Describe how directly the writer gets to the point: lead with the claim or circle toward it, and how blunt the phrasing is.',
       });
       secondId = created.definition.id;
       expect(created.definition.availability).toBe('retired');
@@ -284,6 +277,67 @@ test.describe('US6 administration', () => {
       if (secondId) {
         await api.put(admin, `/api/admin/definitions/${secondId}/availability`, { availability: 'retired' }).catch(() => undefined);
       }
+      await admin.context().close();
+    }
+  });
+
+  test('an admin edits a draft analysis prompt, previews, publishes and rolls back via the history @ui', async ({ browser }) => {
+    const admin = await adminPage(browser);
+    let defId: string | undefined;
+    try {
+      const marker = `E2E analysis marker ${Date.now().toString(36)}`;
+      const created = await api.post<{ definition: AdminDefinition; draft: { id: string } }>(admin, '/api/admin/definitions', {
+        key: `e2e_prompt_${Date.now().toString(36)}`,
+        name: 'E2E prompt voice',
+        description: 'A definition whose analysis prompt is edited through the UI.',
+        analysisPrompt: 'Describe the tone of the writer: warmth, formality and pacing, with concrete evidence from the samples.',
+      });
+      defId = created.definition.id;
+      const v1Id = created.draft.id;
+      await api.post(admin, `/api/admin/definitions/${defId}/versions/${v1Id}/publish`);
+      await api.post(admin, `/api/admin/definitions/${defId}/versions`, {});
+
+      await admin.goto(`/admin/definitions/${defId}`);
+      const textarea = admin.getByLabel('Analysis prompt');
+      await textarea.fill(`${marker}: describe the tone of the writer in plain language, citing short evidence from the samples.`);
+      await admin.getByRole('button', { name: 'Save draft' }).click();
+      await expect(admin.getByText('Draft saved.')).toBeVisible();
+      const detail = await api.get<{ versions: { id: string; status: string; analysisPrompt: string | null }[] }>(
+        admin,
+        `/api/admin/definitions/${defId}`,
+      );
+      const draft = detail.versions.find((v) => v.status === 'draft')!;
+      expect(draft.analysisPrompt).toContain(marker);
+
+      await admin.getByRole('button', { name: 'Render prompt' }).click();
+      await expect(admin.getByText(marker).first()).toBeVisible();
+
+      await admin.getByRole('button', { name: 'Run on sample texts' }).click();
+      const runSection = admin.locator('section').filter({ has: admin.getByRole('heading', { name: /Test run/ }) });
+      await expect(runSection.getByText('done', { exact: true })).toBeVisible({ timeout: 90_000 });
+      await expect(runSection.locator('.rounded-md.border').last()).not.toBeEmpty();
+
+      await admin.getByRole('button', { name: 'Publish', exact: true }).click();
+      await expect(admin.getByText('published.')).toBeVisible();
+      await expect(admin.getByText('Active version 2', { exact: true })).toBeVisible();
+
+      await admin.getByRole('button', { name: 'Roll back to this' }).click();
+      await expect(admin.getByText('Rolled back to version 1.')).toBeVisible();
+      await expect(admin.getByText('Active version 1', { exact: true })).toBeVisible();
+      await expect(admin.getByText(/Rolled back to version 1/).last()).toBeVisible();
+      const history = await api.get<HistoryEntry[]>(admin, `/api/admin/definitions/${defId}/history`);
+      expect(history).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ action: 'rollback', toVersion: expect.objectContaining({ id: v1Id }) }),
+        ]),
+      );
+
+      await admin.goto('/admin/definitions');
+      const card = admin.locator('li').filter({ hasText: created.definition.key });
+      await expect(card.getByText('Own prompt in use')).toBeVisible();
+      await expect(card.getByText('0 users').last()).toBeVisible();
+    } finally {
+      if (defId) await api.put(admin, `/api/admin/definitions/${defId}/availability`, { availability: 'retired' }).catch(() => undefined);
       await admin.context().close();
     }
   });

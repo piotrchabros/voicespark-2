@@ -9,6 +9,8 @@ import {
 } from '@voicespark/db';
 import { encrypt } from '@voicespark/core/crypto';
 import type { ProfileBody } from '@voicespark/core/prompting';
+import type { VoiceDocument } from '@voicespark/core/prompting/document-schema';
+import { buildAnalysisPromptFromDimensions } from '@voicespark/db/data/analysis-prompts';
 import type { FilteredText } from '@voicespark/filters';
 import { META, namespaceFor, type MemoryStore } from '@voicespark/integrations/supermemory';
 
@@ -104,10 +106,18 @@ export async function seedDefinition(
     dims?: Dimension[];
     availability?: DefinitionAvailability;
     name?: string;
+    /** `undefined` builds the default from the dimensions; `null` leaves the column empty. */
+    analysisPrompt?: string | null;
   } = {},
 ): Promise<SeededDefinition> {
   const key = opts.key ?? `t_${randomBytes(6).toString('hex')}`;
   const dims = opts.dims ?? TEST_DIMENSIONS;
+  const name = opts.name ?? `Voice ${key}`;
+  const description = `Test definition ${key}`;
+  const analysisPrompt =
+    opts.analysisPrompt === undefined
+      ? buildAnalysisPromptFromDimensions({ name, description, dimensions: dims })
+      : opts.analysisPrompt;
   return inTx(async (c) => {
     await lockShared(c);
     const def = await c.query<{ id: string }>(
@@ -117,15 +127,10 @@ export async function seedDefinition(
     const definitionId = def.rows[0]!.id;
     const ver = await c.query<{ id: string }>(
       `insert into tone_definition_version
-         (definition_id, version_number, status, name, description, dimensions, created_by, published_by, published_at)
-       values ($1, 1, 'active', $2, $3, $4::jsonb, $5, $5, now()) returning id`,
-      [
-        definitionId,
-        opts.name ?? `Voice ${key}`,
-        `Test definition ${key}`,
-        JSON.stringify(dims),
-        SYSTEM_ACTOR,
-      ],
+         (definition_id, version_number, status, name, description, dimensions, analysis_prompt, created_by,
+          published_by, published_at)
+       values ($1, 1, 'active', $2, $3, $4::jsonb, $5, $6, $6, now()) returning id`,
+      [definitionId, name, description, JSON.stringify(dims), analysisPrompt, SYSTEM_ACTOR],
     );
     await c.query('update tone_definition set active_version_id = $2 where id = $1', [
       definitionId,
@@ -240,10 +245,38 @@ export function sampleBody(contentItemId: string, extra = ''): ProfileBody {
   };
 }
 
+/** A valid VoiceDocument; one section and one excerpt per aspect (default: tempo, warmth). */
+export function sampleDocument(
+  contentItemId: string,
+  aspects: string[] = ['tempo', 'warmth'],
+): VoiceDocument {
+  return {
+    aspects: aspects.map((key) => ({ key, name: key.charAt(0).toUpperCase() + key.slice(1) })),
+    summary: 'Short, direct and friendly.',
+    sections: aspects.map((key) => ({
+      aspectKey: key,
+      heading: key.charAt(0).toUpperCase() + key.slice(1),
+      markdown: `Notes on ${key}.`,
+    })),
+    doList: ['Be brief'],
+    dontList: ['Avoid jargon'],
+    excerpts: aspects.map((key) => ({
+      text: 'we ship the roadmap next week',
+      sampleRef: 'A1',
+      contentItemId,
+      aspectKeys: [key],
+    })),
+    languages: [{ code: 'en', share: 1 }],
+  };
+}
+
 /** Inserts a `generated` profile version (body encrypted) and makes it the profile's latest. */
 export async function insertVersion(input: {
   profileId: string;
-  body: ProfileBody;
+  body: ProfileBody | VoiceDocument;
+  format?: 'structured' | 'document';
+  promptSource?: 'default' | 'own' | null;
+  ownPromptVersionId?: string | null;
   definitionVersionId: string;
   promptVersionId: string;
   sourceIds?: string[];
@@ -253,8 +286,10 @@ export async function insertVersion(input: {
   const { rows } = await pool.query<{ id: string }>(
     `insert into profile_version
        (profile_id, version_number, origin, definition_version_id, prompt_version_id, body_enc, languages,
-        contributing_source_ids, contributing_item_count)
-     select $1, coalesce(max(version_number), 0) + 1, 'generated', $2, $3, $4, '{en}', $5::uuid[], 1
+        contributing_source_ids, contributing_item_count, format, prompt_source, own_prompt_version_id)
+     select $1, coalesce(max(version_number), 0) + 1, 'generated', $2, $3, $4, '{en}', $5::uuid[], 1,
+            $6::profile_version_format, $7::analysis_prompt_source, $8
+
      from profile_version where profile_id = $1
      returning id`,
     [
@@ -263,6 +298,9 @@ export async function insertVersion(input: {
       input.promptVersionId,
       encrypt('user-content', JSON.stringify(input.body)),
       input.sourceIds ?? [],
+      input.format ?? 'structured',
+      input.promptSource ?? null,
+      input.ownPromptVersionId ?? null,
     ],
   );
   await pool.query(
@@ -297,6 +335,26 @@ export async function ensureActivePrompt(key: string): Promise<string> {
   return rows[0]?.active ?? publishPromptVersion(key);
 }
 
+/**
+ * Default templates per key family; each must pass the product whitelist (validateTemplate in
+ * packages/core/src/prompting/variables.ts) so an active version left on the shared DB is publishable.
+ */
+function defaultTemplates(key: string): { system: string; user: string } {
+  if (key.startsWith('draft.')) {
+    return {
+      system: 'You write a {{contentTypeLabel}} in the voice described. Excluded: {{excludedCategoryLabels}}',
+      user: 'Brief: {{brief}}\nProfile: {{profileJson}}\nMemory:\n{{memoryContext}}',
+    };
+  }
+  const user =
+    'Voice: {{definition.name}}\nSamples:\n{{authoredSamples}}\n{{analysisPrompt}}\nContext:\n{{receivedContext}}\nPrevious: {{previousDocumentJson}}';
+  return {
+    system: 'You build tone profiles. Excluded: {{excludedCategoryLabels}}',
+    // `feedback` is whitelisted for tone_profile.feedback (and custom.*), not for tone_profile.generate.
+    user: key === 'tone_profile.generate' ? user : `${user}\n{{feedback}}`,
+  };
+}
+
 async function addPromptVersion(
   key: string,
   status: 'active' | 'superseded',
@@ -329,9 +387,8 @@ async function addPromptVersion(
       [
         templateId,
         status,
-        templates.system ?? 'You build tone profiles. Excluded: {{excludedCategoryLabels}}',
-        templates.user ??
-          'Samples:\n{{authoredSamples}}\nContext:\n{{receivedContext}}\nPrevious: {{previousProfileJson}}',
+        templates.system ?? defaultTemplates(key).system,
+        templates.user ?? defaultTemplates(key).user,
         SYSTEM_ACTOR,
       ],
     );
@@ -342,6 +399,40 @@ async function addPromptVersion(
       ]);
     }
     return ver.rows[0]!.id;
+  });
+}
+
+/** A user's own analysis prompt with version 1; `inUse` defaults to true. */
+export async function seedOwnPrompt(input: {
+  userId: string;
+  definitionId: string;
+  text: string;
+  basedOnDefinitionVersionId: string;
+  inUse?: boolean;
+}): Promise<{ ownPromptId: string; versionId: string }> {
+  return inTx(async (c) => {
+    // in_use = true needs a current version (non-deferrable CHECK), so insert false, add the version, then flip.
+    const own = await c.query<{ id: string }>(
+      `insert into own_analysis_prompt (user_id, definition_id, in_use) values ($1, $2, false) returning id`,
+      [input.userId, input.definitionId],
+    );
+    const ownPromptId = own.rows[0]!.id;
+    const ver = await c.query<{ id: string }>(
+      `insert into own_analysis_prompt_version
+         (own_prompt_id, version_number, prompt_text_enc, char_count, based_on_definition_version_id)
+       values ($1, 1, $2, $3, $4) returning id`,
+      [
+        ownPromptId,
+        encrypt('user-content', input.text),
+        input.text.length,
+        input.basedOnDefinitionVersionId,
+      ],
+    );
+    await c.query(
+      'update own_analysis_prompt set current_version_id = $2, in_use = $3, updated_at = now() where id = $1',
+      [ownPromptId, ver.rows[0]!.id, input.inUse ?? true],
+    );
+    return { ownPromptId, versionId: ver.rows[0]!.id };
   });
 }
 

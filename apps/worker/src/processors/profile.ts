@@ -1,6 +1,6 @@
 import { UnrecoverableError, type Job } from 'bullmq';
 import { inArray } from 'drizzle-orm';
-import { contentItemOccurrence, getDb, type GenerationBlockReason, type ToneDefinitionVersion } from '@voicespark/db';
+import { contentItemOccurrence, getDb, type GenerationBlockReason } from '@voicespark/db';
 import {
   listActiveAuthored,
   listActiveReceived,
@@ -8,34 +8,49 @@ import {
 } from '@voicespark/db/repos/user/content-items';
 import { jobLogger } from '@voicespark/core/logger';
 import {
-  buildProfileOutputSchema,
-  dimensionsJson,
   documentBody,
   firstName,
-  formatAuthoredSamples,
-  formatDimensions,
-  formatReceivedContext,
-  postValidateProfile,
-  render,
   RECEIVED_CONTEXT_LIMIT,
   SAMPLE_CHAR_BUDGET,
-  toPromptProfileJson,
-  type ProfileBody,
+  structuredToDocument,
+  toPromptDocumentJson,
   type SampleInput,
+  type VoiceDocument,
 } from '@voicespark/core/prompting';
 import type { JobPayload } from '@voicespark/core/queues';
+import * as definitions from '@voicespark/core/services/definitions';
 import { inspectForUser, loadOwnAddresses, loadPolicy } from '@voicespark/core/services/inspection';
 import * as profiles from '@voicespark/core/services/profiles';
-import { labelFor, type Classifier, type CountCategory, type InspectionInput, type Policy } from '@voicespark/filters';
-import { LlmRefusedError, type Effort } from '@voicespark/integrations/anthropic';
+import {
+  labelFor,
+  type Classifier,
+  type CountCategory,
+  type InspectionInput,
+  type InspectionResult,
+  type Policy,
+} from '@voicespark/filters';
+import { LlmRefusedError } from '@voicespark/integrations/anthropic';
 import { META, memoryFilter, namespaceFor, type MemoryStore } from '@voicespark/integrations/supermemory';
 import { defaultDeps, type WorkerDeps } from '../deps';
+import { runDocumentPipeline } from '../document-pipeline';
 import type { Handler, HandlerMap } from '../handlers';
 
 /** Supermemory list page size while collecting authored document ids. */
 const LIST_PAGE_SIZE = 100;
-/** Model calls per run: the first answer plus one retry when post-validation fails (D-P6). */
-const MAX_LLM_CALLS = 2;
+/** Output inspection needs at least this many excerpts left (contract "Output inspection"). */
+const MIN_EXCERPTS = 3;
+
+/**
+ * An `inspect()` of the own prompt, feedback or output that could not complete (Principle VI). Retryable: the
+ * handler lets the queue back off and marks the generation `inspection_failed` only on the last attempt.
+ */
+export class InspectionIncompleteError extends Error {
+  readonly code = 'inspection_failed';
+  constructor() {
+    super('inspection_failed');
+    this.name = 'InspectionIncompleteError';
+  }
+}
 
 export type ProfileRunResult =
   | { outcome: 'succeeded'; versionId: string }
@@ -46,8 +61,16 @@ export type ProfileRunResult =
 type ProfileDeps = Pick<WorkerDeps, 'store' | 'classifier' | 'llm'>;
 type ProfileJob = Job<JobPayload<'profile.generate'>, unknown, 'profile.generate'>;
 
+type InspectArgs = Omit<InspectionInput, 'ownAddresses'>;
+
+/** 001 behaviour (samples, received context, previous version): the filtered text, or null when excluded. */
 interface Inspector {
-  (input: Omit<InspectionInput, 'ownAddresses'>): Promise<string | null>;
+  (input: InspectArgs): Promise<string | null>;
+}
+
+/** Fail-closed variant for the own prompt, feedback and output: the full result, or a throw when incomplete. */
+interface StrictInspector {
+  (input: InspectArgs): Promise<InspectionResult>;
 }
 
 interface Sample {
@@ -58,6 +81,12 @@ interface Sample {
   date: string;
   lang: string | null;
   wordCount: number;
+  text: string;
+}
+
+interface ReceivedItem {
+  kind: string;
+  date: string;
   text: string;
 }
 
@@ -79,6 +108,11 @@ function splitDocument(content: string): Pick<InspectionInput, 'subject' | 'titl
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
+const noteInput = (bodyText: string): InspectArgs => ({ kind: 'note', bodyText, headers: {}, folders: [] });
+
+const isIncomplete = (r: InspectionResult) => r.counts.some((c) => c.category === 'inspection_failed');
+const isRedacted = (r: InspectionResult) => r.counts.some((c) => c.redactedValues > 0);
+
 /** Inspection under the user's current policy (fails closed): the filtered text, or null when excluded. */
 function inspectorFor(
   userId: string,
@@ -87,6 +121,18 @@ function inspectorFor(
   return async (input) => {
     const result = await inspectForUser(userId, input, opts);
     return result.outcome === 'accepted' ? (result.text ?? '') : null;
+  };
+}
+
+/** Like `inspectorFor`, but an inspection that cannot complete throws instead of reading as an exclusion. */
+function strictInspectorFor(
+  userId: string,
+  opts: { policy: Policy; ownAddresses: string[]; classifier: Classifier },
+): StrictInspector {
+  return async (input) => {
+    const result = await inspectForUser(userId, input, opts);
+    if (isIncomplete(result)) throw new InspectionIncompleteError();
+    return result;
   };
 }
 
@@ -144,14 +190,14 @@ async function loadSamples(store: MemoryStore, userId: string, inspect: Inspecto
 }
 
 /** Up to RECEIVED_CONTEXT_LIMIT received items, re-inspected; background only, never quotable. */
-async function loadReceivedContext(store: MemoryStore, userId: string, inspect: Inspector): Promise<string> {
+async function loadReceivedContext(store: MemoryStore, userId: string, inspect: Inspector): Promise<ReceivedItem[]> {
   const ns = namespaceFor(userId);
-  const items: { kind: string; date: string; text: string }[] = [];
+  const items: ReceivedItem[] = [];
   for (const row of await listActiveReceived({ userId }, RECEIVED_CONTEXT_LIMIT)) {
     const text = await inspectedItem(store, ns, row, inspect);
     if (text !== null) items.push({ kind: row.kind, date: isoDate(row.itemDate), text });
   }
-  return formatReceivedContext(items);
+  return items;
 }
 
 /** Sources the samples (or the items they are parts of) were imported from. */
@@ -171,23 +217,82 @@ function distinctLanguages(samples: Sample[]): string[] {
   return [...new Set(samples.map((s) => s.lang).filter((l): l is string => !!l))];
 }
 
-async function generateValidated(
-  deps: ProfileDeps,
-  prompt: { system: string; user: string },
-  pinned: { model: string; effort: Effort; maxTokens: number },
-  dv: ToneDefinitionVersion,
-  samples: Sample[],
-): Promise<ProfileBody | null> {
-  const schema = buildProfileOutputSchema(dv);
-  for (let call = 0; call < MAX_LLM_CALLS; call++) {
-    const output = await deps.llm.parseStructured({ ...pinned, ...prompt, schema });
-    const checked = postValidateProfile(output, dv, samples);
-    if (checked.ok) return checked.body;
-  }
-  return null;
+/** `previousDocumentJson`: the latest version as prompt JSON (legacy rows converted), or '' when wholly excluded. */
+async function previousDocumentJson(
+  latest: NonNullable<Awaited<ReturnType<typeof profiles.loadGenerationForRun>>>['latestVersion'],
+  inspect: Inspector,
+): Promise<string> {
+  if (!latest) return '';
+  const view = profiles.decryptVersionBody(latest);
+  const doc =
+    view.format === 'document'
+      ? view.body
+      : structuredToDocument(
+          view.body,
+          (await definitions.getVersionForGeneration(latest.definitionVersionId))?.dimensions,
+        );
+  return (await inspect(noteInput(toPromptDocumentJson(doc)))) ?? '';
 }
 
-/** One `profile.generate` run (T120, jobs.md behavior 4). Every LLM input is re-inspected under current preferences. */
+/** A string field of the output after its own inspection: the (redacted) text, or null when wholly excluded. */
+async function inspectField(text: string, inspect: StrictInspector): Promise<string | null> {
+  const r = await inspect(noteInput(text));
+  return r.outcome === 'accepted' ? (r.text ?? '') : null;
+}
+
+/**
+ * Contract "Output inspection": every text of the document joined and inspected once; on a hit, each field alone.
+ * A wholly excluded summary, or a required part left empty, gives null (`output_excluded`); other excluded
+ * fields are replaced (heading: aspect name, markdown: '', list item or excerpt: dropped). Redacted text is kept,
+ * except in excerpts, which must stay verbatim and are dropped instead.
+ */
+async function inspectOutput(doc: VoiceDocument, inspect: StrictInspector): Promise<VoiceDocument | null> {
+  const joined = [
+    doc.summary,
+    ...doc.sections.flatMap((s) => [s.heading, s.markdown]),
+    ...doc.doList,
+    ...doc.dontList,
+    ...doc.excerpts.map((x) => x.text),
+  ].join('\n\n');
+  const once = await inspect(noteInput(joined));
+  if (once.outcome === 'accepted' && !isRedacted(once)) return doc;
+
+  const summary = await inspectField(doc.summary, inspect);
+  if (summary === null || summary.trim() === '') return null;
+  const nameOf = (key: string) => doc.aspects.find((a) => a.key === key)?.name ?? key;
+  const sections: VoiceDocument['sections'] = [];
+  for (const s of doc.sections) {
+    const heading = await inspectField(s.heading, inspect);
+    const markdown = await inspectField(s.markdown, inspect);
+    sections.push({ aspectKey: s.aspectKey, heading: heading ?? nameOf(s.aspectKey), markdown: markdown ?? '' });
+  }
+  const list = async (items: string[]): Promise<string[]> => {
+    const kept: string[] = [];
+    for (const item of items) {
+      const text = await inspectField(item, inspect);
+      if (text !== null && text.trim() !== '') kept.push(text);
+    }
+    return kept;
+  };
+  const doList = await list(doc.doList);
+  const dontList = await list(doc.dontList);
+  const excerpts: VoiceDocument['excerpts'] = [];
+  for (const x of doc.excerpts) {
+    const r = await inspect(noteInput(x.text));
+    if (r.outcome === 'accepted' && !isRedacted(r)) excerpts.push(x);
+  }
+  if (doList.length === 0 || dontList.length === 0 || excerpts.length < MIN_EXCERPTS) return null;
+  return { ...doc, summary, sections, doList, dontList, excerpts };
+}
+
+/** Log-safe view of a pipeline result: the call count and each problem code with its occurrences (no text). */
+function problemCounts(result: { calls: number; problems: string[] }): Record<string, number> {
+  const counts: Record<string, number> = { calls: result.calls };
+  for (const code of result.problems) counts[code] = (counts[code] ?? 0) + 1;
+  return counts;
+}
+
+/** One `profile.generate` run (jobs.md behavior 4). Every LLM input is re-inspected under current preferences. */
 async function runGeneration(job: ProfileJob, deps: ProfileDeps): Promise<ProfileRunResult> {
   const { generationId } = job.data;
   const log = jobLogger(job.id ?? generationId, { entityId: generationId });
@@ -221,76 +326,82 @@ async function runGeneration(job: ProfileJob, deps: ProfileDeps): Promise<Profil
   await profiles.markRunning(generationId);
   const { policy } = await loadPolicy(userId);
   const ownAddresses = await loadOwnAddresses(userId);
-  const inspect = inspectorFor(userId, { policy, ownAddresses, classifier: deps.classifier });
+  const inspectOpts = { policy, ownAddresses, classifier: deps.classifier };
+  const inspect = inspectorFor(userId, inspectOpts);
+  const inspectStrict = strictInspectorFor(userId, inspectOpts);
 
   // Feedback first: a wholly excluded feedback ends the run before any content is loaded or sent.
   let feedback = '';
   if (generation.kind === 'feedback') {
     const raw = profiles.decryptGenerationFeedback(generation);
-    const filtered = raw === null ? null : await inspect({ kind: 'note', bodyText: raw, headers: {}, folders: [] });
+    const filtered = raw === null ? null : await inspectField(raw, inspectStrict);
     if (filtered === null || filtered.trim() === '') return fail('feedback_excluded');
     feedback = filtered;
   }
 
-  const samples = await loadSamples(deps.store, userId, inspect);
-  if (samples.length === 0) return block('insufficient_content');
-  const receivedContext = await loadReceivedContext(deps.store, userId, inspect);
-
-  let previousProfileJson = '';
-  if (latestVersion) {
-    const json = toPromptProfileJson(profiles.decryptVersionBody(latestVersion));
-    previousProfileJson = (await inspect({ kind: 'note', bodyText: json, headers: {}, folders: [] })) ?? '';
+  // The analysis prompt comes from the pins (FR-019); an own prompt is re-inspected and never falls back.
+  let analysisPromptText: string;
+  let promptSource: 'default' | 'own';
+  if (generation.ownPromptVersionId) {
+    if (!run.ownPromptVersion) return fail('analysis_prompt_missing');
+    const filtered = await inspectField(profiles.decryptOwnPromptText(run.ownPromptVersion), inspectStrict);
+    if (filtered === null || filtered.trim() === '') return fail('analysis_prompt_excluded');
+    analysisPromptText = filtered;
+    promptSource = 'own';
+  } else {
+    if (!dv.analysisPrompt || dv.analysisPrompt.trim() === '') return fail('analysis_prompt_missing');
+    analysisPromptText = dv.analysisPrompt;
+    promptSource = 'default';
   }
 
-  const languages = distinctLanguages(samples);
-  const prompt = render(promptVersion, {
-    definition: {
-      name: dv.name,
-      description: dv.description,
-      dimensionsJson: dimensionsJson(dv.dimensions),
-      dimensions: formatDimensions(dv.dimensions),
-    },
-    authoredSamples: formatAuthoredSamples(samples),
-    receivedContext,
-    authoredStats: {
-      itemCount: samples.length,
-      wordCount: samples.reduce((n, s) => n + s.wordCount, 0),
-      languages: languages.join(', '),
-    },
-    previousProfileJson,
-    user: { firstName: firstName(user.name) },
-    excludedCategoryLabels: policy.selectedCategories.map((c) => labelFor(c as CountCategory)).join(', '),
-    feedback,
-  });
+  const samples = await loadSamples(deps.store, userId, inspect);
+  if (samples.length === 0) return block('insufficient_content');
+  const received = await loadReceivedContext(deps.store, userId, inspect);
+  const previous = await previousDocumentJson(latestVersion, inspect);
 
-  const body = await generateValidated(
-    deps,
-    prompt,
-    { model: promptVersion.model, effort: promptVersion.effort, maxTokens: promptVersion.maxTokens },
-    dv,
+  const result = await runDocumentPipeline(deps.llm, {
+    wrapper: promptVersion,
+    analysisPromptText,
+    promptSource,
+    definition: { name: dv.name, description: dv.description },
     samples,
-  );
-  if (!body) {
+    received,
+    previousDocumentJson: previous,
+    feedback,
+    userFirstName: firstName(user.name),
+    excludedCategoryLabels: policy.selectedCategories.map((c) => labelFor(c as CountCategory)).join(', '),
+  });
+  if (result.status === 'invalid') {
+    log.warn({ status: 'failed', errorCode: 'invalid_output', counts: problemCounts(result) });
     await fail('invalid_output');
     throw new UnrecoverableError('invalid_output');
   }
 
-  const bodyLanguages = [...new Set(body.languages.map((l) => l.code).filter(Boolean))];
-  const { versionId } = await profiles.storeGeneratedVersion(generationId, {
-    body,
+  const document = await inspectOutput(result.document, inspectStrict);
+  if (!document) return fail('output_excluded');
+
+  const languages = distinctLanguages(samples);
+  const bodyLanguages = [...new Set(document.languages.map((l) => l.code).filter(Boolean))];
+  const { versionId } = await profiles.storeGeneratedDocument(generationId, {
+    document,
     languages: bodyLanguages.length > 0 ? bodyLanguages : languages,
     contributingSourceIds: await contributingSourceIds(samples),
     contributingItemCount: samples.length,
     authoredWordsNow: eligibility.authoredWordCount,
   });
-  log.info({ status: 'succeeded', count: samples.length });
+  log.info({
+    status: 'succeeded',
+    count: samples.length,
+    counts: { ...problemCounts(result), sections: document.sections.length, excerpts: document.excerpts.length },
+  });
   return { outcome: 'succeeded', versionId };
 }
 
 /**
- * `profile.generate` (T120). Blocks (retired definition, removed choice, too little content) and wholly excluded
- * feedback end the run without an LLM call; a refusal or output that fails post-validation twice is final; any
- * other error is retried and marks the generation `generation_failed` on the last attempt.
+ * `profile.generate` (jobs.md behavior 4). Blocks (retired definition, removed choice, too little content), a
+ * wholly excluded feedback or own prompt and a missing own prompt end the run without an LLM call; a refusal or
+ * output that fails post-validation twice is final; an inspection that cannot complete is retried and marks the
+ * generation `inspection_failed` on the last attempt; any other error is retried and marks it `generation_failed`.
  */
 export function createProfileHandler(overrides: Partial<WorkerDeps> = {}): Handler<'profile.generate'> {
   let deps: ProfileDeps | undefined;
@@ -307,7 +418,11 @@ export function createProfileHandler(overrides: Partial<WorkerDeps> = {}): Handl
         throw new UnrecoverableError('llm_refused');
       }
       const finalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
-      if (finalAttempt) await profiles.failGeneration(generationId, 'generation_failed', { notify: true });
+      if (finalAttempt) {
+        const errorCode = err instanceof InspectionIncompleteError ? 'inspection_failed' : 'generation_failed';
+        await profiles.failGeneration(generationId, errorCode, { notify: true });
+        jobLogger(job.id ?? generationId, { entityId: generationId }).warn({ status: 'failed', errorCode });
+      }
       throw err;
     }
   };

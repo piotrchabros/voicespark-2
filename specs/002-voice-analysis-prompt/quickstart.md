@@ -65,7 +65,7 @@ pnpm test:admin-isolation
 The host is shared. Hold the lock so only one e2e run is active:
 
 ```bash
-flock /tmp/claude-0/-root-voicespark-2/c3b6530f-e16f-41b6-a6ca-5bd3eea0f3e2/scratchpad/e2e.lock \
+flock /tmp/voicespark-e2e.lock \
   pnpm --filter @voicespark/web exec playwright test <spec> --project chromium
 ```
 

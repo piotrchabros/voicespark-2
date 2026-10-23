@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
-  dimensionsSchema,
+  ANALYSIS_PROMPT_MAX_CHARS,
   getDb,
+  notification,
   toneDefinition,
   toneDefinitionVersion,
   toneProfile,
@@ -10,7 +11,6 @@ import {
   versionActivation,
   withTransaction,
   type DefinitionAvailability,
-  type Dimension,
   type Tx,
   type ToneDefinitionVersion,
 } from '@voicespark/db';
@@ -21,6 +21,7 @@ import {
   listDefinitions,
   toDefinitionVersionView as toView,
 } from '@voicespark/db/repos/admin/definitions';
+import { listInUseForDefinition } from '@voicespark/db/repos/system/own-prompts';
 import type {
   AdminDefinitionListItem,
   DefinitionVersionView,
@@ -29,9 +30,12 @@ import type {
 import { AppError, type ServiceContext } from '../errors';
 import { jsonDiff, type DiffEntry } from '../versioning';
 import { audit } from './audit';
+import { enqueue } from '../queues';
+import { NOTIFICATION_PAYLOAD_SCHEMA } from './notifications';
 
 // Definitions service: user-facing choices (T118) and admin versioning (T128). Admin methods return ids, names,
-// version numbers and definition dimensions only; no user content is ever read here.
+// version numbers, the default analysis prompt and legacy dimensions only; no user content is ever read here.
+// Own-prompt fan-out goes through repos/system/own-prompts (metadata only, never the user's prompt text).
 
 export interface AvailableDefinition {
   id: string;
@@ -151,18 +155,45 @@ const KEY_RE = /^[a-z][a-z0-9_]{2,63}$/;
 const nameSchema = z.string().min(1).max(80);
 const descriptionSchema = z.string().min(1).max(500);
 
+// Drafts may hold a null, empty or partial prompt; the length limit is checked first (analysisPromptTooLong).
+const analysisPromptSchema = z.string().nullable().optional();
+
 const createSchema = z.object({
   key: z.string().regex(KEY_RE),
   name: nameSchema,
   description: descriptionSchema,
-  dimensions: dimensionsSchema,
+  analysisPrompt: analysisPromptSchema,
 });
 
 const patchSchema = z.object({
   name: nameSchema.optional(),
   description: descriptionSchema.optional(),
-  dimensions: dimensionsSchema.optional(),
+  analysisPrompt: analysisPromptSchema,
 });
+
+const analysisPromptError = (reason: 'empty' | 'too_long') =>
+  new AppError('validation_failed', undefined, {
+    field: 'analysisPrompt',
+    reason,
+    maxChars: ANALYSIS_PROMPT_MAX_CHARS,
+  });
+
+/** Create and update-draft: `dimensions` is read-only legacy data, and the prompt has a length limit. */
+function checkWritable(input: { analysisPrompt?: unknown; dimensions?: unknown }): void {
+  if (input.dimensions !== undefined) {
+    throw new AppError('validation_failed', 'dimensions are read-only', { field: 'dimensions' });
+  }
+  if (typeof input.analysisPrompt === 'string' && input.analysisPrompt.length > ANALYSIS_PROMPT_MAX_CHARS) {
+    throw analysisPromptError('too_long');
+  }
+}
+
+/** Publish and rollback: the target's prompt must be non-empty after trim and within the limit. */
+function checkPublishable(version: ToneDefinitionVersion): void {
+  const text = version.analysisPrompt ?? '';
+  if (text.trim() === '') throw analysisPromptError('empty');
+  if (text.length > ANALYSIS_PROMPT_MAX_CHARS) throw analysisPromptError('too_long');
+}
 
 function parseOrThrow<T extends z.ZodType>(schema: T, input: unknown): z.infer<T> {
   const r = schema.safeParse(input);
@@ -218,6 +249,13 @@ export async function adminGet(
   return { definition, versions: await listDefinitionVersions(id) };
 }
 
+export async function adminGetVersion(
+  definitionId: string,
+  versionId: string,
+): Promise<DefinitionVersionView> {
+  return toView(await versionOf(getDb(), definitionId, versionId));
+}
+
 function isUniqueViolation(e: unknown): boolean {
   const code = (x: unknown) => (x as { code?: string } | null | undefined)?.code;
   return code(e) === '23505' || code((e as { cause?: unknown } | null)?.cause) === '23505';
@@ -225,8 +263,15 @@ function isUniqueViolation(e: unknown): boolean {
 
 export async function create(
   adminId: string,
-  input: { key: string; name: string; description: string; dimensions: Dimension[] },
+  input: {
+    key: string;
+    name: string;
+    description: string;
+    analysisPrompt?: string | null;
+    dimensions?: unknown;
+  },
 ): Promise<{ definition: AdminDefinitionListItem; draft: DefinitionVersionView }> {
+  checkWritable(input);
   const data = parseOrThrow(createSchema, input);
   let created: { id: string; draft: DefinitionVersionView };
   try {
@@ -243,7 +288,8 @@ export async function create(
           status: 'draft',
           name: data.name,
           description: data.description,
-          dimensions: data.dimensions,
+          dimensions: [],
+          analysisPrompt: data.analysisPrompt ?? null,
           createdBy: adminId,
         })
         .returning();
@@ -297,6 +343,7 @@ export async function createDraft(
         name: source?.name ?? '',
         description: source?.description ?? '',
         dimensions: source?.dimensions ?? [],
+        analysisPrompt: source?.analysisPrompt ?? null,
         createdBy: adminId,
       })
       .returning();
@@ -319,9 +366,10 @@ export async function updateDraft(
   adminId: string,
   id: string,
   versionId: string,
-  patch: { name?: string; description?: string; dimensions?: Dimension[] },
+  patch: { name?: string; description?: string; analysisPrompt?: string | null; dimensions?: unknown },
 ): Promise<DefinitionVersionView> {
   void adminId;
+  checkWritable(patch);
   const data = parseOrThrow(patchSchema, patch);
   return withTransaction(async (tx) => {
     await lockDefinition(tx, id);
@@ -330,7 +378,7 @@ export async function updateDraft(
     const set: Partial<typeof toneDefinitionVersion.$inferInsert> = {};
     if (data.name !== undefined) set.name = data.name;
     if (data.description !== undefined) set.description = data.description;
-    if (data.dimensions !== undefined) set.dimensions = data.dimensions;
+    if (data.analysisPrompt !== undefined) set.analysisPrompt = data.analysisPrompt;
     if (Object.keys(set).length === 0) return toView(version);
     const [row] = await tx
       .update(toneDefinitionVersion)
@@ -351,14 +399,48 @@ export async function discardDraft(adminId: string, id: string, versionId: strin
   });
 }
 
-/** Moves the active pointer to `target` (draft on publish, superseded on rollback) inside the caller's tx. */
+const NOTIFY_CHUNK = 500;
+
+/**
+ * `notify()` for many users at once: same payload check, rows and `notify.send` jobs, but one insert per chunk so a
+ * 1,000-user fan-out stays well inside the publish request (SC-005). Jobs that run before the commit retry.
+ */
+async function notifyDefaultChanged(
+  tx: Tx,
+  items: { userId: string; payload: Record<string, string> }[],
+): Promise<void> {
+  for (let i = 0; i < items.length; i += NOTIFY_CHUNK) {
+    const rows = await tx
+      .insert(notification)
+      .values(
+        items.slice(i, i + NOTIFY_CHUNK).map((it) => ({
+          userId: it.userId,
+          type: 'analysis_prompt_default_changed' as const,
+          payload: NOTIFICATION_PAYLOAD_SCHEMA.parse(it.payload),
+        })),
+      )
+      .returning({ id: notification.id });
+    await Promise.all(rows.map((r) => enqueue('notify.send', { notificationId: r.id })));
+  }
+}
+
+/**
+ * Moves the active pointer to `target` (draft on publish, superseded on rollback) inside the caller's tx. When the
+ * trimmed analysis prompt changes, every user with an own prompt in use for the definition is notified in the same
+ * transaction (contracts/notifications.md).
+ */
 async function activate(
   tx: Tx,
   adminId: string,
   def: { id: string; activeVersionId: string | null },
-  targetId: string,
+  target: ToneDefinitionVersion,
   action: 'publish' | 'rollback',
 ): Promise<void> {
+  const targetId = target.id;
+  const previous =
+    def.activeVersionId === null ? undefined : await versionOf(tx, def.id, def.activeVersionId);
+  const analysisPromptChanged =
+    (previous?.analysisPrompt ?? '').trim() !== (target.analysisPrompt ?? '').trim();
   if (def.activeVersionId !== null) {
     await tx
       .update(toneDefinitionVersion)
@@ -382,6 +464,19 @@ async function activate(
     action,
     actorUserId: adminId,
   });
+  const recipients = analysisPromptChanged ? await listInUseForDefinition(tx, def.id) : [];
+  await notifyDefaultChanged(
+    tx,
+    recipients.map((r) => ({
+      userId: r.userId,
+      payload: {
+        definitionId: def.id,
+        ownPromptId: r.ownPromptId,
+        fromDefinitionVersionId: r.basedOnDefinitionVersionId,
+        toDefinitionVersionId: targetId,
+      },
+    })),
+  );
   await audit.record(
     {
       actorType: 'admin',
@@ -389,7 +484,12 @@ async function activate(
       action: action === 'publish' ? 'definition.version_published' : 'definition.rolled_back',
       targetType: 'definition',
       targetId: def.id,
-      metadata: { definitionId: def.id, versionId: targetId },
+      metadata: {
+        definitionId: def.id,
+        versionId: targetId,
+        analysisPromptChanged,
+        notifiedUsers: recipients.length,
+      },
     },
     tx,
   );
@@ -404,7 +504,8 @@ export async function publish(
     const def = await lockDefinition(tx, id);
     const version = await versionOf(tx, id, versionId);
     if (version.status !== 'draft') throw versionNotDraft();
-    await activate(tx, adminId, def, versionId, 'publish');
+    checkPublishable(version);
+    await activate(tx, adminId, def, version, 'publish');
   });
   return itemOrThrow(id);
 }
@@ -420,7 +521,8 @@ export async function rollback(
     if (version.status !== 'superseded') {
       throw new AppError('conflict', 'Only a superseded version can be rolled back to');
     }
-    await activate(tx, adminId, def, versionId, 'rollback');
+    checkPublishable(version);
+    await activate(tx, adminId, def, version, 'rollback');
   });
   return itemOrThrow(id);
 }
@@ -484,6 +586,7 @@ export async function diff(
   const pick = (v: ToneDefinitionVersion) => ({
     name: v.name,
     description: v.description,
+    analysisPrompt: v.analysisPrompt,
     dimensions: v.dimensions,
   });
   return {

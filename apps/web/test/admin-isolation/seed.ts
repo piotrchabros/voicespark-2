@@ -9,6 +9,8 @@ import {
   draft,
   filterPreferences,
   getDb,
+  ownAnalysisPrompt,
+  ownAnalysisPromptVersion,
   profileGeneration,
   profileVersion,
   promptTemplate,
@@ -43,6 +45,9 @@ export interface IsolationSeed {
     generationId: string;
     deletionRequestId: string;
     draftId: string;
+    ownPromptId: string;
+    ownPromptVersionId: string;
+    documentVersionId: string;
   };
   a: { sourceId: string; contentItemId: string; profileId: string };
 }
@@ -130,6 +135,83 @@ async function createProfile(
   return { profileId: profile!.id, versionId: version!.id };
 }
 
+/** An own analysis prompt in use, with one version whose text carries `marker`. */
+async function createOwnPrompt(
+  seed: Pick<IsolationSeed, 'definitionId' | 'definitionVersionId'>,
+  userId: string,
+  marker: string,
+): Promise<{ ownPromptId: string; versionId: string }> {
+  const db = getDb();
+  const text = `${marker} my own analysis prompt: describe my voice.`;
+  const [own] = await db
+    .insert(ownAnalysisPrompt)
+    .values({ userId, definitionId: seed.definitionId, inUse: false })
+    .returning({ id: ownAnalysisPrompt.id });
+  const [version] = await db
+    .insert(ownAnalysisPromptVersion)
+    .values({
+      ownPromptId: own!.id,
+      versionNumber: 1,
+      promptTextEnc: encrypt('user-content', text),
+      charCount: text.length,
+      basedOnDefinitionVersionId: seed.definitionVersionId,
+    })
+    .returning({ id: ownAnalysisPromptVersion.id });
+  await db
+    .update(ownAnalysisPrompt)
+    .set({ inUse: true, currentVersionId: version!.id })
+    .where(eq(ownAnalysisPrompt.id, own!.id));
+  return { ownPromptId: own!.id, versionId: version!.id };
+}
+
+/** A tone-of-voice document (format 'document') made with the own prompt, now the latest version. */
+async function createDocumentVersion(
+  seed: Pick<IsolationSeed, 'definitionVersionId' | 'promptVersionId'>,
+  profileId: string,
+  ownPromptVersionId: string,
+  sourceId: string,
+  contentItemId: string,
+  marker: string,
+): Promise<string> {
+  const db = getDb();
+  const document = {
+    aspects: [{ key: 'tone', name: 'Tone' }],
+    summary: `${marker} document summary`,
+    sections: [{ aspectKey: 'tone', heading: 'Tone', markdown: `${marker} section body` }],
+    doList: [`${marker} do`],
+    dontList: [`${marker} dont`],
+    excerpts: [1, 2, 3].map((n) => ({
+      text: `${marker} excerpt ${n}`,
+      sampleRef: `A${n}`,
+      contentItemId,
+      aspectKeys: ['tone'],
+    })),
+    languages: [{ code: 'en', share: 1 }],
+  };
+  const [version] = await db
+    .insert(profileVersion)
+    .values({
+      profileId,
+      versionNumber: 2,
+      origin: 'generated',
+      definitionVersionId: seed.definitionVersionId,
+      promptVersionId: seed.promptVersionId,
+      bodyEnc: encrypt('user-content', JSON.stringify(document)),
+      languages: ['en'],
+      contributingSourceIds: [sourceId],
+      contributingItemCount: 1,
+      format: 'document',
+      promptSource: 'own',
+      ownPromptVersionId,
+    })
+    .returning({ id: profileVersion.id });
+  await db
+    .update(toneProfile)
+    .set({ latestVersionId: version!.id })
+    .where(eq(toneProfile.id, profileId));
+  return version!.id;
+}
+
 async function ensureDraftPromptVersion(createdBy: string): Promise<string> {
   const db = getDb();
   const key = 'draft.social_post';
@@ -172,7 +254,7 @@ async function ensureDraftPromptVersion(createdBy: string): Promise<string> {
 
 /**
  * Admins A and B (two, so `last_admin` never trips), user U with content in every encrypted
- * column, and an admin-owned source/item/profile so list endpoints can be checked for leakage.
+ * column (including an own analysis prompt and a tone-of-voice document), and an admin-owned source/item/profile so list endpoints can be checked for leakage.
  */
 export async function seedIsolation(): Promise<IsolationSeed> {
   const db = getDb();
@@ -199,15 +281,7 @@ export async function seedIsolation(): Promise<IsolationSeed> {
       status: 'active',
       name: 'Isolation seed',
       description: 'Seeded by the admin isolation suite',
-      dimensions: [
-        {
-          key: 'formality',
-          name: 'Formality',
-          description: 'How formal the writing is',
-          valueType: 'scale',
-          scale: { min: 1, max: 5, minLabel: 'casual', maxLabel: 'formal' },
-        },
-      ],
+      analysisPrompt: 'Describe how this person writes: tone, rhythm and word choice.',
       createdBy: adminA,
       publishedBy: adminA,
       publishedAt: new Date(),
@@ -300,6 +374,15 @@ export async function seedIsolation(): Promise<IsolationSeed> {
       notifyEmailEnc: encrypt('user-content', `${SECRET_MARKER}-3@example.test`),
     })
     .returning({ id: deletionRequest.id });
+  const ownPrompt = await createOwnPrompt(refs, userU, `${SECRET_MARKER}-6`);
+  const documentVersionId = await createDocumentVersion(
+    refs,
+    uProfile.profileId,
+    ownPrompt.versionId,
+    gmailSourceId,
+    contentItemId,
+    `${SECRET_MARKER}-7`,
+  );
 
   // The system prompt for social posts: drafts pin its active version. Created when the test DB
   // was migrated but never seeded; the row is global and shared, so cleanup leaves it in place.
@@ -346,6 +429,9 @@ export async function seedIsolation(): Promise<IsolationSeed> {
       generationId: generation!.id,
       deletionRequestId: deletion!.id,
       draftId: draftRow!.id,
+      ownPromptId: ownPrompt.ownPromptId,
+      ownPromptVersionId: ownPrompt.versionId,
+      documentVersionId,
     },
     a: { sourceId: aSourceId, contentItemId: aItemId, profileId: aProfile.profileId },
   };

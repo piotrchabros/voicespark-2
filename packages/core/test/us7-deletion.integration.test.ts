@@ -17,6 +17,7 @@ import {
   toneProfile,
   upload,
   user,
+  withTransaction,
 } from '@voicespark/db';
 import { and, eq, inArray, or } from 'drizzle-orm';
 import { decrypt, subjectRef } from '@voicespark/core/crypto';
@@ -24,6 +25,7 @@ import { AppError, type ServiceContext } from '@voicespark/core/errors';
 import { QUEUES, enqueue, removeScheduler } from '@voicespark/core/queues';
 import * as contentItems from '@voicespark/core/services/content-items';
 import * as deletion from '@voicespark/core/services/deletion';
+import * as profiles from '@voicespark/core/services/profiles';
 import { saveImapCredential, saveOAuthCredential } from '@voicespark/core/services/mail-access';
 import * as sources from '@voicespark/core/services/sources';
 import type { FilteredText } from '@voicespark/filters';
@@ -36,6 +38,7 @@ import {
   ensureActivePrompt,
   insertVersion,
   sampleBody,
+  sampleDocument,
   seedAuthoredContent,
   seedDefinition,
 } from './helpers/profiles';
@@ -664,5 +667,163 @@ describe('completion of user-requested content_item and source deletions', () =>
         .from(notification)
         .where(and(eq(notification.userId, ctx.userId), eq(notification.type, 'deletion_completed'))),
     ).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 002: excerpts of deleted items are scrubbed from every profile version (T045, FR-023)
+
+async function profileWithVersions(
+  userId: string,
+  bodies: { body: Parameters<typeof insertVersion>[0]['body']; format: 'structured' | 'document' }[],
+): Promise<{ profileId: string; versionIds: string[] }> {
+  const def = await seedDefinition();
+  const profileId = await choose(userId, def.definitionId);
+  const promptVersionId = await ensureActivePrompt('tone_profile.generate');
+  const versionIds: string[] = [];
+  for (const b of bodies) {
+    versionIds.push(
+      await insertVersion({
+        profileId,
+        body: b.body,
+        format: b.format,
+        promptSource: b.format === 'document' ? 'default' : null,
+        definitionVersionId: def.versionId,
+        promptVersionId,
+      }),
+    );
+  }
+  return { profileId, versionIds };
+}
+
+/** A two-aspect document whose first excerpt quotes `first` and second quotes `second`. */
+function mixedDocument(first: string, second: string) {
+  const doc = sampleDocument(first);
+  doc.excerpts[1]!.contentItemId = second;
+  return doc;
+}
+
+async function bodyOf(versionId: string): Promise<{ enc: string; body: { excerpts: { contentItemId: string }[] } }> {
+  const { rows } = await getPool().query<{ body_enc: string }>('select body_enc from profile_version where id = $1', [
+    versionId,
+  ]);
+  return { enc: rows[0]!.body_enc, body: JSON.parse(decrypt('user-content', rows[0]!.body_enc)) };
+}
+
+async function profileState(profileId: string, userId: string) {
+  const { rows } = await getPool().query<{ outdated_reason: string | null }>(
+    'select outdated_reason from tone_profile where id = $1',
+    [profileId],
+  );
+  const notes = await getDb()
+    .select()
+    .from(notification)
+    .where(and(eq(notification.userId, userId), eq(notification.type, 'profile_outdated')));
+  return { outdatedReason: rows[0]!.outdated_reason, notes: notes.map((n) => n.payload) };
+}
+
+describe('profiles.scrubDeletedExcerpts', () => {
+  it('drops deleted excerpts from document and legacy versions, re-encrypts, marks and notifies once', async () => {
+    const ctx = await newCtx();
+    const { itemIds } = await seedAuthoredContent({ userId: ctx.userId, items: [{ text: 'a b c' }, { text: 'd e f' }] });
+    const [gone, kept] = itemIds as [string, string];
+    const { profileId, versionIds } = await profileWithVersions(ctx.userId, [
+      { body: sampleBody(gone), format: 'structured' },
+      { body: mixedDocument(gone, kept), format: 'document' },
+    ]);
+    const before = await bodyOf(versionIds[1]!);
+
+    const result = await withTransaction((tx) => profiles.scrubDeletedExcerpts(tx, ctx.userId, [gone]));
+    expect(result).toEqual({ versionsChanged: 2, profilesOutdated: 1 });
+
+    expect((await bodyOf(versionIds[0]!)).body.excerpts).toEqual([]);
+    const after = await bodyOf(versionIds[1]!);
+    expect(after.body.excerpts.map((e) => e.contentItemId)).toEqual([kept]);
+    expect(after.enc).not.toBe(before.enc);
+    expect(after.enc.split('.')[1]).toBe(process.env.ENCRYPTION_ACTIVE_KEY_ID);
+    expect(await profileState(profileId, ctx.userId)).toEqual({
+      outdatedReason: 'sources_deleted',
+      notes: [{ profileId, reason: 'sources_deleted' }],
+    });
+
+    // Idempotent: nothing left to drop, no second notification.
+    const again = await withTransaction((tx) => profiles.scrubDeletedExcerpts(tx, ctx.userId, [gone]));
+    expect(again).toEqual({ versionsChanged: 0, profilesOutdated: 0 });
+    expect((await profileState(profileId, ctx.userId)).notes).toHaveLength(1);
+  });
+
+  it('scrubs earlier versions without marking the profile when the latest is unchanged', async () => {
+    const ctx = await newCtx();
+    const { itemIds } = await seedAuthoredContent({ userId: ctx.userId, items: [{ text: 'a b c' }, { text: 'd e f' }] });
+    const [gone, kept] = itemIds as [string, string];
+    const { profileId, versionIds } = await profileWithVersions(ctx.userId, [
+      { body: sampleDocument(gone), format: 'document' },
+      { body: sampleDocument(kept), format: 'document' },
+    ]);
+    const latestBefore = await bodyOf(versionIds[1]!);
+
+    const result = await withTransaction((tx) => profiles.scrubDeletedExcerpts(tx, ctx.userId, [gone]));
+    expect(result).toEqual({ versionsChanged: 1, profilesOutdated: 0 });
+    expect((await bodyOf(versionIds[0]!)).body.excerpts).toEqual([]);
+    expect((await bodyOf(versionIds[1]!)).enc).toBe(latestBefore.enc);
+    expect(await profileState(profileId, ctx.userId)).toEqual({ outdatedReason: null, notes: [] });
+  });
+
+  it('never touches another user\'s versions', async () => {
+    const ctx = await newCtx();
+    const other = await newCtx();
+    const { itemIds } = await seedAuthoredContent({ userId: other.userId, items: [{ text: 'a b c' }] });
+    const { versionIds } = await profileWithVersions(other.userId, [
+      { body: sampleDocument(itemIds[0]!), format: 'document' },
+    ]);
+    const before = await bodyOf(versionIds[0]!);
+    const result = await withTransaction((tx) => profiles.scrubDeletedExcerpts(tx, ctx.userId, [itemIds[0]!]));
+    expect(result).toEqual({ versionsChanged: 0, profilesOutdated: 0 });
+    expect((await bodyOf(versionIds[0]!)).enc).toBe(before.enc);
+  });
+
+  it('runs in the content_item purge finalize', async () => {
+    const store = new InMemoryMemoryStore();
+    const ctx = await newCtx();
+    const { itemIds } = await seedAuthoredContent({
+      userId: ctx.userId,
+      items: [{ text: 'a b c' }, { text: 'd e f' }],
+      store,
+    });
+    const [gone, kept] = itemIds as [string, string];
+    const { profileId, versionIds } = await profileWithVersions(ctx.userId, [
+      { body: mixedDocument(gone, kept), format: 'document' },
+    ]);
+
+    const { deletionRequestId } = await contentItems.remove(ctx, gone);
+    await deletion.executeDeletion(deletionRequestId, store);
+
+    expect((await bodyOf(versionIds[0]!)).body.excerpts.map((e) => e.contentItemId)).toEqual([kept]);
+    expect(await profileState(profileId, ctx.userId)).toEqual({
+      outdatedReason: 'sources_deleted',
+      notes: [{ profileId, reason: 'sources_deleted' }],
+    });
+  });
+
+  it('runs in deleteSource for the items exclusive to the source', async () => {
+    const store = new InMemoryMemoryStore();
+    const ctx = await newCtx();
+    const sourceId = await createMailSource(ctx.userId, 'imap');
+    const { itemIds } = await seedAuthoredContent({ userId: ctx.userId, sourceId, items: [{ text: 'mail body' }], store });
+    const { itemIds: keptIds } = await seedAuthoredContent({ userId: ctx.userId, items: [{ text: 'a note' }], store });
+    const { profileId, versionIds } = await profileWithVersions(ctx.userId, [
+      { body: sampleBody(keptIds[0]!), format: 'structured' },
+      { body: mixedDocument(itemIds[0]!, keptIds[0]!), format: 'document' },
+    ]);
+
+    const { deletionRequestId } = await sources.remove(ctx, sourceId);
+    await deletion.executeDeletion(deletionRequestId, store);
+
+    expect((await bodyOf(versionIds[0]!)).body.excerpts).toHaveLength(3);
+    expect((await bodyOf(versionIds[1]!)).body.excerpts.map((e) => e.contentItemId)).toEqual([keptIds[0]]);
+    expect(await profileState(profileId, ctx.userId)).toEqual({
+      outdatedReason: 'sources_deleted',
+      notes: [{ profileId, reason: 'sources_deleted' }],
+    });
   });
 });

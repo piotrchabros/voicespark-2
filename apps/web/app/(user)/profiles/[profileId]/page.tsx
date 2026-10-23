@@ -2,8 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppError } from '@voicespark/core/errors';
 import * as definitions from '@voicespark/core/services/definitions';
+import * as ownPrompts from '@voicespark/core/services/own-prompts';
 import * as profiles from '@voicespark/core/services/profiles';
 import { AdjustForm, type AdjustDimension } from '@/components/profiles/adjust-form';
+import { DefaultChangedBanner } from '@/components/profiles/default-changed-banner';
+import { DocumentView } from '@/components/profiles/document-view';
 import { FeedbackForm } from '@/components/profiles/feedback-form';
 import { ProfileBodyView } from '@/components/profiles/profile-body';
 import { RatingButtons } from '@/components/profiles/rating-buttons';
@@ -44,17 +47,18 @@ export default async function ProfileDetailPage({
   const isLatest = selected !== null && selected.id === latestVersion?.id;
 
   // Dimension specs come from the pinned definition version (names, value types, scale, options).
-  const specs = latestVersion
-    ? ((await definitions.getVersionForGeneration(latestVersion.definitionVersion.id))
+  const latestStructured = latestVersion?.format === 'structured' ? latestVersion : null;
+  const specs = latestStructured
+    ? ((await definitions.getVersionForGeneration(latestStructured.definitionVersion.id))
         ?.dimensions ?? [])
     : [];
   const selectedSpecs =
-    selected &&
-    latestVersion &&
-    selected.definitionVersion.id !== latestVersion.definitionVersion.id
-      ? ((await definitions.getVersionForGeneration(selected.definitionVersion.id))?.dimensions ??
-        [])
-      : specs;
+    selected?.format !== 'structured'
+      ? []
+      : latestStructured && selected.definitionVersion.id === latestStructured.definitionVersion.id
+        ? specs
+        : ((await definitions.getVersionForGeneration(selected.definitionVersion.id))?.dimensions ??
+          []);
   const labels = selectedSpecs.map((d) => ({ key: d.key, name: d.name }));
   const adjustDims: AdjustDimension[] = specs.map((d) => ({
     key: d.key,
@@ -62,8 +66,12 @@ export default async function ProfileDetailPage({
     valueType: d.valueType,
     ...(d.scale ? { scale: d.scale } : {}),
     ...(d.allowedValues ? { allowedValues: d.allowedValues } : {}),
-    value: latestVersion?.body.dimensions.find((x) => x.key === d.key)?.value ?? null,
+    value: latestStructured?.body.dimensions.find((x) => x.key === d.key)?.value ?? null,
   }));
+
+  const ownPrompt = (await ownPrompts.list(ctx)).find(
+    (p) => p.definition.id === profile.definition.id,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -79,7 +87,22 @@ export default async function ProfileDetailPage({
           ) : null}
           {profile.activeGeneration ? <Badge variant="outline">Generating</Badge> : null}
         </div>
+        <p className="text-sm">
+          Analysis prompt: {ownPrompt?.mode === 'own' ? 'your own' : 'default'}{' '}
+          <Link href={`/profiles/${profile.id}/analysis-prompt`} className="underline">
+            {ownPrompt?.mode === 'own' ? 'View or edit' : 'Customize'}
+          </Link>
+        </p>
       </div>
+
+      {ownPrompt?.defaultChangedSinceBase && ownPrompt.own?.currentVersion ? (
+        <DefaultChangedBanner
+          profileId={profile.id}
+          definitionId={profile.definition.id}
+          fromDefinitionVersionId={ownPrompt.own.currentVersion.basedOnDefinitionVersionId}
+          toDefinitionVersionId={ownPrompt.default.definitionVersionId}
+        />
+      ) : null}
 
       {selected ? (
         <Card>
@@ -95,7 +118,22 @@ export default async function ProfileDetailPage({
             </p>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <ProfileBodyView body={selected.body} labels={labels} />
+            {selected.format === 'document' ? (
+              <>
+                {isLatest ? (
+                  <Link href={`/profiles/${profile.id}/edit`} className="text-sm underline">
+                    Edit
+                  </Link>
+                ) : null}
+                <DocumentView
+                  document={selected.body}
+                  excerptSources={selected.excerptSources}
+                  promptUsed={selected.analysisPrompt}
+                />
+              </>
+            ) : (
+              <ProfileBodyView body={selected.body} labels={labels} />
+            )}
             <RatingButtons
               profileId={profile.id}
               versionId={selected.id}
@@ -122,7 +160,7 @@ export default async function ProfileDetailPage({
         </Card>
       ) : null}
 
-      {latestVersion && adjustDims.length > 0 ? (
+      {latestStructured && adjustDims.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Adjust manually</CardTitle>
@@ -131,7 +169,7 @@ export default async function ProfileDetailPage({
             </p>
           </CardHeader>
           <CardContent>
-            <AdjustForm key={latestVersion.id} profileId={profile.id} dimensions={adjustDims} />
+            <AdjustForm key={latestStructured.id} profileId={profile.id} dimensions={adjustDims} />
           </CardContent>
         </Card>
       ) : null}

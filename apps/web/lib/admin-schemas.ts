@@ -40,6 +40,8 @@ export const ADMIN_FORBIDDEN_FIELDS = [
   'accessToken',
   'refreshToken',
   'password',
+  'promptText',
+  'sections',
 ] as const;
 export const ADMIN_FORBIDDEN_FIELD_PATTERN = /_enc$|Enc$/;
 
@@ -128,6 +130,7 @@ const adminDefinitionListItem = z.strictObject({
     .nullable(),
   draftVersionId: id.nullable(),
   userChoiceCount: count,
+  ownPromptCount: count,
 });
 
 const definitionVersionView = z.strictObject({
@@ -141,6 +144,7 @@ const definitionVersionView = z.strictObject({
   createdBy: id,
   publishedAt: iso.nullable(),
   publishedBy: id.nullable(),
+  analysisPrompt: z.string().nullable(),
 });
 
 const historyEntries = z.array(
@@ -248,6 +252,18 @@ export const ADMIN_RESPONSE_SCHEMAS: Record<string, z.ZodType> = {
     definition: adminDefinitionListItem,
   }),
   'GET /api/admin/definitions/[id]/versions/[versionId]/diff': versionDiff,
+  'POST /api/admin/definitions/[id]/versions/[versionId]/preview': z.strictObject({
+    system: z.string(),
+    user: z.string(),
+  }),
+  'POST /api/admin/definitions/[id]/versions/[versionId]/preview-run': z.strictObject({
+    jobId: z.string().regex(/^preview-[0-9a-f-]{36}$/),
+  }),
+  'GET /api/admin/definitions/[id]/versions/[versionId]/preview-run/[jobId]': z.strictObject({
+    status: z.enum(['queued', 'running', 'done', 'failed']),
+    markdown: z.string().nullable(),
+    problems: z.array(z.string()),
+  }),
   'POST /api/admin/definitions/[id]/rollback': z.strictObject({
     definition: adminDefinitionListItem,
   }),

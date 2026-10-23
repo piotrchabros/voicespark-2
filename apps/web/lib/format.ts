@@ -13,3 +13,7 @@ export function importPercent(p: {
 export function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : 'Never';
 }
+
+export function formatTime(iso: string | null): string {
+  return iso ? new Date(iso).toLocaleString() : '-';
+}

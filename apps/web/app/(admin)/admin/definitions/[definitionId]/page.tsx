@@ -3,42 +3,41 @@ import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { AppError } from '@voicespark/core/errors';
 import * as definitions from '@voicespark/core/services/definitions';
-import { AvailabilityToggle } from '@/components/admin/definition-forms';
-import { DimensionEditor } from '@/components/admin/dimension-editor';
+import { AnalysisPreview } from '@/components/admin/analysis-preview';
+import { AvailabilityToggle, DraftVersionForm } from '@/components/admin/definition-forms';
+import { DimensionList } from '@/components/admin/dimension-editor';
 import { Forbidden } from '@/components/admin/forbidden';
-import { formatTime, VersionPanel } from '@/components/admin/version-panel';
+import { VersionPanel } from '@/components/admin/version-panel';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatTime } from '@/lib/format';
 import { requireAdminPage } from '@/lib/page-auth';
 
 export const dynamic = 'force-dynamic';
 
 type Version = Awaited<ReturnType<typeof definitions.adminGet>>['versions'][number];
 
-function DimensionList({ version }: { version: Version }) {
+/** The version's analysis prompt, plus the read-only dimensions of legacy versions. */
+function VersionContent({ version }: { version: Version }) {
   return (
-    <ul className="flex flex-col gap-3 text-sm">
-      {version.dimensions.map((d) => (
-        <li key={d.key} className="flex flex-col gap-1 rounded-md border p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{d.name}</span>
-            <code className="text-muted-foreground">{d.key}</code>
-            <Badge variant="outline">{d.valueType}</Badge>
-          </div>
-          <p>{d.description}</p>
-          {d.scale ? (
-            <p className="text-muted-foreground">
-              {d.scale.min} ({d.scale.minLabel || 'min'}) to {d.scale.max} (
-              {d.scale.maxLabel || 'max'})
-            </p>
-          ) : null}
-          {d.allowedValues && d.allowedValues.length > 0 ? (
-            <p className="text-muted-foreground">Allowed: {d.allowedValues.join(', ')}</p>
-          ) : null}
-          {d.guidance ? <p className="text-muted-foreground">Guidance: {d.guidance}</p> : null}
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-medium">Analysis prompt</h3>
+        {version.analysisPrompt ? (
+          <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border p-3 text-xs">
+            {version.analysisPrompt}
+          </pre>
+        ) : (
+          <p className="text-sm text-muted-foreground">No analysis prompt.</p>
+        )}
+      </div>
+      {version.dimensions.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <h3 className="text-sm font-medium">Dimensions (legacy, read-only)</h3>
+          <DimensionList dimensions={version.dimensions} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -62,6 +61,8 @@ export default async function AdminDefinitionDetailPage({
   const { definition, versions } = data;
   const draft = versions.find((v) => v.status === 'draft');
   const active = versions.find((v) => v.status === 'active');
+  const superseded = versions.filter((v) => v.status === 'superseded');
+  const previewTarget = draft ?? active;
 
   return (
     <div className="flex flex-col gap-6">
@@ -78,7 +79,8 @@ export default async function AdminDefinitionDetailPage({
           </Badge>
           <span className="text-muted-foreground break-all">
             {definition.key} - chosen by {definition.userChoiceCount}{' '}
-            {definition.userChoiceCount === 1 ? 'user' : 'users'}
+            {definition.userChoiceCount === 1 ? 'user' : 'users'}, own prompt in use by{' '}
+            {definition.ownPromptCount} {definition.ownPromptCount === 1 ? 'user' : 'users'}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -95,8 +97,14 @@ export default async function AdminDefinitionDetailPage({
           <CardHeader>
             <CardTitle>Draft version {draft.versionNumber}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <DimensionEditor key={draft.id} definitionId={definition.id} draft={draft} />
+          <CardContent className="flex flex-col gap-4">
+            <DraftVersionForm key={draft.id} definitionId={definition.id} draft={draft} />
+            {draft.dimensions.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                <h3 className="text-sm font-medium">Dimensions (legacy, read-only)</h3>
+                <DimensionList dimensions={draft.dimensions} />
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
@@ -111,7 +119,47 @@ export default async function AdminDefinitionDetailPage({
             <p className="text-sm text-muted-foreground">
               Published {formatTime(active.publishedAt)}
             </p>
-            <DimensionList version={active} />
+            <VersionContent version={active} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {previewTarget ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Preview version {previewTarget.versionNumber}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AnalysisPreview
+              key={previewTarget.id}
+              definitionId={definition.id}
+              versionId={previewTarget.id}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {superseded.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Earlier versions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {superseded.map((v) => (
+              <details key={v.id} className="rounded-md border p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Version {v.versionNumber}: {v.name}
+                  <span className="font-normal text-muted-foreground">
+                    {' '}
+                    - published {formatTime(v.publishedAt)}
+                  </span>
+                </summary>
+                <div className="mt-3 flex flex-col gap-3">
+                  <p className="text-sm">{v.description}</p>
+                  <VersionContent version={v} />
+                </div>
+              </details>
+            ))}
           </CardContent>
         </Card>
       ) : null}

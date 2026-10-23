@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import * as notifications from '@voicespark/core/services/notifications';
+import * as profiles from '@voicespark/core/services/profiles';
 import { AppError } from '@voicespark/core/errors';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +10,23 @@ import { requireUser } from '@/lib/guards';
 
 type Payload = Record<string, string | number | boolean | null>;
 
-function describe(type: string, payload: Payload): { text: string; href?: string } {
+type DefinitionInfo = { profileId: string; name: string };
+
+const GENERATION_FAILED_MESSAGES: Record<string, string> = {
+  invalid_output: 'Generation failed: the result was not valid.',
+  analysis_prompt_excluded: 'Generation failed: your analysis prompt was rejected. Edit it or use the default.',
+  analysis_prompt_missing: 'Generation failed: no analysis prompt was available.',
+  inspection_failed: 'Generation failed: the result could not be checked.',
+  output_excluded: 'Generation failed: the result was rejected.',
+  feedback_excluded: 'Generation failed: your feedback was rejected.',
+  llm_refused: 'Generation failed: the model declined the request.',
+};
+
+function describe(
+  type: string,
+  payload: Payload,
+  definitionsById: Map<string, DefinitionInfo>,
+): { text: string; href?: string } {
   switch (type) {
     case 'source_needs_reconnection':
       return {
@@ -31,22 +48,50 @@ function describe(type: string, payload: Payload): { text: string; href?: string
     case 'draft_failed':
       return { text: 'Draft generation failed.' };
     case 'generation_failed':
-      return { text: 'Generation failed.' };
+      return {
+        text:
+          (typeof payload.errorCode === 'string' ? GENERATION_FAILED_MESSAGES[payload.errorCode] : undefined) ??
+          'Generation failed.',
+      };
+    case 'analysis_prompt_default_changed': {
+      const def =
+        typeof payload.definitionId === 'string' ? definitionsById.get(payload.definitionId) : undefined;
+      const text = `The default analysis prompt for ${def?.name ?? 'a voice profile'} changed.`;
+      if (
+        !def ||
+        typeof payload.fromDefinitionVersionId !== 'string' ||
+        typeof payload.toDefinitionVersionId !== 'string'
+      ) {
+        return { text, href: '/profiles' };
+      }
+      const qs = new URLSearchParams({
+        from: payload.fromDefinitionVersionId,
+        to: payload.toDefinitionVersionId,
+      });
+      return { text, href: `/profiles/${def.profileId}/analysis-prompt?${qs.toString()}` };
+    }
     default:
       return { text: 'Notification' };
   }
 }
 
 export default async function NotificationsPage() {
-  let userId: string;
+  let ctx: Awaited<ReturnType<typeof requireUser>>;
   try {
-    userId = (await requireUser()).userId;
+    ctx = await requireUser();
   } catch (err) {
     if (err instanceof AppError && err.code === 'unauthenticated') redirect('/sign-in');
     if (err instanceof AppError && err.code === 'account_suspended') redirect('/sign-in?error=account_suspended');
     throw err;
   }
-  const { items } = await notifications.list(userId, { limit: 50 });
+  const [{ items }, profileList] = await Promise.all([
+    notifications.list(ctx.userId, { limit: 50 }),
+    profiles.list(ctx),
+  ]);
+  const definitionsById = new Map<string, DefinitionInfo>();
+  for (const p of profileList) {
+    if (p.status !== 'removed') definitionsById.set(p.definition.id, { profileId: p.id, name: p.definition.name });
+  }
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-4 p-4">
@@ -56,7 +101,7 @@ export default async function NotificationsPage() {
       ) : (
         <ul className="space-y-2">
           {items.map((n) => {
-            const { text, href } = describe(n.type, n.payload as Payload);
+            const { text, href } = describe(n.type, n.payload as Payload, definitionsById);
             const unread = n.readAt === null;
             return (
               <li key={n.id}>

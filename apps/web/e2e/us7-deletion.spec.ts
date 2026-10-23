@@ -86,6 +86,62 @@ test.afterAll(async () => {
   await restoreProfileThreshold();
 });
 
+interface VersionView {
+  id: string;
+  format?: string;
+  body: { excerpts: { text: string; contentItemId?: string | null }[] };
+}
+
+test('deleting the item behind a quoted excerpt scrubs it from every stored version and outdates the profile', async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await signInAs(page, { email: uniqueMailbox('us7x') });
+  const { profileId } = await createProfileReady(page);
+
+  const { items: versions } = await api.get<{ items: { id: string }[] }>(
+    page,
+    `/api/profiles/${profileId}/versions`,
+  );
+  expect(versions.length).toBeGreaterThanOrEqual(1);
+  const load = (id: string) =>
+    api.get<VersionView>(page, `/api/profiles/${profileId}/versions/${id}`);
+  const before = await Promise.all(versions.map((v) => load(v.id)));
+  expect(before[0]!.format ?? 'document').toBe('document');
+  const quoted = before
+    .flatMap((v) => v.body.excerpts)
+    .find((x) => typeof x.contentItemId === 'string');
+  expect(quoted, 'an excerpt references its content item').toBeTruthy();
+  const itemId = quoted!.contentItemId as string;
+
+  const { deletionRequestId } = await api.delete<{ deletionRequestId: string }>(
+    page,
+    `/api/content-items/${itemId}`,
+  );
+  const done = await poll(
+    () => api.get<{ status: string }>(page, `/api/deletions/${deletionRequestId}`),
+    (d) => d.status === 'completed' || d.status === 'failed',
+    { timeoutMs: 120_000 },
+  );
+  expect(done.status).toBe('completed');
+
+  for (const v of versions) {
+    const after = await load(v.id);
+    expect(after.body.excerpts.filter((x) => x.contentItemId === itemId)).toEqual([]);
+    expect(JSON.stringify(after.body)).not.toContain(quoted!.text);
+  }
+
+  await poll(
+    () => listProfiles(page),
+    (list) => list.find((p) => p.id === profileId)?.outdatedReason === 'sources_deleted',
+    { timeoutMs: 30_000 },
+  );
+  await page.goto('/profiles');
+  const banner = page.getByRole('status').filter({ hasText: 'Your profile may be outdated' });
+  await expect(banner).toBeVisible();
+  await expect(banner.getByRole('button', { name: 'Regenerate' })).toBeVisible();
+});
+
 test('source deletion outdates the profile; account deletion empties everything within 5 min (SC-009) @ui', async ({
   page,
   playwright,

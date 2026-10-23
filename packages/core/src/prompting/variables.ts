@@ -1,5 +1,6 @@
 import Mustache from 'mustache';
 import type { Dimension } from '@voicespark/db';
+import { neutralizeTags } from './analysis';
 
 export type PromptKeyFamily = 'tone_profile.generate' | 'tone_profile.feedback' | 'draft' | 'custom';
 
@@ -18,18 +19,16 @@ export interface VariableSpec {
   required: readonly string[];
 }
 
-const DIMENSION_ITEM_FIELDS = ['key', 'name', 'description', 'valueType', 'valueSpec', 'guidance'] as const;
-
 const GENERATE_SCALARS = [
   'definition.name',
   'definition.description',
-  'definition.dimensionsJson',
+  'analysisPrompt',
   'authoredSamples',
   'receivedContext',
   'authoredStats.itemCount',
   'authoredStats.wordCount',
   'authoredStats.languages',
-  'previousProfileJson',
+  'previousDocumentJson',
   'user.firstName',
   'excludedCategoryLabels',
 ] as const;
@@ -46,22 +45,21 @@ const DRAFT_SCALARS = [
   'excludedCategoryLabels',
   'user.firstName',
   'languageHint',
+  'voiceDocument',
 ] as const;
-
-const PROFILE_LISTS = { 'definition.dimensions': DIMENSION_ITEM_FIELDS };
 
 export const PROMPT_VARIABLES: Readonly<Record<PromptKeyFamily, VariableSpec>> = {
   'tone_profile.generate': {
     scalars: GENERATE_SCALARS,
-    lists: PROFILE_LISTS,
+    lists: {},
     sections: [],
-    required: ['definition.name', 'definition.dimensionsJson', 'authoredSamples'],
+    required: ['definition.name', 'analysisPrompt', 'authoredSamples'],
   },
   'tone_profile.feedback': {
     scalars: [...GENERATE_SCALARS, 'feedback'],
-    lists: PROFILE_LISTS,
+    lists: {},
     sections: [],
-    required: ['definition.name', 'definition.dimensionsJson', 'authoredSamples', 'feedback', 'previousProfileJson'],
+    required: ['definition.name', 'analysisPrompt', 'authoredSamples', 'feedback', 'previousDocumentJson'],
   },
   draft: {
     scalars: DRAFT_SCALARS,
@@ -72,7 +70,7 @@ export const PROMPT_VARIABLES: Readonly<Record<PromptKeyFamily, VariableSpec>> =
   // No generation path renders custom.* prompts, so they get the union and nothing is required (D-P5).
   custom: {
     scalars: [...new Set<string>([...GENERATE_SCALARS, 'feedback', ...DRAFT_SCALARS])],
-    lists: PROFILE_LISTS,
+    lists: {},
     sections: ['isRevision'],
     required: [],
   },
@@ -154,14 +152,14 @@ export interface SampleInput {
 /** `authoredSamples`: one `<sample ...>` block per inspected authored item. */
 export function formatAuthoredSamples(samples: SampleInput[]): string {
   return samples
-    .map((s) => `<sample ref="${s.ref}" kind="${s.kind}" date="${s.date}" lang="${s.lang ?? 'und'}">${s.text}</sample>`)
+    .map((s) => `<sample ref="${s.ref}" kind="${s.kind}" date="${s.date}" lang="${s.lang ?? 'und'}">${neutralizeTags(s.text)}</sample>`)
     .join('\n');
 }
 
 /** `receivedContext`: background-only block, or '' when there is none. */
 export function formatReceivedContext(items: { kind: string; date: string; text: string }[]): string {
   if (items.length === 0) return '';
-  const body = items.map((i) => `<item kind="${i.kind}" date="${i.date}">${i.text}</item>`).join('\n');
+  const body = items.map((i) => `<item kind="${i.kind}" date="${i.date}">${neutralizeTags(i.text)}</item>`).join('\n');
   return `<received_context>\n${body}\n</received_context>`;
 }
 
@@ -174,6 +172,7 @@ export interface DimensionPromptItem {
   guidance: string;
 }
 
+/** @deprecated Dimension-based prompts are replaced by the analysis prompt. */
 export function valueSpec(d: Dimension): string {
   switch (d.valueType) {
     case 'scale':
@@ -189,7 +188,7 @@ export function valueSpec(d: Dimension): string {
   }
 }
 
-/** `definition.dimensions` list items with prerendered `valueSpec`. */
+/** @deprecated `definition.dimensions` list items with prerendered `valueSpec`. */
 export function formatDimensions(dims: Dimension[]): DimensionPromptItem[] {
   return dims.map((d) => ({
     key: d.key,
@@ -201,7 +200,7 @@ export function formatDimensions(dims: Dimension[]): DimensionPromptItem[] {
   }));
 }
 
-/** `definition.dimensionsJson`. */
+/** @deprecated `definition.dimensionsJson`. */
 export function dimensionsJson(dims: Dimension[]): string {
   return JSON.stringify(
     dims.map((d) => ({

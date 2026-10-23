@@ -9,6 +9,7 @@ import {
   toPromptProfileJson,
   type ProfileOutput,
 } from '../src/prompting';
+import { structuredToDocument } from '../src/prompting/document-schema';
 
 const DIMS: Dimension[] = [
   {
@@ -18,14 +19,24 @@ const DIMS: Dimension[] = [
     valueType: 'scale',
     scale: { min: 1, max: 5, minLabel: 'very casual', maxLabel: 'very formal' },
   },
-  { key: 'humour', name: 'Humour', description: 'How funny.', valueType: 'enum', allowedValues: ['none', 'light'] },
+  {
+    key: 'humour',
+    name: 'Humour',
+    description: 'How funny.',
+    valueType: 'enum',
+    allowedValues: ['none', 'light'],
+  },
   { key: 'sign_off', name: 'Sign-off', description: 'Closing.', valueType: 'text' },
   { key: 'signature_phrases', name: 'Phrases', description: 'Habits.', valueType: 'list' },
 ];
 const DV = { dimensions: DIMS };
 
 const SAMPLES = [
-  { ref: 'A1', contentItemId: 'c-1', text: 'Thanks for the update.\n  I will   review it tomorrow morning.' },
+  {
+    ref: 'A1',
+    contentItemId: 'c-1',
+    text: 'Thanks for the update.\n  I will   review it tomorrow morning.',
+  },
   { ref: 'A2', contentItemId: 'c-2', text: 'Quick note: the launch moved to Friday. Cheers!' },
 ];
 
@@ -37,7 +48,12 @@ function output(overrides: Partial<ProfileOutput> = {}): ProfileOutput {
       { key: 'formality', value: 2, explanation: 'Casual.', evidenceRefs: ['A1', 'A9', 'A3'] },
       { key: 'humour', value: 'light', explanation: 'Some.', evidenceRefs: ['A2'] },
       { key: 'sign_off', value: 'Cheers', explanation: 'Signs off.', evidenceRefs: [] },
-      { key: 'signature_phrases', value: ['quick note'], explanation: 'Habit.', evidenceRefs: ['A2'] },
+      {
+        key: 'signature_phrases',
+        value: ['quick note'],
+        explanation: 'Habit.',
+        evidenceRefs: ['A2'],
+      },
     ],
     excerpts: [
       { text: 'I will review it tomorrow', sampleRef: 'A1', dimensionKeys: ['formality', 'nope'] },
@@ -61,22 +77,45 @@ describe('buildProfileOutputSchema', () => {
 
   it('rejects unknown keys and wrongly typed values', () => {
     const dims = output().dimensions;
-    const withDim = (d: unknown) => output({ dimensions: [...dims.slice(1), d] as ProfileOutput['dimensions'] });
-    expect(schema.safeParse(withDim({ key: 'other', value: 1, explanation: '', evidenceRefs: [] })).success).toBe(false);
-    expect(schema.safeParse(withDim({ key: 'formality', value: 'high', explanation: '', evidenceRefs: [] })).success).toBe(false);
-    expect(schema.safeParse(withDim({ key: 'formality', value: 9, explanation: '', evidenceRefs: [] })).success).toBe(false);
+    const withDim = (d: unknown) =>
+      output({ dimensions: [...dims.slice(1), d] as ProfileOutput['dimensions'] });
+    expect(
+      schema.safeParse(withDim({ key: 'other', value: 1, explanation: '', evidenceRefs: [] }))
+        .success,
+    ).toBe(false);
+    expect(
+      schema.safeParse(
+        withDim({ key: 'formality', value: 'high', explanation: '', evidenceRefs: [] }),
+      ).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse(withDim({ key: 'formality', value: 9, explanation: '', evidenceRefs: [] }))
+        .success,
+    ).toBe(false);
     const humourBad = output({
-      dimensions: [dims[0]!, { key: 'humour', value: 'frequent', explanation: '', evidenceRefs: [] }, dims[2]!, dims[3]!],
+      dimensions: [
+        dims[0]!,
+        { key: 'humour', value: 'frequent', explanation: '', evidenceRefs: [] },
+        dims[2]!,
+        dims[3]!,
+      ],
     });
     expect(schema.safeParse(humourBad).success).toBe(false);
     const listBad = output({
-      dimensions: [dims[0]!, dims[1]!, dims[2]!, { key: 'signature_phrases', value: 'x', explanation: '', evidenceRefs: [] }],
+      dimensions: [
+        dims[0]!,
+        dims[1]!,
+        dims[2]!,
+        { key: 'signature_phrases', value: 'x', explanation: '', evidenceRefs: [] },
+      ],
     });
     expect(schema.safeParse(listBad).success).toBe(false);
   });
 
   it('enforces excerpt count, refs and extra properties', () => {
-    expect(schema.safeParse(output({ excerpts: output().excerpts.slice(0, 2) })).success).toBe(false);
+    expect(schema.safeParse(output({ excerpts: output().excerpts.slice(0, 2) })).success).toBe(
+      false,
+    );
     const mRef = output().excerpts.map((e, i) => (i === 0 ? { ...e, sampleRef: 'M1' } : e));
     expect(schema.safeParse(output({ excerpts: mRef })).success).toBe(false);
     expect(schema.safeParse({ ...output(), extra: true }).success).toBe(false);
@@ -115,7 +154,12 @@ describe('postValidateProfile', () => {
 
   it('fails with fewer than three valid excerpts', () => {
     const r = postValidateProfile(
-      output({ excerpts: [output().excerpts[0]!, { text: 'not there', sampleRef: 'A2', dimensionKeys: [] }] }),
+      output({
+        excerpts: [
+          output().excerpts[0]!,
+          { text: 'not there', sampleRef: 'A2', dimensionKeys: [] },
+        ],
+      }),
       DV,
       SAMPLES,
     );
@@ -137,13 +181,45 @@ describe('postValidateProfile', () => {
       'dimension_duplicate:humour',
       'dimension_missing:sign_off',
     ]);
-    expect(r.body.dimensions.map((d) => d.key)).toEqual(['formality', 'humour', 'signature_phrases']);
+    expect(r.body.dimensions.map((d) => d.key)).toEqual([
+      'formality',
+      'humour',
+      'signature_phrases',
+    ]);
   });
 
   it('strips contentItemId for prompt JSON', () => {
     const json = toPromptProfileJson(postValidateProfile(output(), DV, SAMPLES).body);
     expect(json).not.toContain('contentItemId');
     expect(JSON.parse(json)).toMatchObject({ summary: 'Friendly and brief.' });
+  });
+});
+
+describe('structuredToDocument', () => {
+  it('turns a validated legacy body into a document with one section per dimension', () => {
+    const body = postValidateProfile(output(), DV, SAMPLES).body;
+    const doc = structuredToDocument(body, DIMS);
+    expect(doc.aspects).toEqual(DIMS.map((d) => ({ key: d.key, name: d.name })));
+    expect(doc.sections).toEqual([
+      { aspectKey: 'formality', heading: 'Formality', markdown: '2\n\nCasual.' },
+      { aspectKey: 'humour', heading: 'Humour', markdown: 'light\n\nSome.' },
+      { aspectKey: 'sign_off', heading: 'Sign-off', markdown: 'Cheers\n\nSigns off.' },
+      { aspectKey: 'signature_phrases', heading: 'Phrases', markdown: 'quick note\n\nHabit.' },
+    ]);
+    expect(doc).toMatchObject({
+      summary: body.summary,
+      doList: body.doList,
+      dontList: body.dontList,
+      languages: body.languages,
+    });
+    expect(doc.excerpts).toEqual(
+      body.excerpts.map((e) => ({
+        text: e.text,
+        sampleRef: e.sampleRef,
+        contentItemId: e.contentItemId,
+        aspectKeys: e.dimensionKeys,
+      })),
+    );
   });
 });
 
@@ -164,16 +240,25 @@ describe('createFakeGenerationLlm', () => {
       { ref: 'A1', kind: 'email', date: '2024-01-02', lang: 'en', text: SAMPLES[0]!.text },
       { ref: 'A2', kind: 'note', date: '2024-01-03', lang: null, text: long },
     ]);
-    const out = await llm.parseStructured(args(`Evidence:\n${user}\n<received_context>x</received_context>`));
-    const r = postValidateProfile(out, DV, [SAMPLES[0]!, { ref: 'A2', contentItemId: 'c-2', text: long }]);
+    const out = await llm.parseStructured(
+      args(`Evidence:\n${user}\n<received_context>x</received_context>`),
+    );
+    const r = postValidateProfile(out, DV, [
+      SAMPLES[0]!,
+      { ref: 'A2', contentItemId: 'c-2', text: long },
+    ]);
     expect(r.ok).toBe(true);
     expect(r.validExcerptCount).toBe(3);
     expect(out.excerpts.every((e) => e.text.length <= 120)).toBe(true);
   });
 
   it('throws without samples or for unsupported schemas', async () => {
-    await expect(llm.parseStructured(args('no samples here'))).rejects.toThrow('fake_llm_no_samples');
+    await expect(llm.parseStructured(args('no samples here'))).rejects.toThrow(
+      'fake_llm_no_samples',
+    );
     const { z } = await import('zod');
-    await expect(llm.parseStructured({ ...args('x'), schema: z.object({}) })).rejects.toThrow('fake_llm_unsupported');
+    await expect(llm.parseStructured({ ...args('x'), schema: z.object({}) })).rejects.toThrow(
+      'fake_llm_unsupported',
+    );
   });
 });

@@ -15,6 +15,7 @@ import {
 } from '@voicespark/core/queues';
 import { toErrorCode, toSafeError } from './error-code';
 import type { HandlerMap } from './handlers';
+import { handlers as analysisPreview } from './processors/analysis-preview';
 import { handlers as deletion } from './processors/deletion';
 import { handlers as draft } from './processors/draft';
 import { handlers as importHandlers } from './processors/import';
@@ -30,6 +31,7 @@ const HANDLERS: HandlerMap = {
   ...syncPoll,
   ...upload,
   ...profile,
+  ...analysisPreview,
   ...draft,
   ...deletion,
   ...retroscan,

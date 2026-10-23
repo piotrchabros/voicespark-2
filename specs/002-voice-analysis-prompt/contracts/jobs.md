@@ -29,6 +29,7 @@ This file is a delta against `specs/001-personal-brand-voice/contracts/jobs.md`.
 7. Call the model with `buildDocumentOutputSchema()`. The model, effort and max tokens come from the pinned wrapper version (new versions: `maxTokens 16000`, effort `medium`). A refusal gives `llm_refused`.
 8. Run `postValidateDocument`. On any problem, retry once with the problem codes in the user turn (`MAX_LLM_CALLS = 2`). If the second output still has problems: `failed` with `invalid_output`, notify `generation_failed`, no version stored, the previous version stays current (FR-021).
 9. Inspect the output (joined once, per field on a hit). Wholly excluded summary or required part: `failed` with `output_excluded`.
+- Fail-closed (Principle VI): if `inspect()` of the own prompt (step 4), the feedback (step 5) or the output (step 9) cannot complete, nothing is stored and no LLM call is made for a failed input inspection. The job throws a retryable error; after the last attempt the generation is `failed` with `inspection_failed`.
 10. Map `sampleRef` to `contentItemId`. Store `profile_version` with `format = 'document'`, `prompt_source`, `own_prompt_version_id`, `definition_version_id` and `prompt_version_id`. Encrypt `body_enc`. Notify `profile_ready`.
 - SLA: under 10 min (001 SC-006).
 - Logs: generation id, counts, problem codes. No prompt text, no output.

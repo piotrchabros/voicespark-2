@@ -50,6 +50,13 @@
       "when": 1792669947229,
       "tag": "0006_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792746224539,
+      "tag": "0007_analysis_prompts",
+      "breakpoints": true
     }
   ]
 }

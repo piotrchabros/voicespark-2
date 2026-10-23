@@ -5,6 +5,7 @@ export interface VersionHistoryItem {
   id: string;
   versionNumber: number;
   origin: string;
+  format?: 'structured' | 'document';
   rating: string | null;
   createdAt: string;
 }
@@ -30,6 +31,7 @@ export function VersionHistory({
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-medium">Version {v.versionNumber}</span>
             <Badge variant="outline">{v.origin.replace(/_/g, ' ')}</Badge>
+            {v.format === 'document' ? <Badge variant="outline">document</Badge> : null}
             {v.rating ? (
               <Badge variant="secondary">{RATING_TEXT[v.rating] ?? v.rating}</Badge>
             ) : null}

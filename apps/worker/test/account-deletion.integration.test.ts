@@ -9,6 +9,15 @@ import type { FilteredText } from '@voicespark/filters';
 import type { Mailer } from '@voicespark/integrations/smtp';
 import { InMemoryMemoryStore, META, namespaceFor } from '@voicespark/integrations/supermemory';
 import { createDeletionHandler, handlers } from '../src/processors/deletion';
+import {
+  choose,
+  cleanupProfiles,
+  ensureActivePrompt,
+  insertVersion,
+  sampleDocument,
+  seedDefinition,
+  seedOwnPrompt,
+} from './helpers/profiles';
 
 // deletion.execute, account scope (T142, research R19, D-U7a) plus the deletion_completed notification of the
 // source / content_item scopes. Compose Postgres + in-memory Supermemory; queues mocked (no Redis needed).
@@ -186,6 +195,7 @@ afterAll(async () => {
     );
     await getPool().query('delete from "user" where id = any($1::uuid[])', [userIds]);
   }
+  await cleanupProfiles();
   await closeDb();
 });
 
@@ -264,6 +274,81 @@ describe('deletion.execute account', () => {
     // An idempotent re-run sends nothing more.
     await run({ store: w.store, mailer, revokeGoogleToken }, fakeJob(w.requestId));
     expect(sent).toHaveLength(1);
+  });
+
+  it('cascades own analysis prompts and profile versions; analysis_prompt.* audit rows stay unlinked and text-free', async () => {
+    const w = await accountWorld();
+    const secret = 'My private analysis instructions SECRET-TEXT';
+    const def = await seedDefinition();
+    const profileId = await choose(w.userId, def.definitionId);
+    const own = await seedOwnPrompt({
+      userId: w.userId,
+      definitionId: def.definitionId,
+      text: secret,
+      basedOnDefinitionVersionId: def.versionId,
+    });
+    await insertVersion({
+      profileId,
+      body: sampleDocument(randomUUID()),
+      format: 'document',
+      promptSource: 'own',
+      ownPromptVersionId: own.versionId,
+      definitionVersionId: def.versionId,
+      promptVersionId: await ensureActivePrompt('tone_profile.generate'),
+    });
+    await getPool().query(
+      `insert into audit_log_entry (actor_type, actor_user_id, action, target_type, target_id, subject_ref, metadata)
+       values ('user', $1, 'analysis_prompt.customised', 'definition', $2, $3, $4::jsonb)`,
+      [
+        w.userId,
+        def.definitionId,
+        subjectRef(w.userId),
+        JSON.stringify({
+          ownPromptId: own.ownPromptId,
+          versionId: own.versionId,
+          basedOnDefinitionVersionId: def.versionId,
+          charCount: secret.length,
+        }),
+      ],
+    );
+    expect(
+      await count(
+        'select count(*) as n from profile_version where profile_id = $1 and format = $2',
+        [profileId, 'document'],
+      ),
+    ).toBe(1);
+
+    const { mailer } = recordingMailer();
+    await run(
+      { store: w.store, mailer, revokeGoogleToken: vi.fn(async () => undefined) },
+      fakeJob(w.requestId),
+    );
+
+    expect(await count('select count(*) as n from "user" where id = $1', [w.userId])).toBe(0);
+    expect(
+      await count('select count(*) as n from own_analysis_prompt where id = $1', [own.ownPromptId]),
+    ).toBe(0);
+    expect(
+      await count('select count(*) as n from own_analysis_prompt_version where id = $1', [
+        own.versionId,
+      ]),
+    ).toBe(0);
+    expect(
+      await count('select count(*) as n from profile_version where profile_id = $1', [profileId]),
+    ).toBe(0);
+    expect(await count('select count(*) as n from tone_profile where id = $1', [profileId])).toBe(
+      0,
+    );
+
+    const rows = await getPool().query<{ actor_user_id: string | null; metadata: unknown }>(
+      `select actor_user_id, metadata from audit_log_entry
+       where action like 'analysis_prompt.%' and subject_ref = $1`,
+      [subjectRef(w.userId)],
+    );
+    expect(rows.rows).toHaveLength(1);
+    expect(rows.rows[0]!.actor_user_id).toBeNull();
+    expect(JSON.stringify(rows.rows[0]!.metadata)).not.toContain(secret);
+    expect(JSON.stringify(rows.rows[0]!.metadata)).not.toContain('SECRET-TEXT');
   });
 
   it('keeps the request retryable when the email fails, then sends exactly one email on the next attempt', async () => {

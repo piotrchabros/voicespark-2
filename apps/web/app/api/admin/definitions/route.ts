@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { dimensionsSchema } from '@voicespark/db';
 import * as definitions from '@voicespark/core/services/definitions';
 import { handle, parseJson } from '@/lib/http';
 import { requireAdmin } from '@/lib/guards';
@@ -9,7 +8,9 @@ const createSchema = z.object({
   key: z.string(),
   name: z.string(),
   description: z.string(),
-  dimensions: dimensionsSchema,
+  analysisPrompt: z.string().nullable().optional(),
+  // Rejected by the service with `details.field = 'dimensions'`.
+  dimensions: z.unknown().optional(),
 });
 
 export const GET = handle(async () => {

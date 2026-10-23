@@ -222,6 +222,8 @@ Stored in `profile_generation.error_code`. No content in any of them.
 | `output_excluded` | The summary, or a required part, is wholly excluded in the output | yes |
 | `feedback_excluded` | The feedback text is wholly excluded (feedback generation only) | no |
 | `llm_refused` | The model refused (stop reason `refusal`) | yes |
+| `analysis_prompt_missing` | The pinned own prompt version no longer exists (account deletion race). Never falls back to the default | no |
+| `inspection_failed` | `inspect()` of the own prompt, feedback or output could not complete (classifier error or timeout). Fail-closed (Principle VI): the job is retried with the queue backoff; after the last attempt it fails with this code | no for input, yes for output |
 
 All failures notify `generation_failed`, store no version and keep the previous version as the current one (FR-021).
 

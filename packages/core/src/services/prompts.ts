@@ -5,6 +5,7 @@ import {
   promptTemplate,
   promptTemplateVersion,
   SYSTEM_PROMPT_KEYS,
+  toneDefinitionVersion,
   versionActivation,
   withTransaction,
   type DbOrTx,
@@ -27,7 +28,14 @@ import type {
 import { loadEnv } from '../env';
 import { AppError } from '../errors';
 import fixture from '../prompting/preview-fixture.json' with { type: 'json' };
-import { familyFor, render, validateTemplate, type TemplateValidation } from '../prompting';
+import {
+  familyFor,
+  render,
+  validateTemplate,
+  type TemplatePair,
+  type TemplateValidation,
+} from '../prompting';
+import { buildMessages, wrapAnalysisPrompt } from '../prompting/analysis';
 import { jsonDiff, type DiffEntry } from '../versioning';
 import { audit } from './audit';
 
@@ -267,6 +275,8 @@ export async function rollback(adminId: string, id: string, versionId: string): 
     const template = await lockTemplate(tx, id);
     const version = await versionOf(tx, id, versionId);
     if (version.status !== 'superseded') throw new AppError('conflict', 'Only superseded versions can be rolled back to');
+    // A superseded version may predate a whitelist change (e.g. the dimension-based v1 of tone_profile.*).
+    assertTemplates(template.key, version.systemTemplate, version.userTemplate, 'publish');
     await activate(tx, adminId, template, version.id, 'rollback');
   });
   return requireItem(id);
@@ -287,7 +297,33 @@ export async function preview(
   if (!version) throw new AppError('not_found');
   const variables = previewVariables(version.key);
   if (opts.isRevision !== undefined) variables.isRevision = opts.isRevision;
+  const family = familyFor(version.key);
+  if (family === 'tone_profile.generate' || family === 'tone_profile.feedback') return renderAnalysis(version, variables);
   return render(version, variables);
+}
+
+/** Admin definition preview (FR-004): active `tone_profile.{kind}` wrapper + fixture, with this version's analysis prompt. */
+export async function previewDefinitionVersion(
+  definitionVersionId: string,
+  kind: 'generate' | 'feedback' = 'generate',
+): Promise<{ system: string; user: string }> {
+  if (!isUuid(definitionVersionId)) throw new AppError('not_found');
+  const [dv] = await getDb()
+    .select({
+      name: toneDefinitionVersion.name,
+      description: toneDefinitionVersion.description,
+      analysisPrompt: toneDefinitionVersion.analysisPrompt,
+    })
+    .from(toneDefinitionVersion)
+    .where(eq(toneDefinitionVersion.id, definitionVersionId))
+    .limit(1);
+  if (!dv) throw new AppError('not_found');
+  const key = `tone_profile.${kind}`;
+  const wrapper = await getActiveVersion(key);
+  if (!wrapper) throw new AppError('not_found');
+  const variables = previewVariables(key);
+  variables.definition = { name: dv.name, description: dv.description };
+  return renderAnalysis(wrapper, { ...variables, analysisPrompt: dv.analysisPrompt ?? '' });
 }
 
 export async function history(id: string): Promise<HistoryEntry[]> {
@@ -312,6 +348,14 @@ export async function diff(
 // Internals
 
 type Fixture = Record<string, Record<string, unknown>>;
+
+/** Layers 1-4 of contracts/analysis-prompt.md: the raw `analysisPrompt` is wrapped, then guard and reminder added. */
+function renderAnalysis(version: TemplatePair, variables: Record<string, unknown>): { system: string; user: string } {
+  const raw = typeof variables.analysisPrompt === 'string' ? variables.analysisPrompt : '';
+  const labels = typeof variables.excludedCategoryLabels === 'string' ? variables.excludedCategoryLabels : '';
+  const rendered = render(version, { ...variables, analysisPrompt: wrapAnalysisPrompt(raw, 'default') });
+  return buildMessages(rendered.system, rendered.user, labels);
+}
 
 function previewVariables(key: string): Record<string, unknown> {
   const entries = fixture as Fixture;

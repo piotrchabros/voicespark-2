@@ -11,6 +11,7 @@ export const NOTIFICATION_TYPES = [
   'draft_ready',
   'draft_failed',
   'generation_failed',
+  'analysis_prompt_default_changed',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -32,7 +33,7 @@ export const notification = pgTable(
     index('notification_user_read_created_idx').on(t.userId, t.readAt, t.createdAt),
     check(
       'notification_type_check',
-      sql`${t.type} in ('source_needs_reconnection', 'import_completed', 'deletion_completed', 'profile_ready', 'profile_outdated', 'draft_ready', 'draft_failed', 'generation_failed')`,
+      sql`${t.type} in ('source_needs_reconnection', 'import_completed', 'deletion_completed', 'profile_ready', 'profile_outdated', 'draft_ready', 'draft_failed', 'generation_failed', 'analysis_prompt_default_changed')`,
     ),
   ],
 );

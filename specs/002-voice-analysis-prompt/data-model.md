@@ -323,7 +323,7 @@ SQL steps, in order:
 6. Drop and recreate `notification_type_check` with `analysis_prompt_default_changed`.
 
 Backfill (TypeScript, FR-025). New file `packages/db/src/data/analysis-prompts.ts`:
-- `buildAnalysisPromptFromDimensions({name, description, dimensions})` returns the prompt text. It starts "Analyse how {firstName} writes for "{name}". {description} Write one section for each aspect below …" and adds one line per dimension (name, description, value guidance, guidance).
+- `buildAnalysisPromptFromDimensions({name, description, dimensions})` returns the prompt text. It starts "Analyse how the author writes for "{name}". {description} Write one section for each aspect below …" (exact text in contracts/analysis-prompt.md) and adds one line per dimension (name, description, value guidance, guidance).
 - `backfillAnalysisPrompts(db)` runs in one transaction:
   1. For every `tone_definition_version` where `analysis_prompt is null` (active and superseded, so rollback stays valid), set `analysis_prompt` from the builder. Drafts too.
   2. For `tone_profile.generate` and `tone_profile.feedback`: if the active version lacks `{{analysisPrompt}}`, insert a new active version (v2) with the document-oriented templates, model and effort from the previous version, `max_tokens` 16000, actor nil uuid. Supersede the old version. Add a `version_activation` row (action `publish`).

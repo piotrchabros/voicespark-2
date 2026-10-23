@@ -41,6 +41,8 @@ export const dimensionsSchema = z
     message: 'dimension keys must be unique',
   });
 
+export const ANALYSIS_PROMPT_MAX_CHARS = 20000;
+
 export const toneDefinition = pgTable(
   'tone_definition',
   {
@@ -67,7 +69,12 @@ export const toneDefinitionVersion = pgTable(
     status: versionStatusEnum('status').notNull(),
     name: text('name').notNull(),
     description: text('description').notNull(),
-    dimensions: jsonb('dimensions').$type<Dimension[]>().notNull(),
+    // Read-only legacy; new versions store [] (spec 002).
+    dimensions: jsonb('dimensions')
+      .$type<Dimension[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    analysisPrompt: text('analysis_prompt'),
     createdBy: uuid('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     publishedBy: uuid('published_by'),
@@ -86,6 +93,10 @@ export const toneDefinitionVersion = pgTable(
     check(
       'tone_definition_version_description_len',
       sql`char_length(${t.description}) between 1 and 500`,
+    ),
+    check(
+      'tone_definition_version_analysis_prompt_len',
+      sql`${t.analysisPrompt} is null or char_length(${t.analysisPrompt}) <= 20000`,
     ),
   ],
 );
