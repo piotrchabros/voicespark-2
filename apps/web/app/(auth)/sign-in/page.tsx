@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProviderButtons } from '@/components/auth/provider-buttons';
 import { getAuth } from '@/lib/auth';
+import { LEGAL_LINKS } from '@/lib/legal-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,23 @@ export default async function SignInPage({
           <ProviderButtons mode="sign-in" callbackURL="/dashboard" />
           <p className="text-muted-foreground text-sm">
             Signing in does not give VoiceSpark access to your mailbox.
+          </p>
+          <p className="text-muted-foreground text-sm">
+            By continuing, you agree to the{' '}
+            <a
+              href={LEGAL_LINKS.terms}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Terms of Service
+            </a>{' '}
+            and confirm that you have read the{' '}
+            <a
+              href={LEGAL_LINKS.privacy}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Privacy Policy
+            </a>
+            .
           </p>
         </CardContent>
       </Card>
