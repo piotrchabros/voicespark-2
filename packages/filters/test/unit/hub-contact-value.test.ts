@@ -14,6 +14,12 @@ describe('validateContactValue: accepts', () => {
     expect(validateContactValue('phone', '+1 (202) 555-0143')).toBe('+1 (202) 555-0143');
   });
 
+  it('phone: +48 mobiles whose digits pass the Steuer-ID checksum are not government ids', () => {
+    expect(validateContactValue('phone', '+48 601 300 707')).toBe('+48 601 300 707');
+    expect(validateContactValue('phone', '+48 601-300-707')).toBe('+48 601-300-707');
+    expect(validateContactValue('phone', '+48601300707')).toBe('+48601300707');
+  });
+
   it('domain: lower-cased', () => {
     expect(validateContactValue('domain', 'Acme.Example')).toBe('acme.example');
     expect(validateContactValue('domain', 'mail.fjord-works.example')).toBe('mail.fjord-works.example');

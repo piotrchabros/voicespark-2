@@ -230,6 +230,14 @@ describe('create', () => {
     expect(emails.map((e) => e.is_primary)).toEqual([true, false]);
   });
 
+  it('accepts +48 mobiles whose digits pass the Steuer-ID checksum (not a government id)', async () => {
+    const ctx = await setup();
+    for (const phone of ['+48 601 300 707', '+48 601-300-707', '+48601300707']) {
+      const res = await records.create(ctx, 'person', { name: `P ${phone}`, phone });
+      expect((res.record as records.PersonView).phone).toBe(phone);
+    }
+  });
+
   it('creates a company with domains and a bare-domain website normalised to https', async () => {
     const ctx = await setup();
     const res = await records.create(ctx, 'company', {
