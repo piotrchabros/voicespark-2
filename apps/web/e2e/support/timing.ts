@@ -26,13 +26,22 @@ function record(entry: ScTiming): void {
   writeFileSync(SC_TIMINGS_FILE, `${JSON.stringify(all, null, 2)}\n`);
 }
 
-/** Runs `fn`, records its duration against success criterion `sc` and asserts it stays under `limitMs`. */
-export async function measure<T>(name: string, sc: string, limitMs: number, fn: () => Promise<T>): Promise<T> {
+/**
+ * Runs `fn`, records its duration against success criterion `sc` and asserts it stays under `limitMs`. With
+ * `{ gate: false }` the timing is still recorded but not asserted (the caller annotates why).
+ */
+export async function measure<T>(
+  name: string,
+  sc: string,
+  limitMs: number,
+  fn: () => Promise<T>,
+  { gate = true }: { gate?: boolean } = {},
+): Promise<T> {
   const started = performance.now();
   const result = await fn();
   const ms = Math.round(performance.now() - started);
   test.info().annotations.push({ type: `timing:${sc}`, description: `${name}: ${ms} ms (limit ${limitMs} ms)` });
   record({ name, sc, ms, limitMs, at: new Date().toISOString() });
-  expect(ms, `${sc} ${name}`).toBeLessThan(limitMs);
+  if (gate) expect(ms, `${sc} ${name}`).toBeLessThan(limitMs);
   return result;
 }

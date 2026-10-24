@@ -13,7 +13,7 @@ pnpm --filter @voicespark/web exec playwright install chromium   # once; skipped
 
 | Piece | Where | Owner |
 |---|---|---|
-| Web app (`next dev`) | http://localhost:3110 (override `E2E_WEB_PORT`; 3100 is taken on the shared host) | Playwright `webServer` |
+| Web app (`next dev`, or `next build` + `next start` with `E2E_PROD=1`) | http://localhost:3110 (override `E2E_WEB_PORT`; 3100 is taken on the shared host) | Playwright `webServer` |
 | Memory RPC bridge | http://127.0.0.1:4599 (`E2E_MEMORY_PORT`) | `support/global-setup.ts` |
 | Worker (`tsx src/index.ts` in apps/worker) | child process group, log in `test-results/e2e-worker.log` | `support/global-setup.ts` |
 | Database `voicespark_e2e` | postgres-test :55432 | dropped and recreated each run unless `E2E_FRESH_DB=0`, then migrated and seeded |
@@ -28,6 +28,32 @@ carries the `VS_E2E_WORKER=1` marker in its environment. Nothing is ever killed 
 All settings live in `support/env.ts` (`E2E_ENV`). `playwright.config.ts` copies them into `process.env`, so global
 setup, fixtures and every CLI they spawn (`pnpm cli admin:grant`, `support/scripts.ts`) hit the e2e stack.
 `workers: 1`: specs share one database and global admin settings.
+
+## Production-server mode (`E2E_PROD=1`)
+
+By default the web app runs under `next dev`. `E2E_PROD=1` makes the `webServer` build the app and serve it with
+`next start` instead, for the success-criterion timings:
+
+```
+E2E_PROD=1 flock /tmp/voicespark-e2e.lock pnpm --filter @voicespark/web exec playwright test hub-sc-timings --project chromium
+```
+
+- The build goes to `apps/web/.next-e2e` (`VS_NEXT_DIST_DIR` in `next.config.ts`, git-ignored), never to `.next`, so
+  it does not overwrite the state of a running `next dev`, `next typegen` or a local production build. Every run
+  rebuilds (about 2 minutes on the shared host; the `webServer` timeout is 15 minutes in this mode).
+- The web server runs with `NODE_ENV=test`, not `production`: Next.js uses its production runtime and React build for
+  anything other than `development`, while the environment loader still refuses `AUTH_TEST_MODE` and the test memory
+  bridge under `production`. The worker keeps `E2E_ENV` (`development`).
+- Under `NODE_ENV=test` the web app's mailer uses its in-process JSON transport, so mail the web app sends does not
+  reach GreenMail. Specs that wait for such mail (`waitForMail`) need the default `next dev` mode.
+- SC-002 (`hub-sc-timings-sc002`: a 100-note, 100-file record opens in under 2 s) is asserted only in this mode. Under
+  `next dev` the timing is still written to `test-results/sc-timings.json`, and the test carries a `gate:SC-002`
+  annotation saying the gate applies to `E2E_PROD=1`. SC-001 (`hub-sc-timings`) is asserted in both modes. The SC-002
+  file runs without Playwright tracing (trace snapshots of the big screen distort the timing; Playwright switches
+  tracing only per file), and it opens the record once untimed before the timed open. The `hub-sc-timings` filter in
+  the command above matches both files.
+- CI: the nightly `e2e` job runs the whole suite in dev mode, then both `hub-sc-timings` files again with
+  `E2E_PROD=1` (artifact `e2e-prod-timings`).
 
 ## Shared memory store (test-only bridge, D-E1)
 
@@ -103,7 +129,8 @@ UI assertions carry `@ui` in the title. Project `chromium` runs every spec; proj
 | `hub-us7-sync` | memory-store sync status, store down and retry, rejected item, full re-sync, rename and delete propagation, contact rule |
 | `hub-us8-account` | admin hub counts only; account deletion removes hub rows, the user's blob directory and `hub_` documents |
 | `hub-us8-mailbox` | mailbox disconnect with keep or delete, hub off |
-| `hub-sc-timings` | SC-001 and SC-002 timings into `test-results/sc-timings.json` |
+| `hub-sc-timings` | SC-001 timing into `test-results/sc-timings.json` |
+| `hub-sc-timings-sc002` | SC-002 timing into `test-results/sc-timings.json`, asserted only with `E2E_PROD=1`; tracing off |
 
 The email specs wait up to `HUB_PROCESSING_TIMEOUT_MS` (240 s) for the worker. Run e2e on the shared host only under
 `flock /tmp/voicespark-e2e.lock pnpm test:e2e`.

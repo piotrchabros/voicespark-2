@@ -132,6 +132,20 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
           if-no-files-found: ignore
+      # SC-002 (2 s record open, hub-sc-timings-sc002) is gated only against a production server: `next start`
+      # (E2E_PROD=1, apps/web/e2e/README.md). Runs after the upload above because Playwright clears test-results.
+      - run: pnpm --filter @voicespark/web exec playwright test hub-sc-timings --project chromium
+        if: always()
+        env:
+          E2E_PROD: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-prod-timings
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
 
   # Manual only: 500-message import throughput (SC-003 / SC-011), takes up to an hour.
   import-load:

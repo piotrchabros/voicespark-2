@@ -9,6 +9,9 @@ if (existsSync(rootEnv)) {
 }
 
 const nextConfig: NextConfig = {
+  // The E2E_PROD=1 e2e harness builds into its own directory (`.next-e2e`) so it never overwrites the `.next` that
+  // `next dev`, `next typegen` or a local production build use (e2e/README.md).
+  ...(process.env.VS_NEXT_DIST_DIR ? { distDir: process.env.VS_NEXT_DIST_DIR } : {}),
   transpilePackages: [
     '@voicespark/core',
     '@voicespark/db',
