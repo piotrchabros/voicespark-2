@@ -12,9 +12,8 @@ import {
 } from './support/drafts';
 
 // Hub US6 (quickstart "Drafts", rows US6.1..US6.4 and "Edge: deleted record"; FR-027, FR-028): a draft request can
-// pin a person, company or project. The worker runs the fake generation LLM, which echoes only the `Brief: ` line, so
-// the record context itself is observed through `hubContextStatus` ('used' once the inspected block went into the
-// prompt); the block's content is covered by apps/worker/test/draft-generate.integration.test.ts (T142).
+// pin a person, company or project. The worker runs the fake generation LLM, which echoes the `Brief: ` line and the
+// first lines of the `<record_context>` block (a `Context: ` line), so the draft text shows what reached the prompt.
 
 type HubRecordRef = { kind: 'person' | 'company' | 'project'; id: string | null; label: string } | null;
 type HubDraftView = DraftView & {
@@ -115,6 +114,10 @@ test.describe('hub US6: drafts about a record', () => {
     expect(draft.generatedText).toContain(BRIEF);
     expect(draft.hubRecord).toEqual({ kind: 'person', id: person.id, label: person.name });
     expect(draft.hubContextStatus).toBe('used');
+    // The role and company come only from the record context (the brief names neither).
+    expect(draft.generatedText).toContain('Context:');
+    expect(draft.generatedText).toContain('CTO');
+    expect(draft.generatedText).toContain('Acme');
     for (const value of [CONTACT_EMAIL, CONTACT_PHONE]) {
       expect(draft.text ?? '').not.toContain(value);
       expect(draft.generatedText ?? '').not.toContain(value);

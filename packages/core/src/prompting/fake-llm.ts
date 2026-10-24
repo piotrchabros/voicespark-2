@@ -11,6 +11,9 @@ const SAMPLE_BLOCK = /<sample ref="(A[0-9]+)"[^>]*>([\s\S]*?)<\/sample>/g;
 const EXCERPT_MAX_CHARS = 120;
 const EXCERPT_COUNT = 3;
 const BRIEF_LINE = /Brief: ([^\n]*)/;
+const RECORD_CONTEXT_BLOCK = /<record_context[^>]*>\n?([\s\S]*?)<\/record_context>/;
+const CONTEXT_ECHO_LINES = 8;
+const CONTEXT_ECHO_LINE_CHARS = 60;
 /** Test hook: a brief line containing this marker makes the fake refuse. */
 const REFUSE_MARKER = 'FAKE_LLM_REFUSE';
 
@@ -143,14 +146,22 @@ function fakeDocument(user: string): DocumentOutput {
   };
 }
 
-/** Echoes the `Brief: ` line of the user prompt; cites `[M1]` when a memory block was supplied. */
+/** Echoes the `Brief: ` line of the user prompt; cites `[M1]` when a memory block was supplied and echoes the
+ * first lines of a `<record_context>` block as a `Context: ` line (nothing added without a block). */
 function fakeDraft(contentType: DraftContentType, user: string): DraftOutput {
   const brief = BRIEF_LINE.exec(user)?.[1] ?? '';
   if (brief.includes(REFUSE_MARKER)) throw new LlmRefusedError();
   const memory = user.includes('<memory ref="M1">') ? ' [M1]' : '';
+  const ctxBlock = RECORD_CONTEXT_BLOCK.exec(user)?.[1];
+  const ctxLines = (ctxBlock ?? '')
+    .split('\n')
+    .map((l) => l.trim().slice(0, CONTEXT_ECHO_LINE_CHARS))
+    .filter((l) => l !== '')
+    .slice(0, CONTEXT_ECHO_LINES);
+  const context = ctxLines.length > 0 ? `\nContext: ${ctxLines.join(' | ')}` : '';
   return {
     title: contentType === 'short_article' ? 'Fake title' : null,
-    body: `Fake ${CONTENT_TYPE_LABEL[contentType]} draft. ${brief}${memory}`,
+    body: `Fake ${CONTENT_TYPE_LABEL[contentType]} draft. ${brief}${memory}${context}`,
     notes: null,
   };
 }
