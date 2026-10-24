@@ -154,7 +154,10 @@ async function hubTablesDump(): Promise<{ text: string; via: 'pg_dump' | 'row du
     expect(text).toContain('INSERT INTO public.hub_');
     return { text, via: 'pg_dump' };
   } catch (err) {
-    if ((err as { code?: string }).code !== 'ENOENT') throw err;
+    // No docker (ENOENT) or no such container (CI runs postgres as a service): dump the rows instead.
+    const missing =
+      (err as { code?: string }).code === 'ENOENT' || /No such container/.test(String((err as { stderr?: unknown }).stderr));
+    if (!missing) throw err;
     const parts: string[] = [];
     for (const t of tables)
       parts.push((await getPool().query(`select to_jsonb(x) as row from ${t} x`)).rows.map((r) => JSON.stringify(r.row)).join('\n'));
