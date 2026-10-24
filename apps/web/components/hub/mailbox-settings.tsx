@@ -19,6 +19,7 @@ import {
   BACKFILL_STATE_TEXT,
   formatSyncedAt,
   HUB_AI_NOTICE,
+  HUB_DATA_OPTIONS,
   hubApiError,
   plural,
   THREAD_ERROR_TEXT,
@@ -149,19 +150,6 @@ function DataChoiceDialog({
     onDisabled();
   }
 
-  const options: { value: 'keep' | 'delete'; label: string; help: string }[] = [
-    {
-      value: 'keep',
-      label: 'Keep what was found',
-      help: 'Records, values, links and summaries from this mailbox stay in your hub. Nothing new is read.',
-    },
-    {
-      value: 'delete',
-      label: 'Delete what was found',
-      help: 'Summaries, values and links that came only from this mailbox are removed. Anything you entered yourself stays.',
-    },
-  ];
-
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent>
@@ -171,7 +159,7 @@ function DataChoiceDialog({
         </DialogHeader>
         <fieldset className="flex flex-col gap-3">
           <legend className="sr-only">Data from this mailbox</legend>
-          {options.map((o) => {
+          {HUB_DATA_OPTIONS.map((o) => {
             const id = `${group}-${o.value}`;
             return (
               <div key={o.value} className="flex items-start gap-2">

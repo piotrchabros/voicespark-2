@@ -57,6 +57,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ s
           accountLabel={source.accountLabel}
           itemCount={source.itemCount}
           lastSyncAt={source.lastSyncAt}
+          hubEnabled={hubEnabled}
         />
       </div>
 

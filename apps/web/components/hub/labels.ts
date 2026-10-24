@@ -289,6 +289,22 @@ export interface HubMailbox {
   failedThreads: HubFailedThread[];
 }
 
+export type HubDataChoice = 'keep' | 'delete';
+
+/** Keep or delete the data derived from a mailbox when its hub is turned off or it is disconnected (FR-031). */
+export const HUB_DATA_OPTIONS: { value: HubDataChoice; label: string; help: string }[] = [
+  {
+    value: 'keep',
+    label: 'Keep what was found',
+    help: 'Records, values, links and summaries from this mailbox stay in your hub. Nothing new is read.',
+  },
+  {
+    value: 'delete',
+    label: 'Delete what was found',
+    help: 'Summaries, values and links that came only from this mailbox are removed. Anything you entered yourself stays.',
+  },
+];
+
 /** The notice the user acknowledges before the hub is turned on for a mailbox (FR-012). */
 export const HUB_AI_NOTICE =
   'Conversation content from this mailbox is sent to the AI service, which recognises the people, companies and projects in it. Only filtered summaries and findings are kept; message text is not stored.';

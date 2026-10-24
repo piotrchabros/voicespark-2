@@ -13,6 +13,7 @@ import {
   type SourceType,
   type Tx,
 } from '@voicespark/db';
+import * as hubMail from '@voicespark/db/repos/user/hub-mail';
 import { getSource, listSources } from '@voicespark/db/repos/user/sources';
 import type { ImapConfig } from '@voicespark/integrations/imap';
 import {
@@ -53,6 +54,9 @@ export { assertFiltersConfirmed } from './imports';
 
 export type MailProvider = 'gmail' | 'microsoft';
 
+/** What happens to the context-hub data derived from a mailbox when it is disconnected or removed (FR-031). */
+export type HubDataChoice = 'keep' | 'delete';
+
 export interface DateRangeInput {
   from?: string | null;
   to?: string | null;
@@ -68,6 +72,7 @@ export interface SourceView {
   lastSyncAt: string | null;
   dateRange: { from: string | null; to: string | null };
   currentImport: ImportProgress | null;
+  hub: { enabled: boolean };
 }
 
 export interface SourceDetail extends SourceView {
@@ -120,7 +125,11 @@ export function imapAddress(cfg: Pick<ImapConfig, 'host' | 'username'>): string 
 }
 
 /** Never includes credentials or the raw account address beyond its label. */
-export function toSourceView(row: SourceRow, currentImport: ImportProgress | null): SourceView {
+export function toSourceView(
+  row: SourceRow,
+  currentImport: ImportProgress | null,
+  hubEnabled = false,
+): SourceView {
   return {
     id: row.id,
     type: row.type,
@@ -131,6 +140,7 @@ export function toSourceView(row: SourceRow, currentImport: ImportProgress | nul
     lastSyncAt: row.lastSyncAt ? row.lastSyncAt.toISOString() : null,
     dateRange: { from: row.dateRangeFrom, to: row.dateRangeTo },
     currentImport,
+    hub: { enabled: hubEnabled },
   };
 }
 
@@ -170,7 +180,11 @@ async function currentImports(sourceIds: string[]): Promise<Map<string, ImportPr
 }
 
 async function view(row: SourceRow): Promise<SourceView> {
-  return toSourceView(row, (await currentImports([row.id])).get(row.id) ?? null);
+  const [current, hubEnabled] = await Promise.all([
+    currentImports([row.id]),
+    hubMail.isMailboxEnabled({ userId: row.userId }, row.id),
+  ]);
+  return toSourceView(row, current.get(row.id) ?? null, hubEnabled);
 }
 
 export async function list(ctx: ServiceContext): Promise<SourceView[]> {
@@ -179,8 +193,12 @@ export async function list(ctx: ServiceContext): Promise<SourceView[]> {
     (a, b) =>
       b.connectedAt.getTime() - a.connectedAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   );
-  const current = await currentImports(rows.map((r) => r.id));
-  return rows.map((r) => toSourceView(r, current.get(r.id) ?? null));
+  const [current, settings] = await Promise.all([
+    currentImports(rows.map((r) => r.id)),
+    hubMail.listMailboxSettings(ctx),
+  ]);
+  const hubEnabled = new Set(settings.filter((s) => s.enabled).map((s) => s.sourceId));
+  return rows.map((r) => toSourceView(r, current.get(r.id) ?? null, hubEnabled.has(r.id)));
 }
 
 export async function get(ctx: ServiceContext, sourceId: string): Promise<SourceDetail> {
@@ -586,36 +604,48 @@ export async function resume(ctx: ServiceContext, sourceId: string): Promise<Sou
 /**
  * Stops syncing and drops the credential (Google tokens are revoked best effort). With `deleteContent` the
  * source's content is purged by a `source` deletion request (FR-015).
+ *
+ * With the hub enabled for the source `hubData` is required (422 `hub_data_choice_required`); it is ignored
+ * otherwise. The hub is turned off with that choice stored as `data_choice`. `delete` without `deleteContent`
+ * requests a separate `hub_source` deletion and returns its id; with `deleteContent` the hub purge runs inside the
+ * `source` request (FR-031).
  */
 export async function disconnect(
   ctx: ServiceContext,
   sourceId: string,
   deleteContent: boolean,
+  hubData?: HubDataChoice,
 ): Promise<{ source: SourceView; deletionRequestId: string | null }> {
   const source = await ownedSource(ctx, sourceId);
   if (source.status === 'disconnected')
     throw new AppError('conflict', 'This source is already disconnected');
-  const row = await disconnectSource(ctx, source, deleteContent);
-  const deletionRequestId = deleteContent
-    ? (
-        await requestDeletion({
-          userId: ctx.userId,
-          scope: 'source',
-          targetId: sourceId,
-          requestedBy: 'user',
-        })
-      ).id
-    : null;
+  const hubEnabled = await hubMail.isMailboxEnabled(ctx, sourceId);
+  if (hubEnabled && !hubData) throw new AppError('hub_data_choice_required');
+  const hubChoice = hubEnabled ? (hubData ?? null) : null;
+  const row = await disconnectSource(ctx, source, deleteContent, hubChoice);
+  let deletionRequestId: string | null = null;
+  if (deleteContent || hubChoice === 'delete') {
+    ({ id: deletionRequestId } = await requestDeletion({
+      userId: ctx.userId,
+      scope: deleteContent ? 'source' : 'hub_source',
+      targetId: sourceId,
+      requestedBy: 'user',
+    }));
+  }
   return { source: await view(row), deletionRequestId };
 }
 
 /**
  * Removes a source and its content (DELETE /api/sources/{id}, T145): disconnects when still connected, then
  * requests a `source` deletion. While that request is open the same id is returned again (idempotent).
+ *
+ * Hub data follows the stored `data_choice`. When the hub is still enabled, `hubData` (default `delete`) is stored
+ * first; the hub purge then runs inside the `source` request (FR-031).
  */
 export async function remove(
   ctx: ServiceContext,
   sourceId: string,
+  hubData?: HubDataChoice,
 ): Promise<{ deletionRequestId: string }> {
   const source = await ownedSource(ctx, sourceId);
   const [pending] = await getDb()
@@ -632,7 +662,9 @@ export async function remove(
     .orderBy(desc(deletionRequest.requestedAt), desc(deletionRequest.id))
     .limit(1);
   if (pending) return { deletionRequestId: pending.id };
-  if (source.status !== 'disconnected') await disconnectSource(ctx, source, true);
+  const hubChoice = (await hubMail.isMailboxEnabled(ctx, sourceId)) ? (hubData ?? 'delete') : null;
+  if (source.status !== 'disconnected') await disconnectSource(ctx, source, true, hubChoice);
+  else if (hubChoice) await withTransaction((tx) => disableHub(ctx, sourceId, hubChoice, tx));
   const { id } = await requestDeletion({
     userId: ctx.userId,
     scope: 'source',
@@ -642,11 +674,36 @@ export async function remove(
   return { deletionRequestId: id };
 }
 
-/** Disconnect steps shared by `disconnect` and `remove`; the caller requests the content deletion. */
+/** Turns the hub off for the source with the data choice stored (as `hub/mailboxes.disable` does). */
+async function disableHub(
+  ctx: ServiceContext,
+  sourceId: string,
+  hubData: HubDataChoice,
+  tx: Tx,
+): Promise<void> {
+  await hubMail.disableMailbox(ctx, sourceId, hubData, tx);
+  await audit.record(
+    {
+      actorType: 'user',
+      actorUserId: ctx.userId,
+      action: 'hub.mailbox_disabled',
+      targetType: AUDIT_TARGET,
+      targetId: sourceId,
+      metadata: { sourceId, hubData },
+    },
+    tx,
+  );
+}
+
+/**
+ * Disconnect steps shared by `disconnect` and `remove`; the caller requests the content deletion. A `hubData`
+ * choice turns the hub off in the same transaction.
+ */
 async function disconnectSource(
   ctx: ServiceContext,
   source: SourceRow,
   deleteContent: boolean,
+  hubData: HubDataChoice | null = null,
 ): Promise<SourceRow> {
   const sourceId = source.id;
   const revokeToken =
@@ -678,6 +735,7 @@ async function disconnectSource(
       },
       tx,
     );
+    if (hubData) await disableHub(ctx, sourceId, hubData, tx);
     return updated;
   });
 

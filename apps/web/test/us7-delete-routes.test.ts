@@ -50,6 +50,24 @@ describe('DELETE /api/sources/[id]', () => {
     expect(mocks.auditForeignAccess).toHaveBeenCalledWith(user, 'source', ID);
   });
 
+  it('honours the stored hub data choice: no choice is taken from the request', async () => {
+    mocks.sourcesRemove.mockResolvedValue({ deletionRequestId: 'd1' });
+    const { DELETE } = sourcesIdRoute;
+    const res = await DELETE(
+      new Request('http://x', { method: 'DELETE', body: JSON.stringify({ hubData: 'keep' }) }),
+      params,
+    );
+    expect(res.status).toBe(202);
+    expect(mocks.sourcesRemove).toHaveBeenCalledWith(user, ID);
+  });
+
+  it('carries hub.enabled on GET', async () => {
+    mocks.sourcesGet.mockResolvedValue({ id: ID, hub: { enabled: false } });
+    const { GET } = sourcesIdRoute;
+    const res = await GET(new Request('http://x'), params);
+    expect((await res.json()).hub).toEqual({ enabled: false });
+  });
+
   it('keeps GET working next to DELETE', async () => {
     mocks.sourcesGet.mockResolvedValue({ id: ID });
     const { GET } = sourcesIdRoute;

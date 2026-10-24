@@ -64,6 +64,7 @@ describe('toSourceView', () => {
       lastSyncAt: '2024-06-01T10:00:00.000Z',
       dateRange: { from: '2024-01-01', to: null },
       currentImport: null,
+      hub: { enabled: false },
     });
     expect(Object.keys(view)).not.toContain('userId');
     expect(Object.keys(view)).not.toContain('lastErrorCode');

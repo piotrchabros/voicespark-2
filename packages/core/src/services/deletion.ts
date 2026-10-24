@@ -8,6 +8,7 @@ import {
   deletionRequest,
   exclusionReport,
   getDb,
+  hubMailboxSetting,
   hubThread,
   importJob,
   mailboxCredential,
@@ -38,6 +39,7 @@ import { AppError, type ServiceContext } from '../errors';
 import { createFsBlobStore, type BlobStore } from '../hub/blob-store';
 import { QUEUES, enqueue, getQueue, jobIds, removeScheduler } from '../queues';
 import { assertNotLastActiveAdmin } from './admin-users';
+import { purgeSource } from './hub/purge';
 import { audit } from './audit';
 import { loadRevocableToken } from './mail-access';
 import { notify } from './notifications';
@@ -320,6 +322,8 @@ function runScope(
       return purgeExclusionReport(store, row, userId, targetId);
     case 'retroscan_purge':
       return purgeRetroscan(store, row, userId, targetId);
+    case 'hub_source':
+      return deleteHubSource(store, row, userId, targetId);
     default:
       throw new DeletionError('not_implemented', false);
   }
@@ -525,6 +529,11 @@ async function deleteSource(
   const db = getDb();
   const ns = namespaceFor(userId);
   await removeScheduler(QUEUES.syncPoll, jobIds.poll(sourceId));
+  // FR-031: the hub data of the mailbox goes first, unless the user chose to keep it (source FKs then SET NULL).
+  let hubDocuments = 0;
+  if (await hubPurgeWanted(sourceId)) {
+    hubDocuments = (await purgeSource(store, userId, sourceId, { requestedBy: row.requestedBy })).documents;
+  }
 
   const occurrences = await db
     .select({
@@ -585,7 +594,7 @@ async function deleteSource(
       .where(and(inArray(contentItem.id, exclusive), eq(contentItem.userId, userId)));
   }
 
-  let deletedCount = await deleteDocuments(store, ns, exclusive);
+  let deletedCount = hubDocuments + (await deleteDocuments(store, ns, exclusive));
   // Shared documents get their narrowed vs_source_ids; anything else still tagged with this source is deleted.
   deletedCount += await sweepSourceDocuments(store, userId, sourceId, shared);
   await verifySourceGone(store, userId, sourceId);
@@ -617,6 +626,34 @@ async function deleteSource(
     await completeRequest(tx, row, userId, deletedCount);
   });
   return deletedCount;
+}
+
+/**
+ * Whether a source deletion purges the hub data first: `data_choice = 'delete'`, or the hub still enabled with no
+ * stored choice (the `DELETE /api/sources/{id}` default). `keep`, or no hub at all, leaves it.
+ */
+async function hubPurgeWanted(sourceId: string): Promise<boolean> {
+  const [setting] = await getDb()
+    .select({ enabled: hubMailboxSetting.enabled, dataChoice: hubMailboxSetting.dataChoice })
+    .from(hubMailboxSetting)
+    .where(eq(hubMailboxSetting.sourceId, sourceId))
+    .limit(1);
+  if (!setting) return false;
+  return setting.dataChoice === 'delete' || (setting.enabled && setting.dataChoice === null);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// hub_source scope (FR-031): the hub data of one mailbox; the source itself stays.
+
+async function deleteHubSource(
+  store: MemoryStore,
+  row: DeletionRequest,
+  userId: string,
+  sourceId: string,
+): Promise<number> {
+  const { documents } = await purgeSource(store, userId, sourceId, { requestedBy: row.requestedBy });
+  await withTransaction((tx) => completeRequest(tx, row, userId, documents));
+  return documents;
 }
 
 /**

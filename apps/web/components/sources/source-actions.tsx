@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { HUB_DATA_OPTIONS, type HubDataChoice } from '@/components/hub/labels';
 
 interface Props {
   sourceId: string;
@@ -23,6 +24,8 @@ interface Props {
   accountLabel?: string;
   itemCount?: number;
   lastSyncAt?: string | null;
+  /** The hub reads this mailbox: disconnecting asks to keep or delete the derived data (FR-031). */
+  hubEnabled?: boolean;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -61,11 +64,13 @@ export function SourceActions({
   accountLabel,
   itemCount,
   lastSyncAt,
+  hubEnabled = false,
 }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
   const [deleteContent, setDeleteContent] = useState(false);
+  const [hubData, setHubData] = useState<HubDataChoice>('keep');
   const [reconnectOpen, setReconnectOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [deleteDataOpen, setDeleteDataOpen] = useState(false);
@@ -114,7 +119,7 @@ export function SourceActions({
   }
 
   async function disconnect() {
-    const res = await call('disconnect', { deleteContent });
+    const res = await call('disconnect', hubEnabled ? { deleteContent, hubData } : { deleteContent });
     if (res) {
       setDisconnectOpen(false);
       router.refresh();
@@ -238,6 +243,31 @@ export function SourceActions({
               Also delete this mailbox&apos;s content from the memory store?
             </Label>
           </div>
+          {hubEnabled ? (
+            <fieldset className="flex flex-col gap-3">
+              <legend className="mb-2 text-sm font-medium">Hub data from this mailbox</legend>
+              {HUB_DATA_OPTIONS.map((o) => {
+                const id = `hub-data-${sourceId}-${o.value}`;
+                return (
+                  <div key={o.value} className="flex items-start gap-2">
+                    <input
+                      id={id}
+                      type="radio"
+                      name={`hub-data-${sourceId}`}
+                      value={o.value}
+                      checked={hubData === o.value}
+                      onChange={() => setHubData(o.value)}
+                      className="mt-1"
+                    />
+                    <Label htmlFor={id} className="flex flex-col items-start gap-1 font-normal">
+                      <span className="font-medium">{o.label}</span>
+                      <span className="text-muted-foreground text-xs">{o.help}</span>
+                    </Label>
+                  </div>
+                );
+              })}
+            </fieldset>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDisconnectOpen(false)}>
               Cancel

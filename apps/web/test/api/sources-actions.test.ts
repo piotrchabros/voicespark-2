@@ -69,7 +69,7 @@ describe('source action routes', () => {
     mocks.sources.disconnect.mockResolvedValue({ source: { id: 'abc' }, deletionRequestId: 'd1' });
     const res = await disconnect(post({ deleteContent: true }), ctx);
     expect(await res.json()).toEqual({ source: { id: 'abc' }, deletionRequestId: 'd1' });
-    expect(mocks.sources.disconnect).toHaveBeenCalledWith(user, 'abc', true);
+    expect(mocks.sources.disconnect).toHaveBeenCalledWith(user, 'abc', true, undefined);
   });
 
   it('audits and returns 404 for a foreign source', async () => {

@@ -96,6 +96,7 @@ export default async function SourcesPage() {
                         accountLabel={s.accountLabel}
                         itemCount={s.itemCount}
                         lastSyncAt={s.lastSyncAt ? new Date(s.lastSyncAt).toISOString() : null}
+                        hubEnabled={s.hub.enabled}
                       />
                     </TableCell>
                   </TableRow>
