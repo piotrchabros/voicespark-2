@@ -14,7 +14,7 @@
           "ref": "thr-pl-04/1",
           "direction": "inbound",
           "folders": ["INBOX"],
-          "raw": "Message-ID: <pl-5@nadmorska-stocznia.example>\r\nDate: Tue, 20 May 2025 08:10:00 +0000\r\nFrom: Jakub Sobczak <jakub.sobczak@nadmorska-stocznia.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Alicja Wrona <alicja.wrona@fala-software.example>\r\nSubject: Projekt Bałtyk - podział prac\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nw Projekcie Bałtyk proponuję taki podział: Fala Software odpowiada za system sterowania dźwigami, a Nadmorska Stocznia za integrację z istniejącą linią produkcyjną. Marek, Ty koordynujesz całość po stronie zamawiającego.\n\nPozdrawiam\nJakub Sobczak\nDyrektor Techniczny\nNadmorska Stocznia S.A.\n+48 58 555 04 01\r\n"
+          "raw": "Message-ID: <pl-04@nadmorska-stocznia.example>\r\nDate: Tue, 20 May 2025 08:10:00 +0000\r\nFrom: Jakub Sobczak <jakub.sobczak@nadmorska-stocznia.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Alicja Wrona <alicja.wrona@fala-software.example>\r\nSubject: Projekt Bałtyk - podział prac\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nw Projekcie Bałtyk proponuję taki podział: Fala Software odpowiada za system sterowania dźwigami, a Nadmorska Stocznia za integrację z istniejącą linią produkcyjną. Marek, Ty koordynujesz całość po stronie zamawiającego.\n\nPozdrawiam\nJakub Sobczak\nDyrektor Techniczny\nNadmorska Stocznia S.A.\n+48 58 555 04 01\r\n"
         },
         {
           "ref": "thr-pl-04/2",

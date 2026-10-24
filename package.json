@@ -18,6 +18,7 @@
     "test:corpus:live": "pnpm --filter @voicespark/filters test:corpus:live",
     "test:integration": "pnpm -r --workspace-concurrency=1 --if-present test:integration",
     "test:import-load": "pnpm --filter @voicespark/worker test:import-load",
+    "hub:eval": "pnpm --filter @voicespark/worker hub:eval",
     "test:e2e": "pnpm --filter @voicespark/web test:e2e",
     "test:admin-isolation": "pnpm --filter @voicespark/web test:admin-isolation",
     "db:migrate": "pnpm --filter @voicespark/db migrate",

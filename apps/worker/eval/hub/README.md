@@ -122,3 +122,7 @@ It validates every file against the schema, enforces the domain rule, checks tha
 ## Scoring (runner, T150)
 
 Grader rules of research R14: pending policy-correct suggestions count as hits for SC-004; project names match when normalised-equal or by whole-word containment ("Atlas" and "Atlas migration", "Orkiestra" and "Wdrożenie Orkiestra"). Thresholds: SC-004 people >= 95%, person-company links >= 90%, project names and links >= 80%; SC-005 duplicate people <= 2%, automated senders as people = 0; SC-006 at most 1 in 5 findings queued, auto-applied correct >= 90%. The in-sample set and the held-out subset are printed on separate lines.
+
+## Post-port fixups
+
+- `pl-04.json`: the source set gives message 1 the Message-ID `<pl-5@nadmorska-stocznia.example>` while message 2 replies to `<pl-04@…>`; the ported file uses `<pl-04@…>` so both messages form one thread. Re-apply after re-running the port.
