@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { counts } from '@voicespark/core/services/hub/records';
+import { count as pendingSuggestions } from '@voicespark/core/services/hub/suggestions';
 import { requireUserOrRedirect } from '@/lib/page-auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HubPage() {
   const ctx = await requireUserOrRedirect();
-  const { people, companies, projects, pendingSuggestions: suggestions } = await counts(ctx);
+  // The suggestions number is the badge count (FR-024): the same query, so every pending number agrees.
+  const [{ people, companies, projects }, { pending: suggestions }] = await Promise.all([counts(ctx), pendingSuggestions(ctx)]);
   const cards = [
     { href: '/hub/people', label: 'People', count: people },
     { href: '/hub/companies', label: 'Companies', count: companies },

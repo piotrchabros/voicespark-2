@@ -67,6 +67,13 @@ const WARMUP_PATHS = [
   `/api/hub/ignore-rules/${HUB_WARMUP_ID}`,
   `/api/hub/people/${HUB_WARMUP_ID}/sources`,
   `/sources/${HUB_WARMUP_ID}`,
+  // Suggestions and merge (US4).
+  '/hub/suggestions',
+  '/api/hub/suggestions',
+  '/api/hub/suggestions/count',
+  '/api/hub/suggestions/decide',
+  `/api/hub/people/${HUB_WARMUP_ID}/merge-preview`,
+  `/api/hub/people/${HUB_WARMUP_ID}/merge`,
 ];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });

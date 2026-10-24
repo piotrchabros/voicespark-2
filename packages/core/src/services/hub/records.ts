@@ -5,6 +5,7 @@ import {
   hubCompany,
   hubFact,
   hubFile,
+  hubMergeRedirect,
   hubNote,
   hubPerson,
   hubProject,
@@ -19,7 +20,7 @@ import {
   type Tx,
 } from '@voicespark/db';
 import * as content from '@voicespark/db/repos/user/hub-content';
-import { insertBlockMarker, pendingSuggestionCount } from '@voicespark/db/repos/user/hub-mail';
+import { insertBlockMarker } from '@voicespark/db/repos/user/hub-mail';
 import * as repo from '@voicespark/db/repos/user/hub-records';
 import { recordTree } from '@voicespark/db/repos/user/hub-sync';
 import { inspectSegments, validateContactValue, type Policy } from '@voicespark/filters';
@@ -700,8 +701,8 @@ export async function deletePreview(ctx: ServiceContext, kind: HubKind, id: stri
 
 /**
  * Deletes the record with its emails or domains, links, notes, files and thread attachments; linked records stay
- * and are marked dirty. Block markers for email-origin values (FR-017), sync tombstones, search rows and audit
- * `hub.record_deleted` in one transaction. File blobs are removed after commit (the daily sweep catches misses).
+ * and are marked dirty. Block markers for email-origin values (FR-017), sync tombstones, search rows, the merge
+ * redirects pointing at the record and audit `hub.record_deleted` in one transaction. File blobs are removed after commit (the daily sweep catches misses).
  */
 export async function remove(ctx: ServiceContext, kind: HubKind, id: string): Promise<void> {
   const storageKeys = await withTransaction(async (tx) => {
@@ -729,6 +730,12 @@ export async function remove(ctx: ServiceContext, kind: HubKind, id: string): Pr
     await content.deleteSearchDocsForOwner(ctx, kind, id, tx);
     await content.deleteSearchDoc(ctx, kind, id, tx);
     if (!(await repo.deleteRecord(ctx, kind, id, tx))) throw hubNotFound();
+    // Redirects of records merged into this one would point at a deleted id (data-model.md "hub_merge_redirect").
+    await tx
+      .delete(hubMergeRedirect)
+      .where(
+        and(eq(hubMergeRedirect.userId, ctx.userId), eq(hubMergeRedirect.kind, kind), eq(hubMergeRedirect.toId, id)),
+      );
     await audit.record(
       {
         actorType: 'user',
@@ -961,15 +968,12 @@ async function touchAndReindex(ctx: ServiceContext, kind: HubKind, id: string, t
   await markDirty(tx, ctx.userId, kind, id);
 }
 
-/** Overview counts of the hub home page. */
-export async function counts(
-  ctx: ServiceContext,
-): Promise<{ people: number; companies: number; projects: number; pendingSuggestions: number }> {
-  const [people, companies, projects, pendingSuggestions] = await Promise.all([
+/** Record counts of the hub home page; the pending suggestions come from `suggestions.count` (the badge query). */
+export async function counts(ctx: ServiceContext): Promise<{ people: number; companies: number; projects: number }> {
+  const [people, companies, projects] = await Promise.all([
     repo.countRecords(ctx, 'person'),
     repo.countRecords(ctx, 'company'),
     repo.countRecords(ctx, 'project'),
-    pendingSuggestionCount(ctx),
   ]);
-  return { people, companies, projects, pendingSuggestions };
+  return { people, companies, projects };
 }

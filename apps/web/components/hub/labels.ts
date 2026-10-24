@@ -49,6 +49,8 @@ const ERROR_TEXT: Record<string, string> = {
   too_large: 'This file is larger than 25 MB, so it was not attached.',
   unsupported_type: 'This file type is not allowed, so it was not attached.',
   hub_not_enabled: 'The hub is not on for this mailbox.',
+  suggestion_not_pending: 'This suggestion was already decided.',
+  merge_invalid: 'These two records cannot be merged.',
 };
 
 export interface HubApiFailure {
@@ -386,3 +388,97 @@ export function domainOfAddress(address: string): string {
 
 /** Anchor of a conversation in the summaries panel, so the sources panel can point at it. */
 export const threadAnchor = (threadId: string) => `hub-thread-${threadId}`;
+
+// Suggestions and merge (US4; contracts/http-api.md "Suggestions", "merge-preview", "merge"; FR-005, FR-023, FR-024).
+
+export type SuggestionType =
+  | 'person'
+  | 'person_email'
+  | 'company'
+  | 'company_domain'
+  | 'project'
+  | 'link'
+  | 'link_role'
+  | 'field';
+
+export type SuggestionReason = 'low_confidence' | 'conflict' | 'tombstoned' | 'name_only_match' | 'inferred_project';
+
+export interface SuggestionSource {
+  threadId: string;
+  subject: string;
+  firstMessageAt: string | null;
+  lastMessageAt: string | null;
+  /** The quoted words of the fact's own conversation; empty for a corroborating one. */
+  evidence: string;
+}
+
+export interface SuggestionItem {
+  id: string;
+  type: SuggestionType;
+  /** `id` is null while the record is itself still a suggestion; `label` is then the proposed name. */
+  target: { kind: ServiceKind | 'link'; id: string | null; label: string | null };
+  field: string | null;
+  proposed: unknown;
+  current: unknown;
+  conflict: boolean;
+  reason: SuggestionReason | null;
+  confidence: number;
+  /** The pending suggestion this one needs applied first (a record that is not created yet). */
+  dependsOn: string | null;
+  sources: SuggestionSource[];
+  createdAt: string;
+}
+
+export interface SuggestionPage {
+  items: SuggestionItem[];
+  nextCursor: string | null;
+}
+
+export const SUGGESTION_REASON_TEXT: Record<SuggestionReason, string> = {
+  low_confidence: 'Not certain enough to apply on its own',
+  conflict: 'Differs from the value you entered',
+  tombstoned: 'You removed this value before',
+  name_only_match: 'Matched by name only',
+  inferred_project: 'The project was not named explicitly',
+};
+
+export type DecideAction = 'accept' | 'reject';
+
+export interface DecideResult {
+  id: string;
+  status: 'accepted' | 'rejected' | 'failed';
+  errorCode?: string;
+}
+
+/** Why one id of a bulk decision failed; the call itself succeeded. */
+export const DECIDE_ERROR_TEXT: Record<string, string> = {
+  suggestion_not_pending: 'already decided',
+  not_found: 'no longer exists',
+  conflict: 'the value cannot be applied any more',
+};
+
+export const DECIDE_MAX_IDS = 200;
+export const SUGGESTIONS_BADGE_POLL_MS = 15_000;
+/** Window event the queue raises after a decision, so the badge refreshes at once. */
+export const SUGGESTIONS_CHANGED_EVENT = 'hub:suggestions-changed';
+
+export interface MergePreview {
+  moves: {
+    emails: number;
+    domains: number;
+    notes: number;
+    files: number;
+    links: number;
+    /** Links to a record the kept one is already linked to: the kept link stays. */
+    linkDuplicates: number;
+    summaries: number;
+    facts: number;
+  };
+  /** Fields where both records have a value: the kept one wins. */
+  keptValues: string[];
+  /** Fields the kept record lacks and takes from the other one. */
+  filledValues: string[];
+}
+
+/** `plural` for nouns with an irregular or multi-word plural. */
+export const countOf = (n: number, singular: string, pluralForm: string) => `${n} ${n === 1 ? singular : pluralForm}`;

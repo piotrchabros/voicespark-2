@@ -16,11 +16,13 @@ import {
   getDb,
   hubCompany,
   hubCompanyDomain,
+  hubFact,
   hubFile,
   hubIgnoreRule,
   hubLink,
   hubMailboxSetting,
   hubNote,
+  hubPerson,
   hubPersonEmail,
   hubProject,
 } from '@voicespark/db';
@@ -1098,6 +1100,29 @@ describe("(b) an admin reaching another user's content", () => {
       params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
       target: (sd) => sd.u.hub.personId,
     },
+    {
+      name: 'hub merge preview',
+      route: 'hub/[kind]/[id]/merge-preview',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+      query: { sourceId: '00000000-0000-4000-8000-0000000000aa' },
+    },
+    {
+      name: 'hub merge',
+      route: 'hub/[kind]/[id]/merge',
+      verb: 'POST',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+      body: { sourceId: '00000000-0000-4000-8000-0000000000aa' },
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubPerson.id })
+          .from(hubPerson)
+          .where(eq(hubPerson.id, sd.u.hub.personId));
+        expect(rows).toHaveLength(1);
+      },
+    },
   ];
 
   for (const probe of probes) {
@@ -1229,6 +1254,39 @@ describe("(b) an admin reaching another user's content", () => {
     for (const id of Object.values(seed.u.hub)) expect(res.text).not.toContain(id);
     for (const h of hubTokenHashes(seed)) expect(res.text).not.toContain(h);
     expect(await deniedCount(seed.adminA, seed.u.hub.noteId)).toBe(before);
+  });
+
+  it("GET /api/hub/suggestions lists only the admin's own suggestions, with no audit", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const before = await deniedCount(seed.adminA, seed.u.hub.factId);
+    const res = await call(API_ROOT, 'hub/suggestions', 'GET', {}, { query: { limit: '100' } });
+    expect(res.status).toBe(200);
+    const ids = listIds(res.json);
+    expect(ids).toContain(seed.a.hub.factId);
+    expect(ids).not.toContain(seed.u.hub.factId);
+    for (const id of Object.values(seed.u.hub)) expect(res.text).not.toContain(id);
+    expect(await deniedCount(seed.adminA, seed.u.hub.factId)).toBe(before);
+  });
+
+  it("GET /api/hub/suggestions/count counts only the admin's own suggestions", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const res = await call(API_ROOT, 'hub/suggestions/count', 'GET');
+    expect(res.status).toBe(200);
+    // The admin's own hub seed holds exactly one suggestion; user U's is not counted.
+    expect(res.json).toEqual({ pending: 1 });
+  });
+
+  it("POST /api/hub/suggestions/decide leaves user U's suggestion untouched, with no audit", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const target = seed.u.hub.factId;
+    const before = await deniedCount(seed.adminA, target);
+    const res = await call(API_ROOT, 'hub/suggestions/decide', 'POST', {}, { body: { ids: [target], action: 'reject' } });
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ results: [{ id: target, status: 'failed', errorCode: 'not_found' }] });
+    expect(res.text).not.toContain(SECRET_MARKER);
+    const [row] = await getDb().select({ state: hubFact.state }).from(hubFact).where(eq(hubFact.id, target));
+    expect(row?.state).toBe('suggested');
+    expect(await deniedCount(seed.adminA, target)).toBe(before);
   });
 
   it("GET /api/content-items lists only the admin's own items", async () => {

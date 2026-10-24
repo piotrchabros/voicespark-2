@@ -1,6 +1,7 @@
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import {
   hubCompany,
+  hubFact,
   hubProject,
   withTransaction,
   type HubCompany,
@@ -33,6 +34,7 @@ import {
   type HubDecision,
   type HubPolicyState,
   type HubPolicyV1,
+  type LinkDraft,
   type LinkEnd,
   type PolicyCompany,
   type PolicyLink,
@@ -109,6 +111,11 @@ const FIELD_COLUMN: Record<string, string> = {
   industry: 'industryEnc',
 };
 const RECORD_FACT_TYPES = new Set<HubFact['type']>(['person', 'person_email', 'company', 'project']);
+const LINK_ENDS: Record<HubLink['kind'], [HubKind, HubKind]> = {
+  person_company: ['person', 'company'],
+  person_project: ['person', 'project'],
+  company_project: ['company', 'project'],
+};
 
 class LeaseLost extends Error {}
 
@@ -379,8 +386,13 @@ async function loadState(
 
 interface Run {
   ctx: ServiceContext;
-  threadId: string;
+  /** Null when a suggestion is accepted after its thread was deleted. */
+  threadId: string | null;
   tx: Tx;
+  /** The suggested fact being accepted (`applyStoredFact`): its row is updated instead of a new one stored. */
+  accepting: HubFact | null;
+  /** The accepted row once its change was written. */
+  accepted: HubFact | null;
   policyVersion: string;
   promptVersion: string;
   /** Record id per extraction ref (participant key, company or project ref), for records created or matched here. */
@@ -420,6 +432,7 @@ async function storeFact(
   targets: { personId?: string | null; companyId?: string | null; projectId?: string | null; linkId?: string | null },
   extra: { reason?: HubFact['reason']; dependsOnFactId?: string | null } = {},
 ): Promise<HubFact | null> {
+  if (run.accepting) return markAccepted(run, targets);
   const evidence = d.fact.evidence ? d.fact.evidence.slice(0, FACT_EVIDENCE_MAX) : null;
   const fact = await mail.insertFact(
     run.ctx,
@@ -448,6 +461,23 @@ async function storeFact(
   );
   if (fact) run.counts[state === 'applied' ? 'applied' : 'suggested'] += 1;
   return fact;
+}
+
+type FactTargets = { personId?: string | null; companyId?: string | null; projectId?: string | null; linkId?: string | null };
+
+/** Accept of a suggestion: the stored row becomes `applied` and gains the targets the change created or found. */
+async function markAccepted(run: Run, targets: FactTargets): Promise<HubFact | null> {
+  const set: Partial<typeof hubFact.$inferInsert> = { state: 'applied', decidedAt: new Date() };
+  for (const [k, v] of Object.entries(targets) as [keyof FactTargets, string | null | undefined][]) if (v) set[k] = v;
+  const [row] = await run.tx
+    .update(hubFact)
+    .set(set)
+    .where(and(eq(hubFact.id, run.accepting!.id), eq(hubFact.userId, run.ctx.userId), eq(hubFact.state, 'suggested')))
+    .returning();
+  if (!row) return null;
+  run.counts.applied += 1;
+  run.accepted = row;
+  return row;
 }
 
 function targetsOf(run: Run, d: HubDecision, id: string | null) {
@@ -486,6 +516,7 @@ async function corroborate(
   run: Run,
   target: { kind: HubKind; recordId: string; field: string } | { linkId: string },
 ): Promise<void> {
+  if (run.threadId === null) return;
   const source = await mail.findCurrentValueFact(run.ctx, target, run.tx);
   if (!source || source.threadId === run.threadId) return;
   if (await mail.insertFactEvidence(run.ctx, source.id, run.threadId, run.tx)) run.counts.corroborated += 1;
@@ -623,8 +654,10 @@ async function applyField(run: Run, d: HubDecision): Promise<void> {
   const row = await repo.lockRecord(run.ctx, kind, id!, run.tx);
   if (!row) return;
   // SC-007: a user-entered or cleared value is never overwritten, even if it changed after the state was read.
-  if (row.ownerFields.includes(field)) return;
-  await repo.updateRecord(run.ctx, kind, id!, { [column]: encryptContent(value) } as never, run.tx);
+  // Only the user's own accept of the suggestion writes it; an accepted conflict joins `owner_fields`.
+  if (row.ownerFields.includes(field) && !run.accepting) return;
+  const ownerFields = run.accepting?.conflict && !row.ownerFields.includes(field) ? { ownerFields: [...row.ownerFields, field] } : {};
+  await repo.updateRecord(run.ctx, kind, id!, { [column]: encryptContent(value), ...ownerFields } as never, run.tx);
   const fact = await storeFact(run, d, 'applied', { [`${kind}Id`]: id });
   if (fact) await mail.supersedeFieldFacts(run.ctx, kind, id!, field, fact.id, run.tx);
   touch(run, kind, id!, true);
@@ -677,15 +710,18 @@ async function applyLink(run: Run, d: HubDecision): Promise<void> {
   const existing = await repo.findLinkBetween(run.ctx, ends, other, run.tx);
   if (existing) {
     run.linkByPair.set(pairKey(d), existing.id);
+    if (run.accepting) await storeFact(run, d, 'applied', { ...targetsOf(run, d, null), linkId: existing.id });
     return;
   }
+  // A suggested link carries its role in `value`: an accepted one is created with it.
+  const role = run.accepting ? String(d.fact.value.role ?? '').trim().slice(0, HUB_EXTRACTION_LIMITS.linkRole) : '';
   const row = await repo.insertLink(
     run.ctx,
     {
       kind: draft.kind,
       [`${draft.a.kind}Id`]: a,
       [`${draft.b.kind}Id`]: b,
-      roleEnc: null,
+      roleEnc: role === '' ? null : encryptContent(role),
       roleOwnerSet: false,
       origin: 'email',
     },
@@ -704,9 +740,11 @@ async function applyLinkRole(run: Run, d: HubDecision): Promise<void> {
   const role = String(d.fact.value.role ?? '').trim().slice(0, HUB_EXTRACTION_LIMITS.linkRole);
   if (role === '') return;
   const link = await repo.lockLink(run.ctx, linkId, run.tx);
-  // FR-016: a role the user set or cleared is never overwritten.
-  if (!link || link.roleOwnerSet) return;
-  const updated = await repo.updateLink(run.ctx, linkId, { roleEnc: encryptContent(role) }, run.tx);
+  // FR-016: a role the user set or cleared is never overwritten, except by the user's accept of the suggestion;
+  // an accepted conflict becomes owner-set.
+  if (!link || (link.roleOwnerSet && !run.accepting)) return;
+  const ownerSet = run.accepting?.conflict ? { roleOwnerSet: true } : {};
+  const updated = await repo.updateLink(run.ctx, linkId, { roleEnc: encryptContent(role), ...ownerSet }, run.tx);
   const fact = await storeFact(run, d, 'applied', { ...targetsOf(run, d, null), linkId });
   if (fact) await mail.supersedeLinkRoleFacts(run.ctx, linkId, fact.id, run.tx);
   if (updated) run.changedLinks.set(linkId, updated);
@@ -714,7 +752,7 @@ async function applyLinkRole(run: Run, d: HubDecision): Promise<void> {
 
 async function applyDecision(run: Run, d: HubDecision): Promise<void> {
   // A re-run of the same thread: the finding is stored, its change was written by the first run.
-  const stored = await mail.getFactByThreadFingerprint(run.ctx, run.threadId, d.fingerprint, run.tx);
+  const stored = run.threadId === null ? null : await mail.getFactByThreadFingerprint(run.ctx, run.threadId, d.fingerprint, run.tx);
   if (stored) {
     const id = stored.personId ?? stored.companyId ?? stored.projectId;
     if (d.ref && RECORD_FACT_TYPES.has(stored.type)) {
@@ -725,6 +763,10 @@ async function applyDecision(run: Run, d: HubDecision): Promise<void> {
     if (stored.state === 'applied' && id && !d.fact.link) touch(run, d.fact.target.kind, id, false);
     return;
   }
+  return applyByType(run, d);
+}
+
+function applyByType(run: Run, d: HubDecision): Promise<void> {
   switch (d.fact.type) {
     case 'company':
       return applyCompany(run, d);
@@ -753,6 +795,172 @@ async function downgradeRejectedFacts(ctx: ServiceContext, decisions: HubDecisio
   return decisions.map((d) =>
     writes.includes(d) && blocked.has(markerKey.fact(d.fingerprint)) ? { ...d, outcome: 'suggest', reason: 'tombstoned' } : d,
   );
+}
+
+function newRun(ctx: ServiceContext, threadId: string | null, tx: Tx, policyVersion: string, promptVersion: string, accepting: HubFact | null = null): Run {
+  return {
+    ctx,
+    threadId,
+    tx,
+    accepting,
+    accepted: null,
+    policyVersion,
+    promptVersion,
+    idByRef: new Map(),
+    factByRef: new Map(),
+    linkByPair: new Map(),
+    touched: new Map(),
+    changedLinks: new Map(),
+    counts: { applied: 0, suggested: 0, corroborated: 0 },
+  };
+}
+
+/** Thread records, search rows and sync marks for every record the run involves. */
+async function finishRecords(run: Run): Promise<void> {
+  const { ctx, tx } = run;
+  for (const t of run.touched.values()) {
+    const attached = run.threadId === null ? false : await mail.insertThreadRecord(ctx, run.threadId, t.kind, t.id, tx);
+    if (t.changed) {
+      const row = await repo.getRecord(ctx, t.kind, t.id, tx);
+      if (row) await reindex(ctx, t.kind, row, tx);
+    }
+    if (t.changed || attached) await markDirty(tx, ctx.userId, t.kind, t.id);
+  }
+  for (const l of run.changedLinks.values()) {
+    for (const kind of KINDS) {
+      const id = kind === 'person' ? l.personId : kind === 'company' ? l.companyId : l.projectId;
+      if (id) await markRecordTree(tx, ctx.userId, kind, id);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Accepting a stored suggestion (US4, `services/hub/suggestions.ts`)
+
+/** Targets of a stored fact, with the ends a dependency created filled in by the caller. */
+export interface StoredFactTargets {
+  personId: string | null;
+  companyId: string | null;
+  projectId: string | null;
+  linkId: string | null;
+}
+
+/** The record kind a fact of `type` targets; `link` for links and roles. */
+export function factTargetKind(fact: Pick<HubFact, 'type' | 'field'>): HubKind | 'link' {
+  switch (fact.type) {
+    case 'person':
+    case 'person_email':
+      return 'person';
+    case 'company':
+    case 'company_domain':
+      return 'company';
+    case 'project':
+      return 'project';
+    case 'field':
+      return fact.field === 'industry' ? 'company' : 'person';
+    case 'link':
+    case 'link_role':
+      return 'link';
+  }
+}
+
+/** The link kind and ends of a `link` or `link_role` fact (canonical order, as `markerKey.link`). */
+export function factLinkEnds(
+  kind: HubLink['kind'],
+  t: StoredFactTargets,
+): { kind: HubLink['kind']; a: { kind: HubKind; id: string | null }; b: { kind: HubKind; id: string | null } } {
+  const [ka, kb] = LINK_ENDS[kind];
+  const idOf = (k: HubKind) => (k === 'person' ? t.personId : k === 'company' ? t.companyId : t.projectId);
+  return { kind, a: { kind: ka, id: idOf(ka) }, b: { kind: kb, id: idOf(kb) } };
+}
+
+/** Rebuilds the policy decision of a stored suggestion as an `auto` write of its draft value. */
+function acceptedDecision(fact: HubFact, value: Record<string, unknown>, t: StoredFactTargets, linkKind: HubLink['kind'] | null): HubDecision {
+  const kind = factTargetKind(fact);
+  let target: LinkEnd;
+  let link: LinkDraft | null = null;
+  if (kind === 'link') {
+    const ends = factLinkEnds(linkKind ?? 'person_company', t);
+    const end = (e: { kind: HubKind; id: string | null }): LinkEnd => ({ kind: e.kind, id: e.id, ref: null });
+    link = { kind: ends.kind, a: end(ends.a), b: end(ends.b), linkId: fact.type === 'link_role' ? t.linkId : null };
+    target = link.a;
+  } else {
+    target = { kind, id: kind === 'person' ? t.personId : kind === 'company' ? t.companyId : t.projectId, ref: null };
+  }
+  const action: HubDecision['action'] =
+    fact.type === 'person' || fact.type === 'company' || fact.type === 'project' || fact.type === 'link'
+      ? 'create'
+      : fact.type === 'person_email' || fact.type === 'company_domain'
+        ? 'attach'
+        : 'update';
+  return {
+    fact: {
+      type: fact.type,
+      target,
+      field: fact.type === 'field' ? fact.field : null,
+      value,
+      previousValue: null,
+      conflict: fact.conflict,
+      confidence: fact.confidence,
+      basis: fact.basis ?? 'text',
+      evidence: null,
+      link,
+    },
+    outcome: 'auto',
+    reason: null,
+    action,
+    ref: null,
+    dependsOnRef: null,
+    fingerprint: fact.fingerprint,
+  };
+}
+
+async function alreadyOnRecord(run: Run, d: HubDecision): Promise<boolean> {
+  if (d.fact.type === 'person_email') {
+    const address = validateContactValue('email', String(d.fact.value.address ?? ''));
+    const row = address === null ? null : await repo.findEmailByHash(run.ctx, addressHash(address), run.tx);
+    return row?.personId === d.fact.target.id;
+  }
+  if (d.fact.type === 'company_domain') {
+    const domain = validateContactValue('domain', String(d.fact.value.domain ?? ''));
+    const row = domain === null ? null : await repo.findDomainByHash(run.ctx, domainHash(domain), run.tx);
+    return row?.companyId === d.fact.target.id;
+  }
+  return false;
+}
+
+/**
+ * Accepts one `suggested` fact inside the caller's transaction, which must hold the per-user apply lock: writes its
+ * draft value (`value_enc`) through the same appliers as `applyExtraction` (an owner-set value is overwritten only
+ * here; an accepted conflict joins `owner_fields` or makes the link role owner-set), attaches its thread, re-indexes
+ * and marks dirty what changed, and turns the row `applied` with `decided_at` and the targets it created. A value
+ * that is already present (an existing link, address or domain) is accepted without a write. Returns the updated
+ * row, or null when the change could not be written (the value is invalid or the record it needs is missing).
+ */
+export async function applyStoredFact(ctx: ServiceContext, fact: HubFact, targets: StoredFactTargets, tx: Tx): Promise<HubFact | null> {
+  const value = fact.valueEnc === null ? {} : (JSON.parse(decryptContent(fact.valueEnc)) as unknown);
+  const draft = value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  let linkKind: HubLink['kind'] | null = null;
+  if (fact.type === 'link') linkKind = (draft.kind as HubLink['kind'] | undefined) ?? null;
+  if (fact.type === 'link_role' && targets.linkId) linkKind = (await repo.getLink(ctx, targets.linkId, tx))?.kind ?? null;
+  if (linkKind !== null && !Object.hasOwn(LINK_ENDS, linkKind)) return null;
+  if ((fact.type === 'link' || fact.type === 'link_role') && linkKind === null) return null;
+
+  const run = newRun(ctx, fact.threadId, tx, fact.policyVersion, fact.promptVersion, fact);
+  const d = acceptedDecision(fact, draft, targets, linkKind);
+  await applyByType(run, d);
+  // The address or domain is already on the target record: nothing to write, the row is accepted as it is.
+  if (!run.accepted && d.fact.target.id && (await alreadyOnRecord(run, d))) {
+    await markAccepted(run, { [`${d.fact.target.kind}Id`]: d.fact.target.id });
+  }
+  if (run.accepted) {
+    for (const k of KINDS) {
+      const id = k === 'person' ? run.accepted.personId : k === 'company' ? run.accepted.companyId : run.accepted.projectId;
+      if (id) touch(run, k, id, false);
+    }
+  }
+  await finishRecords(run);
+  return run.accepted;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -795,19 +1003,7 @@ export async function applyExtraction(
       if (!locked?.leaseHeld) throw new LeaseLost();
       const thread = locked.thread;
 
-      const run: Run = {
-        ctx,
-        threadId,
-        tx,
-        policyVersion: policy.version,
-        promptVersion: context.promptVersion,
-        idByRef: new Map(),
-        factByRef: new Map(),
-        linkByPair: new Map(),
-        touched: new Map(),
-        changedLinks: new Map(),
-        counts: { applied: 0, suggested: 0, corroborated: 0 },
-      };
+      const run = newRun(ctx, threadId, tx, policy.version, context.promptVersion);
 
       if (x.relevant) {
         const threadDate = context.threadDate ?? thread.lastMessageAt ?? thread.createdAt;
@@ -816,21 +1012,7 @@ export async function applyExtraction(
         for (const d of decisions) if (d.outcome !== 'drop') await applyDecision(run, d);
       }
 
-      // Thread records, search rows and sync marks for every record this thread involves.
-      for (const t of run.touched.values()) {
-        const attached = await mail.insertThreadRecord(ctx, threadId, t.kind, t.id, tx);
-        if (t.changed) {
-          const row = await repo.getRecord(ctx, t.kind, t.id, tx);
-          if (row) await reindex(ctx, t.kind, row, tx);
-        }
-        if (t.changed || attached) await markDirty(tx, userId, t.kind, t.id);
-      }
-      for (const l of run.changedLinks.values()) {
-        for (const kind of KINDS) {
-          const id = kind === 'person' ? l.personId : kind === 'company' ? l.companyId : l.projectId;
-          if (id) await markRecordTree(tx, userId, kind, id);
-        }
-      }
+      await finishRecords(run);
 
       const skipReason: ApplySkipReason | null = !x.relevant
         ? 'irrelevant'

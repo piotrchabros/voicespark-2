@@ -16,6 +16,7 @@ export const NEW_MAIL_TIMEOUT_MS = 360_000;
 export const MARK = {
   acmeOffer: 'hubfx:acme-offer',
   acmeProject: 'hubfx:acme-project',
+  acmeInferredProject: 'hubfx:acme-inferred-project',
   freeMailPerson: 'hubfx:freemail-person',
   irrelevant: 'hubfx:irrelevant',
   badTwice: 'hubfx:bad-twice',
@@ -24,6 +25,11 @@ export const MARK = {
 export const JAN = { name: 'Jan Kowalski', address: 'jan@acme.example', role: 'Kierownik zakupów', phone: '+48 601 234 567' };
 export const ACME = { name: 'Acme Sp. z o.o.', domain: 'acme.example' };
 export const OLA = { name: 'Ola Nowak', address: 'ola.nowak@gmail.com' };
+/** Only in the `acme-inferred-project` fixture (US4): a recipient with a phone in the signature. */
+export const EWA = { name: 'Ewa Lis', address: 'ewa@lis.example', phone: '+48 602 345 678' };
+/** The fixture's project and the industry it proposes for Acme. */
+export const ORION = { name: 'Orion', description: 'Dostawa stali dla budowy hali.' };
+export const ACME_INDUSTRY = 'Budownictwo';
 
 export interface Mailbox {
   sourceId: string;

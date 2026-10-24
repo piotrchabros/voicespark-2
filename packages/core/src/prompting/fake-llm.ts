@@ -168,6 +168,11 @@ export const FAKE_HUB_FIXTURES = {
   acmeOffer: 'acme-offer',
   /** As `acme-offer`, plus the explicitly named project Orion with person and company links. */
   acmeProject: 'acme-project',
+  /**
+   * The suggestion queue (US4): Jan and Ewa Lis <ewa@lis.example> with phones, Acme with a middling industry
+   * confidence, and the project Orion not named explicitly, so it and its two links are suggested.
+   */
+  acmeInferredProject: 'acme-inferred-project',
   /** Ola Nowak <ola.nowak@gmail.com>: a person from a free-mail address, no company. */
   freeMailPerson: 'freemail-person',
   /** `relevant = false`, nothing extracted. */
@@ -291,6 +296,28 @@ const JAN_WORKS_AT_ACME: FixtureLink = {
   evidence: 'Kierownik zakupów, Acme Sp. z o.o.',
 };
 
+const EWA: FixturePerson = {
+  address: 'ewa@lis.example',
+  name: 'Ewa Lis',
+  phone: '+48 602 345 678',
+  phoneBasis: 'signature',
+  confidence: 0.9,
+  evidence: 'Ewa Lis, +48 602 345 678',
+};
+
+/** Below `strongAutoConfidence`, at or above `suggestFloor`: a suggestion on an existing company without an industry. */
+const ACME_UNSURE_INDUSTRY: FixtureCompany = { ...ACME, industryConfidence: 0.75 };
+
+const ORION_INFERRED: FixtureProject = {
+  ref: 'J1',
+  name: 'Orion',
+  description: 'Dostawa stali dla budowy hali.',
+  status: 'active',
+  explicitlyNamed: false,
+  confidence: 0.9,
+  evidence: 'harmonogram dostaw dla Oriona',
+};
+
 const HUB_FIXTURES: Record<string, HubFixture> = {
   [FAKE_HUB_FIXTURES.acmeOffer]: {
     relevant: true,
@@ -322,6 +349,19 @@ const HUB_FIXTURES: Record<string, HubFixture> = {
       JAN_WORKS_AT_ACME,
       { kind: 'person_project', from: JAN.address, to: 'J1', basis: 'text', confidence: 0.88, evidence: 'prowadzę projekt Orion' },
       { kind: 'company_project', from: 'C1', to: 'J1', basis: 'text', confidence: 0.9, evidence: 'Acme realizuje projekt Orion' },
+    ],
+  },
+  [FAKE_HUB_FIXTURES.acmeInferredProject]: {
+    relevant: true,
+    language: 'pl',
+    summary: 'Jan Kowalski z Acme i Ewa Lis omówili harmonogram dostaw dla Oriona. Terminy zostaną potwierdzone w przyszłym tygodniu.',
+    people: [JAN, EWA],
+    companies: [ACME_UNSURE_INDUSTRY],
+    projects: [ORION_INFERRED],
+    links: [
+      JAN_WORKS_AT_ACME,
+      { kind: 'person_project', from: JAN.address, to: 'J1', basis: 'text', confidence: 0.88, evidence: 'prowadzę dostawy dla Oriona' },
+      { kind: 'company_project', from: 'C1', to: 'J1', basis: 'text', confidence: 0.9, evidence: 'Acme realizuje dostawy dla Oriona' },
     ],
   },
   [FAKE_HUB_FIXTURES.freeMailPerson]: {
