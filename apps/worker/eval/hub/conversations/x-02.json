@@ -1,0 +1,61 @@
+{
+  "id": "x-02",
+  "set": "reference",
+  "language": "en",
+  "categories": ["cross-mailbox"],
+  "mailboxes": [
+    { "address": "owner@example.com", "provider": "gmail" },
+    { "address": "owner@outlook.com", "provider": "microsoft" }
+  ],
+  "threads": [
+    {
+      "ref": "thr-x-02",
+      "mailbox": "owner@example.com",
+      "subject": "Data sharing agreement - signed copy",
+      "messages": [
+        {
+          "ref": "thr-x-02/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <x-02@tidewater-labs.example>\r\nDate: Fri, 13 Jun 2025 14:15:00 +0000\r\nFrom: Hannah Okafor <hannah.okafor@tidewater-labs.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Marek Wiśniewski <owner@outlook.com>\r\nSubject: Data sharing agreement - signed copy\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-5971fada\"\r\n\r\n--mix-5971fada\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nattached is the countersigned data sharing agreement. I copied your other mailbox as you asked. The first export will go out on Monday.\n\nHannah Okafor\nResearch Lead, Tidewater Labs\r\n--mix-5971fada\r\nContent-Type: application/octet-stream; name=\"tidewater-dsa-signed.pdf\"\r\nContent-Disposition: attachment; filename=\"tidewater-dsa-signed.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHRpZGV3YXRlci1kc2Etc2lnbmVkLnBkZg==\r\n--mix-5971fada--\r\n"
+        }
+      ]
+    },
+    {
+      "ref": "conv-x-02",
+      "mailbox": "owner@outlook.com",
+      "subject": "Data sharing agreement - signed copy",
+      "messages": [
+        {
+          "ref": "conv-x-02/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <x-02@tidewater-labs.example>\r\nDate: Fri, 13 Jun 2025 14:15:00 +0000\r\nFrom: Hannah Okafor <hannah.okafor@tidewater-labs.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Marek Wiśniewski <owner@outlook.com>\r\nSubject: Data sharing agreement - signed copy\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-5971fada\"\r\n\r\n--mix-5971fada\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nattached is the countersigned data sharing agreement. I copied your other mailbox as you asked. The first export will go out on Monday.\n\nHannah Okafor\nResearch Lead, Tidewater Labs\r\n--mix-5971fada\r\nContent-Type: application/octet-stream; name=\"tidewater-dsa-signed.pdf\"\r\nContent-Disposition: attachment; filename=\"tidewater-dsa-signed.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHRpZGV3YXRlci1kc2Etc2lnbmVkLnBkZg==\r\n--mix-5971fada--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "hannah.okafor@tidewater-labs.example",
+        "name": "Hannah Okafor",
+        "roleTitle": "Research Lead",
+        "companyDomain": "tidewater-labs.example"
+      }
+    ],
+    "companies": [{ "domain": "tidewater-labs.example", "name": "Tidewater Labs" }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "hannah.okafor@tidewater-labs.example",
+        "b": "tidewater-labs.example",
+        "role": "Research Lead"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["agreement"]
+  }
+}

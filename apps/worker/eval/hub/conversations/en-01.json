@@ -1,0 +1,47 @@
+{
+  "id": "en-01",
+  "set": "reference",
+  "language": "en",
+  "categories": ["named-project", "signature-ltd"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-01",
+      "mailbox": "owner@example.com",
+      "subject": "Project Beacon - kickoff next week",
+      "messages": [
+        {
+          "ref": "thr-en-01/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-01@harbourline.example>\r\nDate: Mon, 05 May 2025 08:40:00 +0000\r\nFrom: Grace Holloway <grace.holloway@harbourline.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Project Beacon - kickoff next week\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-fe07c41d\"\r\n\r\n--mix-fe07c41d\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nthanks for the call on Friday. I can confirm that Project Beacon kicks off next Tuesday; the agenda is attached. Please send me the names of the two engineers who will join the warehouse visit.\n\nKind regards,\nGrace Holloway\nHead of Operations\nHarbourline Logistics Ltd.\nM: +44 7700 900123\nwww.harbourline.example\r\n--mix-fe07c41d\r\nContent-Type: application/octet-stream; name=\"beacon-kickoff-agenda.pdf\"\r\nContent-Disposition: attachment; filename=\"beacon-kickoff-agenda.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGJlYWNvbi1raWNrb2ZmLWFnZW5kYS5wZGY=\r\n--mix-fe07c41d--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "grace.holloway@harbourline.example",
+        "name": "Grace Holloway",
+        "roleTitle": "Head of Operations",
+        "companyDomain": "harbourline.example"
+      }
+    ],
+    "companies": [{ "domain": "harbourline.example", "name": "Harbourline Logistics Ltd." }],
+    "projects": [{ "name": "Beacon" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "grace.holloway@harbourline.example",
+        "b": "harbourline.example",
+        "role": "Head of Operations"
+      },
+      { "kind": "person_project", "a": "grace.holloway@harbourline.example", "b": "Beacon" },
+      { "kind": "company_project", "a": "harbourline.example", "b": "Beacon", "role": "client" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Beacon", "Tuesday"]
+  }
+}

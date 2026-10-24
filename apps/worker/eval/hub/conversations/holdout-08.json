@@ -1,0 +1,78 @@
+{
+  "id": "holdout-08",
+  "set": "holdout",
+  "language": "en",
+  "categories": ["multi-address", "freemail", "seeded-person"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-08",
+      "mailbox": "owner@example.com",
+      "subject": "Brochure draft - comments by Thursday?",
+      "messages": [
+        {
+          "ref": "thr-holdout-08/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-08@outlook.com>\r\nDate: Tue, 24 Jun 2025 16:20:00 +0000\r\nFrom: Fiona Blackwood <fiona.blackwood@outlook.com>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Brochure draft - comments by Thursday?\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-31e32ed9\"\r\n\r\n--mix-31e32ed9\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nour mail server has been down since lunchtime, so I am writing from my personal address. Attached is version 3 of the brochure. Could you send your comments by Thursday so the printer gets the final file on Friday?\n\nThanks,\nFiona Blackwood\nMarketing Director, Lanternworks\n+44 20 7946 0330\r\n--mix-31e32ed9\r\nContent-Type: application/octet-stream; name=\"brochure-v3.pdf\"\r\nContent-Disposition: attachment; filename=\"brochure-v3.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGJyb2NodXJlLXYzLnBkZg==\r\n--mix-31e32ed9--\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "fiona.blackwood@lanternworks.example",
+        "name": "Fiona Blackwood",
+        "roleTitle": "Marketing Director",
+        "phone": "+44 20 7946 0330"
+      }
+    ],
+    "companies": [
+      {
+        "name": "Lanternworks",
+        "domain": "lanternworks.example"
+      }
+    ]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "fiona.blackwood@outlook.com",
+        "name": "Fiona Blackwood",
+        "roleTitle": "Marketing Director",
+        "companyDomain": "lanternworks.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "lanternworks.example",
+        "name": "Lanternworks"
+      }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "fiona.blackwood@outlook.com",
+        "b": "lanternworks.example",
+        "role": "Marketing Director"
+      }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "person_email",
+        "reason": "name_only_match",
+        "person": "fiona.blackwood@lanternworks.example",
+        "address": "fiona.blackwood@outlook.com"
+      }
+    ],
+    "summaryMentions": ["brochure", "Thursday"]
+  }
+}

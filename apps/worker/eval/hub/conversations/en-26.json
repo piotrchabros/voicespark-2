@@ -1,0 +1,47 @@
+{
+  "id": "en-26",
+  "set": "reference",
+  "language": "en",
+  "categories": ["named-project", "phone-formats", "signature-ltd"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-26",
+      "mailbox": "owner@example.com",
+      "subject": "Project Orchard - supplier onboarding",
+      "messages": [
+        {
+          "ref": "thr-en-26/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-26@bramble-foods.example>\r\nDate: Wed, 11 Jun 2025 10:25:00 +0000\r\nFrom: Isabel Moreno <isabel.moreno@bramble-foods.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Project Orchard - supplier onboarding\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nwe are onboarding the first twelve growers to Project Orchard next month. Could your team add the supplier portal single sign-on before 7 July? I have attached nothing yet; the grower list follows once legal signs off.\n\nMany thanks,\nIsabel Moreno\nProcurement Lead\nBramble Foods Ltd.\nTel. +44 (0)161 496 0123 ext. 42\nisabel.moreno@bramble-foods.example\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "isabel.moreno@bramble-foods.example",
+        "name": "Isabel Moreno",
+        "roleTitle": "Procurement Lead",
+        "companyDomain": "bramble-foods.example"
+      }
+    ],
+    "companies": [{ "domain": "bramble-foods.example", "name": "Bramble Foods Ltd." }],
+    "projects": [{ "name": "Orchard" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "isabel.moreno@bramble-foods.example",
+        "b": "bramble-foods.example",
+        "role": "Procurement Lead"
+      },
+      { "kind": "person_project", "a": "isabel.moreno@bramble-foods.example", "b": "Orchard" },
+      { "kind": "company_project", "a": "bramble-foods.example", "b": "Orchard", "role": "client" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Orchard", "7 July"]
+  }
+}

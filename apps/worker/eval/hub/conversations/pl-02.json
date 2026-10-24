@@ -1,0 +1,58 @@
+{
+  "id": "pl-02",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["signature-sa", "quoted-reply", "named-project"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-02",
+      "mailbox": "owner@example.com",
+      "subject": "Re: Magazyn Północ - harmonogram dostaw",
+      "messages": [
+        {
+          "ref": "thr-pl-02/1",
+          "direction": "outbound",
+          "folders": ["SENT"],
+          "raw": "Message-ID: <pl-02-a@example.com>\r\nDate: Mon, 12 May 2025 09:00:00 +0000\r\nFrom: Marek Wiśniewski <owner@example.com>\r\nTo: Ewa Kamińska <ewa.kaminska@polnocbud.example>\r\nSubject: Re: Magazyn Północ - harmonogram dostaw\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry Pani Ewo,\n\nczy możemy przesunąć dostawę regałów do Magazynu Północ na 3 czerwca?\n\nPozdrawiam,\nMarek Wiśniewski\r\n"
+        },
+        {
+          "ref": "thr-pl-02/2",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-3@polnocbud.example>\r\nDate: Mon, 12 May 2025 11:20:00 +0000\r\nFrom: Ewa Kamińska <ewa.kaminska@polnocbud.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Re: Magazyn Północ - harmonogram dostaw\r\nIn-Reply-To: <pl-02-a@example.com>\r\nReferences: <pl-02-a@example.com>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\n3 czerwca jest możliwy, ale tylko do południa. Jako Kierownik Projektu po stronie Północbud potwierdzę to jeszcze z brygadzistą i dam znać do jutra.\n\nPozdrawiam\nEwa Kamińska\nKierownik Projektu\nPółnocbud S.A.\nt: +48 58 555 02 14 wew. 114\n\nDnia 12.05.2025 09:00 Marek Wiśniewski <owner@example.com> napisał(a):\n> Dzień dobry Pani Ewo,\n>\n> czy możemy przesunąć dostawę regałów do Magazynu Północ na 3 czerwca?\n>\n> Pozdrawiam,\n> Marek Wiśniewski\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "ewa.kaminska@polnocbud.example",
+        "name": "Ewa Kamińska",
+        "roleTitle": "Kierownik Projektu",
+        "companyDomain": "polnocbud.example"
+      }
+    ],
+    "companies": [{ "domain": "polnocbud.example", "name": "Północbud S.A." }],
+    "projects": [{ "name": "Magazyn Północ" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "ewa.kaminska@polnocbud.example",
+        "b": "polnocbud.example",
+        "role": "Kierownik Projektu"
+      },
+      {
+        "kind": "person_project",
+        "a": "ewa.kaminska@polnocbud.example",
+        "b": "Magazyn Północ",
+        "role": "Kierownik Projektu"
+      },
+      { "kind": "company_project", "a": "polnocbud.example", "b": "Magazyn Północ" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Magazyn", "Północ", "3 czerwca"]
+  }
+}

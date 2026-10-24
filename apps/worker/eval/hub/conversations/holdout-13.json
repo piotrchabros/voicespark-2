@@ -1,0 +1,116 @@
+{
+  "id": "holdout-13",
+  "set": "holdout",
+  "language": "mixed",
+  "categories": [
+    "two-company-project",
+    "named-project",
+    "mixed-language",
+    "outgoing",
+    "signature-sp-zoo",
+    "signature-srl"
+  ],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-13",
+      "mailbox": "owner@example.com",
+      "subject": "Projekt Sokół / Sokół project - linia montażowa",
+      "messages": [
+        {
+          "ref": "thr-holdout-13/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-13-1@stalmet-przyklad.example>\r\nDate: Tue, 01 Jul 2025 06:30:00 +0000\r\nFrom: Andrzej Pawlak <andrzej.pawlak@stalmet-przyklad.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Elena Rossi <elena.rossi@vettore-automation.example>\r\nSubject: Projekt Sokół / Sokół project - linia montażowa\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nw ramach projektu Sokół potrzebujemy do 18 lipca ostatecznego układu linii montażowej, żeby zamówić fundamenty. Eleno, proszę o rysunki w wersji angielskiej, nasz dział techniczny sobie poradzi.\n\nPozdrawiam\nAndrzej Pawlak\nDyrektor Zakładu\nStalmet Sp. z o.o.\ntel. +48 41 555 02 13\r\n"
+        },
+        {
+          "ref": "thr-holdout-13/2",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-13-2@vettore-automation.example>\r\nDate: Wed, 02 Jul 2025 08:45:00 +0000\r\nFrom: Elena Rossi <elena.rossi@vettore-automation.example>\r\nTo: Andrzej Pawlak <andrzej.pawlak@stalmet-przyklad.example>,\r\n Marek Wiśniewski <owner@example.com>\r\nSubject: Projekt Sokół / Sokół project - linia montażowa\r\nIn-Reply-To: <holdout-13-1@stalmet-przyklad.example>\r\nReferences: <holdout-13-1@stalmet-przyklad.example>\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-eeb12473\"\r\n\r\n--mix-eeb12473\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear Andrzej, dear Marek,\n\nplease find attached layout revision C for the Sokół line. The foundation drawings will follow by 10 July, so the 18 July date is safe. Marek, could you confirm the conveyor interface on your side?\n\nBest regards,\nElena Rossi\nProject Manager\nVettore Automation S.r.l.\n+39 051 555 0190\r\n--mix-eeb12473\r\nContent-Type: application/octet-stream; name=\"sokol-layout-rev-c.pdf\"\r\nContent-Disposition: attachment; filename=\"sokol-layout-rev-c.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHNva29sLWxheW91dC1yZXYtYy5wZGY=\r\n--mix-eeb12473--\r\n"
+        },
+        {
+          "ref": "thr-holdout-13/3",
+          "direction": "outbound",
+          "folders": ["SENT"],
+          "raw": "Message-ID: <holdout-13-3@example.com>\r\nDate: Wed, 02 Jul 2025 12:10:00 +0000\r\nFrom: Marek Wiśniewski <owner@example.com>\r\nTo: Elena Rossi <elena.rossi@vettore-automation.example>,\r\n Andrzej Pawlak <andrzej.pawlak@stalmet-przyklad.example>\r\nSubject: Projekt Sokół / Sokół project - linia montażowa\r\nIn-Reply-To: <holdout-13-2@vettore-automation.example>\r\nReferences: <holdout-13-1@stalmet-przyklad.example> <holdout-13-2@vettore-automation.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Elena, dzień dobry Panie Andrzeju,\n\nthe conveyor interface is confirmed as in revision C. Potwierdzam też, że fundamenty możemy zamawiać po 10 lipca.\n\nMarek\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "andrzej.pawlak@stalmet-przyklad.example",
+        "name": "Andrzej Pawlak",
+        "roleTitle": "Dyrektor Zakładu",
+        "companyDomain": "stalmet-przyklad.example"
+      },
+      {
+        "email": "elena.rossi@vettore-automation.example",
+        "name": "Elena Rossi",
+        "roleTitle": "Project Manager",
+        "companyDomain": "vettore-automation.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "stalmet-przyklad.example",
+        "name": "Stalmet Sp. z o.o."
+      },
+      {
+        "domain": "vettore-automation.example",
+        "name": "Vettore Automation S.r.l."
+      }
+    ],
+    "projects": [
+      {
+        "name": "Sokół"
+      }
+    ],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "andrzej.pawlak@stalmet-przyklad.example",
+        "b": "stalmet-przyklad.example",
+        "role": "Dyrektor Zakładu"
+      },
+      {
+        "kind": "person_company",
+        "a": "elena.rossi@vettore-automation.example",
+        "b": "vettore-automation.example",
+        "role": "Project Manager"
+      },
+      {
+        "kind": "person_project",
+        "a": "andrzej.pawlak@stalmet-przyklad.example",
+        "b": "Sokół"
+      },
+      {
+        "kind": "person_project",
+        "a": "elena.rossi@vettore-automation.example",
+        "b": "Sokół"
+      },
+      {
+        "kind": "company_project",
+        "a": "stalmet-przyklad.example",
+        "b": "Sokół",
+        "role": "client"
+      },
+      {
+        "kind": "company_project",
+        "a": "vettore-automation.example",
+        "b": "Sokół",
+        "role": "supplier"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Sokół"]
+  }
+}

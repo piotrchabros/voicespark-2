@@ -1,0 +1,31 @@
+{
+  "id": "en-22",
+  "set": "reference",
+  "language": "en",
+  "categories": ["notification"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-22",
+      "mailbox": "owner@example.com",
+      "subject": "[ALERT] api.example.com is DOWN",
+      "messages": [
+        {
+          "ref": "thr-en-22/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-22@uptimepulse.example>\r\nDate: Thu, 05 Jun 2025 02:14:00 +0000\r\nFrom: UptimePulse <alerts@uptimepulse.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: [ALERT] api.example.com is DOWN\r\nAuto-Submitted: auto-generated\r\nPrecedence: bulk\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nMonitor: api.example.com (HTTPS)\nStatus: DOWN since 02:13 UTC\nReason: connection timed out after 30s\n\nYou will receive another email when the monitor recovers. Manage alerts at https://uptimepulse.example/monitors/118.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "en-06",
+  "set": "reference",
+  "language": "en",
+  "categories": ["role-address", "signature-gmbh"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-06",
+      "mailbox": "owner@example.com",
+      "subject": "Quote 2025/0412 - steel brackets",
+      "messages": [
+        {
+          "ref": "thr-en-06/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-06@ferrocast.example>\r\nDate: Fri, 09 May 2025 09:00:00 +0000\r\nFrom: Ferrocast Sales <sales@ferrocast.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Quote 2025/0412 - steel brackets\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-03c819ca\"\r\n\r\n--mix-03c819ca\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear Mr Wiśniewski,\n\nplease find attached our quote 2025/0412 for 400 galvanised steel brackets. The quote is valid until 30 June 2025 and delivery takes three weeks from order.\n\nWith kind regards,\nSales Team\nFerrocast Metals GmbH\nIndustriestraße 12, 44139 Dortmund\nwww.ferrocast.example\r\n--mix-03c819ca\r\nContent-Type: application/octet-stream; name=\"quote-2025-0412.pdf\"\r\nContent-Disposition: attachment; filename=\"quote-2025-0412.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHF1b3RlLTIwMjUtMDQxMi5wZGY=\r\n--mix-03c819ca--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [{ "domain": "ferrocast.example", "name": "Ferrocast Metals GmbH" }],
+    "projects": [],
+    "links": [],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["2025/0412"]
+  }
+}

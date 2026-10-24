@@ -1,0 +1,48 @@
+{
+  "id": "en-21",
+  "set": "reference",
+  "language": "en",
+  "categories": ["named-project", "seeded-project", "disclaimer", "signature-llp"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-21",
+      "mailbox": "owner@example.com",
+      "subject": "Project Beacon - services agreement, marked-up draft",
+      "messages": [
+        {
+          "ref": "thr-en-21/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-21@copperfield-legal.example>\r\nDate: Wed, 04 Jun 2025 16:05:00 +0000\r\nFrom: Eleanor Vance <eleanor.vance@copperfield-legal.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Project Beacon - services agreement, marked-up draft\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-970c4765\"\r\n\r\n--mix-970c4765\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear Marek,\n\nplease find attached our marked-up draft of the Project Beacon services agreement. The main changes concern the liability cap (clause 12) and the data processing annex. We would be grateful for your comments by 13 June.\n\nYours sincerely,\nEleanor Vance\nPartner, Commercial\nCopperfield & Hale LLP\nT +44 20 7946 0555\n\nThis email and any attachments are confidential and may be legally privileged. If you are not the intended recipient, please notify the sender immediately and delete the message. Copperfield & Hale LLP is a limited liability partnership registered in England and Wales. A list of members is available at our registered office.\r\n--mix-970c4765\r\nContent-Type: application/octet-stream; name=\"Beacon-services-agreement-v3-marked.docx\"\r\nContent-Disposition: attachment; filename=\"Beacon-services-agreement-v3-marked.docx\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIEJlYWNvbi1zZXJ2aWNlcy1hZ3JlZW1lbnQtdjMtbWFya2VkLmRvY3g=\r\n--mix-970c4765--\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": { "projects": [{ "name": "Beacon" }] },
+  "expected": {
+    "people": [
+      {
+        "email": "eleanor.vance@copperfield-legal.example",
+        "name": "Eleanor Vance",
+        "roleTitle": "Partner, Commercial",
+        "companyDomain": "copperfield-legal.example"
+      }
+    ],
+    "companies": [{ "domain": "copperfield-legal.example", "name": "Copperfield & Hale LLP" }],
+    "projects": [{ "name": "Beacon" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "eleanor.vance@copperfield-legal.example",
+        "b": "copperfield-legal.example",
+        "role": "Partner, Commercial"
+      },
+      { "kind": "person_project", "a": "eleanor.vance@copperfield-legal.example", "b": "Beacon" },
+      { "kind": "company_project", "a": "copperfield-legal.example", "b": "Beacon" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["agreement", "13 June"]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "id": "en-11",
+  "set": "reference",
+  "language": "en",
+  "categories": ["multi-address", "seeded-person"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-11",
+      "mailbox": "owner@example.com",
+      "subject": "New address - Quillstone Cloud",
+      "messages": [
+        {
+          "ref": "thr-en-11/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-11@quillstone-cloud.example>\r\nDate: Mon, 19 May 2025 08:05:00 +0000\r\nFrom: Daniel Mercer <d.mercer@quillstone-cloud.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: New address - Quillstone Cloud\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nI am writing from my new address: I moved to the Quillstone Cloud subsidiary this month. Please use this one for anything related to the hosting contract from now on.\n\nThanks,\nDaniel Mercer\nEngineering Manager\nQuillstone Cloud, a Quillstone company\nTel +44 20 7946 0101\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "daniel.mercer@quillstone.example",
+        "name": "Daniel Mercer",
+        "roleTitle": "Engineering Manager",
+        "phone": "+44 20 7946 0101"
+      }
+    ],
+    "companies": [{ "name": "Quillstone Software Inc.", "domain": "quillstone.example" }]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "d.mercer@quillstone-cloud.example",
+        "name": "Daniel Mercer",
+        "roleTitle": "Engineering Manager",
+        "companyDomain": "quillstone-cloud.example"
+      }
+    ],
+    "companies": [{ "domain": "quillstone-cloud.example", "name": "Quillstone Cloud" }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "d.mercer@quillstone-cloud.example",
+        "b": "quillstone-cloud.example",
+        "role": "Engineering Manager"
+      }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "person_email",
+        "reason": "name_only_match",
+        "person": "daniel.mercer@quillstone.example",
+        "address": "d.mercer@quillstone-cloud.example"
+      }
+    ],
+    "summaryMentions": ["address"]
+  }
+}

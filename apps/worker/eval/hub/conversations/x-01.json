@@ -1,0 +1,63 @@
+{
+  "id": "x-01",
+  "set": "reference",
+  "language": "en",
+  "categories": ["cross-mailbox", "named-project"],
+  "mailboxes": [
+    { "address": "owner@example.com", "provider": "gmail" },
+    { "address": "owner@outlook.com", "provider": "microsoft" }
+  ],
+  "threads": [
+    {
+      "ref": "thr-x-01",
+      "mailbox": "owner@example.com",
+      "subject": "Nightingale demo - 24 June",
+      "messages": [
+        {
+          "ref": "thr-x-01/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <x-01@helix-robotics.example>\r\nDate: Thu, 12 Jun 2025 06:30:00 +0000\r\nFrom: Aiko Tanaka <aiko.tanaka@helix-robotics.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Marek Wiśniewski <owner@outlook.com>\r\nSubject: Nightingale demo - 24 June\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nI am sending this to both of your addresses to be safe. The Project Nightingale demo unit is ready; can we schedule the remote demo for 24 June at 10:00 CEST?\n\nAiko Tanaka\nCEO, Helix Robotics\n+81 3 4520 9900\r\n"
+        }
+      ]
+    },
+    {
+      "ref": "conv-x-01",
+      "mailbox": "owner@outlook.com",
+      "subject": "Nightingale demo - 24 June",
+      "messages": [
+        {
+          "ref": "conv-x-01/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <x-01@helix-robotics.example>\r\nDate: Thu, 12 Jun 2025 06:30:00 +0000\r\nFrom: Aiko Tanaka <aiko.tanaka@helix-robotics.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Marek Wiśniewski <owner@outlook.com>\r\nSubject: Nightingale demo - 24 June\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nI am sending this to both of your addresses to be safe. The Project Nightingale demo unit is ready; can we schedule the remote demo for 24 June at 10:00 CEST?\n\nAiko Tanaka\nCEO, Helix Robotics\n+81 3 4520 9900\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "aiko.tanaka@helix-robotics.example",
+        "name": "Aiko Tanaka",
+        "roleTitle": "CEO",
+        "companyDomain": "helix-robotics.example"
+      }
+    ],
+    "companies": [{ "domain": "helix-robotics.example", "name": "Helix Robotics" }],
+    "projects": [{ "name": "Nightingale" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "aiko.tanaka@helix-robotics.example",
+        "b": "helix-robotics.example",
+        "role": "CEO"
+      },
+      { "kind": "person_project", "a": "aiko.tanaka@helix-robotics.example", "b": "Nightingale" },
+      { "kind": "company_project", "a": "helix-robotics.example", "b": "Nightingale" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["24 June"]
+  }
+}

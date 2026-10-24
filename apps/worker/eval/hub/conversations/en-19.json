@@ -1,0 +1,63 @@
+{
+  "id": "en-19",
+  "set": "reference",
+  "language": "en",
+  "categories": ["owner-conflict", "seeded-person"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-19",
+      "mailbox": "owner@example.com",
+      "subject": "Reporting layer - access request",
+      "messages": [
+        {
+          "ref": "thr-en-19/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-19@greywater.example>\r\nDate: Mon, 02 Jun 2025 07:45:00 +0000\r\nFrom: Lena Fischer <lena.fischer@greywater.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Reporting layer - access request\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\ncould you grant read access to the staging warehouse for our two analysts? Their accounts are m.brandt and s.keller.\n\nThanks,\nLena Fischer\nData Lead\nGreywater Analytics\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "lena.fischer@greywater.example",
+        "name": "Lena Fischer",
+        "roleTitle": "Head of Data",
+        "roleSource": "owner"
+      }
+    ],
+    "companies": [{ "name": "Greywater Analytics", "domain": "greywater.example" }]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "lena.fischer@greywater.example",
+        "name": "Lena Fischer",
+        "roleTitle": "Head of Data",
+        "companyDomain": "greywater.example"
+      }
+    ],
+    "companies": [{ "domain": "greywater.example", "name": "Greywater Analytics" }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "lena.fischer@greywater.example",
+        "b": "greywater.example",
+        "role": "Head of Data"
+      }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "field",
+        "reason": "conflict",
+        "person": "lena.fischer@greywater.example",
+        "field": "roleTitle"
+      }
+    ],
+    "summaryMentions": ["access"]
+  }
+}

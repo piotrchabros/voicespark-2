@@ -1,0 +1,91 @@
+{
+  "id": "holdout-15",
+  "set": "holdout",
+  "language": "mixed",
+  "categories": [
+    "seeded-project",
+    "seeded-person",
+    "named-project",
+    "mixed-language",
+    "owner-agrees",
+    "signature-sa"
+  ],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-15",
+      "mailbox": "owner@example.com",
+      "subject": "Granit - harmonogram dostaw",
+      "messages": [
+        {
+          "ref": "thr-holdout-15/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-15@kamien-polski.example>\r\nDate: Wed, 03 Sep 2025 10:25:00 +0000\r\nFrom: Tadeusz Nowak <tadeusz.nowak@kamien-polski.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Granit - harmonogram dostaw\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-c93d79df\"\r\n\r\n--mix-c93d79df\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nPanie Marku,\n\nw załączeniu zaktualizowany harmonogram dostaw dla projektu Granit. Pierwsza partia płyt wychodzi z zakładu 22 września, druga tydzień później. Proszę o potwierdzenie, że plac budowy przyjmie dostawę w sobotę.\n\nPozdrawiam\nTadeusz Nowak\nDyrektor Sprzedaży / Sales Director\nKamień Polski S.A.\nMobile: +48 605 555 015\nThis message may contain confidential information intended only for the addressee.\r\n--mix-c93d79df\r\nContent-Type: application/octet-stream; name=\"granit-harmonogram-v2.xlsx\"\r\nContent-Disposition: attachment; filename=\"granit-harmonogram-v2.xlsx\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGdyYW5pdC1oYXJtb25vZ3JhbS12Mi54bHN4\r\n--mix-c93d79df--\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "tadeusz.nowak@kamien-polski.example",
+        "name": "Tadeusz Nowak",
+        "roleTitle": "Dyrektor Sprzedaży",
+        "roleSource": "owner"
+      }
+    ],
+    "companies": [
+      {
+        "name": "Kamień Polski S.A.",
+        "domain": "kamien-polski.example"
+      }
+    ],
+    "projects": [
+      {
+        "name": "Granit",
+        "companyDomains": ["kamien-polski.example"]
+      }
+    ]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "tadeusz.nowak@kamien-polski.example",
+        "name": "Tadeusz Nowak",
+        "roleTitle": "Dyrektor Sprzedaży",
+        "companyDomain": "kamien-polski.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "kamien-polski.example"
+      }
+    ],
+    "projects": [
+      {
+        "name": "Granit"
+      }
+    ],
+    "links": [
+      {
+        "kind": "person_project",
+        "a": "tadeusz.nowak@kamien-polski.example",
+        "b": "Granit"
+      },
+      {
+        "kind": "company_project",
+        "a": "kamien-polski.example",
+        "b": "Granit"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Granit", "22 września"]
+  }
+}

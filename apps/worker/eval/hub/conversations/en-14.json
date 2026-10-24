@@ -1,0 +1,31 @@
+{
+  "id": "en-14",
+  "set": "reference",
+  "language": "en",
+  "categories": ["freemail"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-14",
+      "mailbox": "owner@example.com",
+      "subject": "Office lease renewal - unit 4B",
+      "messages": [
+        {
+          "ref": "thr-en-14/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-14@yahoo.co.uk>\r\nDate: Thu, 22 May 2025 18:20:00 +0000\r\nFrom: Tom Whitfield <tom.whitfield84@yahoo.co.uk>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Office lease renewal - unit 4B\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nthe lease for unit 4B runs out at the end of August. I am happy to renew for another two years at the same rent if you want to stay. Let me know by mid-June so I can draw up the papers.\n\nRegards,\nTom Whitfield\n07700 900789\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [{ "email": "tom.whitfield84@yahoo.co.uk", "name": "Tom Whitfield" }],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["lease"]
+  }
+}

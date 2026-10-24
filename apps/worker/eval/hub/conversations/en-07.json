@@ -1,0 +1,52 @@
+{
+  "id": "en-07",
+  "set": "reference",
+  "language": "en",
+  "categories": ["large-cc", "named-project", "signature-plc"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-07",
+      "mailbox": "owner@example.com",
+      "subject": "Project Lumen - steering committee update",
+      "messages": [
+        {
+          "ref": "thr-en-07/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-07@brightmoor-energy.example>\r\nDate: Tue, 13 May 2025 07:30:00 +0000\r\nFrom: Oliver Grant <oliver.grant@brightmoor-energy.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nCc: Alice Ashworth <alice.ashworth@brightmoor-energy.example>,\r\n Ben Bellamy <ben.bellamy@brightmoor-energy.example>,\r\n Carla Cross <carla.cross@brightmoor-energy.example>,\r\n Dev Doyle <dev.doyle@brightmoor-energy.example>,\r\n Erin Everett <erin.everett@brightmoor-energy.example>,\r\n Farid Farrow <farid.farrow@brightmoor-energy.example>,\r\n Gwen Gale <gwen.gale@brightmoor-energy.example>,\r\n Hugo Hart <hugo.hart@brightmoor-energy.example>,\r\n Ines Ingram <ines.ingram@brightmoor-energy.example>,\r\n Jonas Joyce <jonas.joyce@brightmoor-energy.example>,\r\n Kara Kemp <kara.kemp@brightmoor-energy.example>,\r\n Liam Lowe <liam.lowe@brightmoor-energy.example>,\r\n Mia Marsh <mia.marsh@brightmoor-energy.example>,\r\n Noah Nash <noah.nash@brightmoor-energy.example>,\r\n Orla Oldfield <orla.oldfield@brightmoor-energy.example>,\r\n Pavel Pryce <pavel.pryce@brightmoor-energy.example>,\r\n Quinn Quigley <quinn.quigley@brightmoor-energy.example>,\r\n Rosa Rowe <rosa.rowe@brightmoor-energy.example>,\r\n Sven Steed <sven.steed@brightmoor-energy.example>,\r\n Tara Thorne <tara.thorne@brightmoor-energy.example>,\r\n Umar Underhill <umar.underhill@brightmoor-energy.example>,\r\n Vera Vale <vera.vale@brightmoor-energy.example>,\r\n Wes Whitlock <wes.whitlock@brightmoor-energy.example>,\r\n Xena Xavier <xena.xavier@brightmoor-energy.example>,\r\n Oakridge Audit <audit@oakridge-capital.example>,\r\n PMO <pm-office@copperfield-legal.example>\r\nSubject: Project Lumen - steering committee update\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-535bb770\"\r\n\r\n--mix-535bb770\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nAll,\n\nplease find attached the May steering committee pack for Project Lumen. Key points: phase 2 is on track for the August go-live, the substation vendor has been selected, and the budget is 4% under plan. Marek, could you present the integration status at the next meeting?\n\nRegards,\nOliver Grant\nProgramme Director\nBrightmoor Energy plc\n+44 113 496 0200\r\n--mix-535bb770\r\nContent-Type: application/octet-stream; name=\"lumen-steerco-2025-05.pptx\"\r\nContent-Disposition: attachment; filename=\"lumen-steerco-2025-05.pptx\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGx1bWVuLXN0ZWVyY28tMjAyNS0wNS5wcHR4\r\n--mix-535bb770--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "oliver.grant@brightmoor-energy.example",
+        "name": "Oliver Grant",
+        "roleTitle": "Programme Director",
+        "companyDomain": "brightmoor-energy.example"
+      }
+    ],
+    "companies": [{ "domain": "brightmoor-energy.example", "name": "Brightmoor Energy plc" }],
+    "projects": [{ "name": "Lumen" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "oliver.grant@brightmoor-energy.example",
+        "b": "brightmoor-energy.example",
+        "role": "Programme Director"
+      },
+      {
+        "kind": "person_project",
+        "a": "oliver.grant@brightmoor-energy.example",
+        "b": "Lumen",
+        "role": "Programme Director"
+      },
+      { "kind": "company_project", "a": "brightmoor-energy.example", "b": "Lumen" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Lumen", "August"]
+  }
+}

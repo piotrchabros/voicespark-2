@@ -1,0 +1,64 @@
+{
+  "id": "pl-16",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["multi-address", "seeded-person", "signature-sp-zoo"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-16",
+      "mailbox": "owner@example.com",
+      "subject": "Dostęp do repozytorium",
+      "messages": [
+        {
+          "ref": "thr-pl-16/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-18@kuznia-kodu-consulting.example>\r\nDate: Tue, 17 Jun 2025 09:10:00 +0000\r\nFrom: Tomasz Rutkowski <t.rutkowski@kuznia-kodu-consulting.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Dostęp do repozytorium\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nCześć Marek,\n\npiszę z nowego adresu, bo przeszedłem do spółki córki. Proszę o nadanie dostępu do repozytorium na ten adres.\n\nTomasz Rutkowski\nArchitekt Rozwiązań\nKuźnia Kodu Consulting Sp. z o.o.\nkom. +48 603 555 016\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "tomasz.rutkowski@kuznia-kodu.example",
+        "name": "Tomasz Rutkowski",
+        "phone": "+48 603 555 016"
+      }
+    ],
+    "companies": [{ "name": "Kuźnia Kodu Sp. z o.o.", "domain": "kuznia-kodu.example" }]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "t.rutkowski@kuznia-kodu-consulting.example",
+        "name": "Tomasz Rutkowski",
+        "roleTitle": "Architekt Rozwiązań",
+        "companyDomain": "kuznia-kodu-consulting.example"
+      }
+    ],
+    "companies": [
+      { "domain": "kuznia-kodu-consulting.example", "name": "Kuźnia Kodu Consulting Sp. z o.o." }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "t.rutkowski@kuznia-kodu-consulting.example",
+        "b": "kuznia-kodu-consulting.example",
+        "role": "Architekt Rozwiązań"
+      }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "person_email",
+        "reason": "name_only_match",
+        "person": "tomasz.rutkowski@kuznia-kodu.example",
+        "address": "t.rutkowski@kuznia-kodu-consulting.example"
+      }
+    ],
+    "summaryMentions": ["repozytori"]
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "pl-13",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["generic-project", "signature-sp-zoo"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-13",
+      "mailbox": "owner@example.com",
+      "subject": "Re: projekt - następne kroki",
+      "messages": [
+        {
+          "ref": "thr-pl-13/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-15@horyzont-it.example>\r\nDate: Thu, 12 Jun 2025 14:25:00 +0000\r\nFrom: Bartosz Kaczmarek <bartosz.kaczmarek@horyzont-it.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Re: projekt - następne kroki\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nCześć Marek,\n\nco do tego projektu - czekamy jeszcze na decyzję zarządu. Jak tylko ją dostaniemy, ruszamy z pierwszym etapem. Daj znać, czy projekt nadal jest dla Was priorytetem.\n\nBartek\n\nBartosz Kaczmarek\nSenior Konsultant\nHoryzont IT Sp. z o.o.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "bartosz.kaczmarek@horyzont-it.example",
+        "name": "Bartosz Kaczmarek",
+        "roleTitle": "Senior Konsultant",
+        "companyDomain": "horyzont-it.example"
+      }
+    ],
+    "companies": [{ "domain": "horyzont-it.example", "name": "Horyzont IT Sp. z o.o." }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "bartosz.kaczmarek@horyzont-it.example",
+        "b": "horyzont-it.example",
+        "role": "Senior Konsultant"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["decyzj"]
+  }
+}

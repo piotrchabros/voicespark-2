@@ -1,0 +1,36 @@
+{
+  "id": "holdout-18",
+  "set": "holdout",
+  "language": "pl",
+  "categories": ["notification", "sender-pattern"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-18",
+      "mailbox": "owner@example.com",
+      "subject": "Nowa wiadomość w bankowości elektronicznej",
+      "messages": [
+        {
+          "ref": "thr-holdout-18/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-18@bank-przykladowy.example>\r\nDate: Tue, 05 Aug 2025 04:00:00 +0000\r\nFrom: Bank Przykładowy <nie-odpowiadaj@bank-przykladowy.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Nowa wiadomość w bankowości elektronicznej\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nSzanowny Kliencie,\n\nw Twojej skrzynce w bankowości elektronicznej czeka nowa wiadomość. Zaloguj się, aby ją przeczytać.\n\nTa wiadomość została wygenerowana automatycznie, prosimy na nią nie odpowiadać.\nBank Przykładowy S.A.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

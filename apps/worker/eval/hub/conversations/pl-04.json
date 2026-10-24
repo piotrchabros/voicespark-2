@@ -1,0 +1,70 @@
+{
+  "id": "pl-04",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["two-company-project", "named-project", "signature-sa"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-04",
+      "mailbox": "owner@example.com",
+      "subject": "Projekt Bałtyk - podział prac",
+      "messages": [
+        {
+          "ref": "thr-pl-04/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-5@nadmorska-stocznia.example>\r\nDate: Tue, 20 May 2025 08:10:00 +0000\r\nFrom: Jakub Sobczak <jakub.sobczak@nadmorska-stocznia.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Alicja Wrona <alicja.wrona@fala-software.example>\r\nSubject: Projekt Bałtyk - podział prac\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nw Projekcie Bałtyk proponuję taki podział: Fala Software odpowiada za system sterowania dźwigami, a Nadmorska Stocznia za integrację z istniejącą linią produkcyjną. Marek, Ty koordynujesz całość po stronie zamawiającego.\n\nPozdrawiam\nJakub Sobczak\nDyrektor Techniczny\nNadmorska Stocznia S.A.\n+48 58 555 04 01\r\n"
+        },
+        {
+          "ref": "thr-pl-04/2",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-6@fala-software.example>\r\nDate: Tue, 20 May 2025 10:30:00 +0000\r\nFrom: Alicja Wrona <alicja.wrona@fala-software.example>\r\nTo: Jakub Sobczak <jakub.sobczak@nadmorska-stocznia.example>,\r\n Marek Wiśniewski <owner@example.com>\r\nSubject: Projekt Bałtyk - podział prac\r\nIn-Reply-To: <pl-04@nadmorska-stocznia.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nZgoda na taki podział. Potrzebujemy tylko dokumentacji interfejsów od Państwa do 30 maja.\n\nAlicja Wrona\nKierownik Projektu | Fala Software Sp. z o.o.\nkom. 501 555 042\n\n> Dzień dobry,\n> w Projekcie Bałtyk proponuję taki podział...\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "jakub.sobczak@nadmorska-stocznia.example",
+        "name": "Jakub Sobczak",
+        "roleTitle": "Dyrektor Techniczny",
+        "companyDomain": "nadmorska-stocznia.example"
+      },
+      {
+        "email": "alicja.wrona@fala-software.example",
+        "name": "Alicja Wrona",
+        "roleTitle": "Kierownik Projektu",
+        "companyDomain": "fala-software.example"
+      }
+    ],
+    "companies": [
+      { "domain": "nadmorska-stocznia.example", "name": "Nadmorska Stocznia S.A." },
+      { "domain": "fala-software.example", "name": "Fala Software Sp. z o.o." }
+    ],
+    "projects": [{ "name": "Bałtyk" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "jakub.sobczak@nadmorska-stocznia.example",
+        "b": "nadmorska-stocznia.example",
+        "role": "Dyrektor Techniczny"
+      },
+      {
+        "kind": "person_company",
+        "a": "alicja.wrona@fala-software.example",
+        "b": "fala-software.example",
+        "role": "Kierownik Projektu"
+      },
+      { "kind": "company_project", "a": "nadmorska-stocznia.example", "b": "Bałtyk" },
+      { "kind": "company_project", "a": "fala-software.example", "b": "Bałtyk" },
+      { "kind": "person_project", "a": "alicja.wrona@fala-software.example", "b": "Bałtyk" },
+      { "kind": "person_project", "a": "jakub.sobczak@nadmorska-stocznia.example", "b": "Bałtyk" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Bałtyk", "Fala Software"]
+  }
+}

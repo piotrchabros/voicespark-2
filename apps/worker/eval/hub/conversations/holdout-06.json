@@ -1,0 +1,55 @@
+{
+  "id": "holdout-06",
+  "set": "holdout",
+  "language": "pl",
+  "categories": ["freemail", "signature-company", "signature-sp-zoo"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-06",
+      "mailbox": "owner@example.com",
+      "subject": "Kwiaty na otwarcie biura 20 maja",
+      "messages": [
+        {
+          "ref": "thr-holdout-06/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-06@wp.pl>\r\nDate: Tue, 06 May 2025 07:40:00 +0000\r\nFrom: Beata Sowa <beata.sowa73@wp.pl>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Kwiaty na otwarcie biura 20 maja\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry Panie Marku,\n\nprzesyłam propozycję dekoracji kwiatowych na otwarcie biura 20 maja: dwie kompozycje stojące przy wejściu, osiem bukietów na stoły i zieleń cięta do recepcji. Łącznie 2 400 zł netto z dostawą i ustawieniem. Piszę z prywatnej skrzynki, bo firmowa poczta jest dziś niedostępna.\n\nPozdrawiam\nBeata Sowa\nKierownik Sprzedaży\nHurtownia Kwiatów Tulipan Sp. z o.o.\ntel. 58 555 01 06\nwww.tulipan-kwiaty.example\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "beata.sowa73@wp.pl",
+        "name": "Beata Sowa",
+        "roleTitle": "Kierownik Sprzedaży",
+        "companyDomain": "tulipan-kwiaty.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "tulipan-kwiaty.example",
+        "name": "Hurtownia Kwiatów Tulipan Sp. z o.o."
+      }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "beata.sowa73@wp.pl",
+        "b": "tulipan-kwiaty.example",
+        "role": "Kierownik Sprzedaży"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["kwiat", "20 maja"]
+  }
+}

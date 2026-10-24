@@ -1,0 +1,31 @@
+{
+  "id": "en-04",
+  "set": "reference",
+  "language": "en",
+  "categories": ["notification"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-04",
+      "mailbox": "owner@example.com",
+      "subject": "[buildpipe] Build #4821 failed on main",
+      "messages": [
+        {
+          "ref": "thr-en-04/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-04@buildpipe.example>\r\nDate: Wed, 07 May 2025 14:12:00 +0000\r\nFrom: BuildPipe <notifications@buildpipe.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: [buildpipe] Build #4821 failed on main\r\nAuto-Submitted: auto-generated\r\nX-Auto-Response-Suppress: All\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nBuild #4821 of repository ech-api failed on branch main.\n\nStep: test (exit code 1)\nDuration: 6m 12s\n\nView the log: https://buildpipe.example/runs/4821\n\nThis is an automated message, please do not reply.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}
