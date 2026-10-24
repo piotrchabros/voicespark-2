@@ -18,7 +18,13 @@ the repository root with the production environment loaded.
 - Migrations run on every `docker compose up` through `migrate`. Seed once: `docker compose run --rm migrate pnpm db:seed`.
 - The worker registers its own schedulers at start: `maintenance.tmp-sweep` (hourly), `maintenance.deletion-sla` (every
   15 min), `maintenance.stale-imports` (every 10 min), `maintenance.retroscan-expiry` (03:00 daily),
-  `maintenance.credential-audit` (04:00 Sundays).
+  `maintenance.credential-audit` (04:00 Sundays), and for the Context Hub `maintenance.hub-sync-sweep` and
+  `maintenance.hub-thread-sweep` (every minute), `maintenance.hub-refilter-retry` (04:00 daily) and
+  `maintenance.hub-blob-sweep` (05:00 daily).
+- `HUB_FILES_DIR` (default `/data/hub-files`) must be a persistent volume mounted in both `web` and `worker`. See
+  [Context Hub](#context-hub).
+- `SYNC_POLL_INTERVAL_MINUTES` (default 5) must be at most 10; a higher value is refused at start. See
+  [Context Hub](#context-hub).
 
 ## Overdue deletions (SC-009, 24 h)
 
@@ -104,6 +110,11 @@ succeeds and retries on failure. A failing `SMTP_URL` therefore shows up as a de
    release has no bulk re-encryption command, so never remove an old key while data written with it exists.
 
 `DEDUP_HMAC_KEY` is not part of the keyring; changing it breaks duplicate detection against already imported content.
+It also breaks Context Hub search (the blind index holds keyed hashes) and the hub lookup hashes (record names, email
+addresses, domains, ignore rules, block markers). This release has no reindex job, so do not change it.
+
+The hub file blobs use the same keyring (purpose `hub-files`); each blob records its key id, so the rotation steps
+above cover them. Keep old keys while blobs written with them exist.
 
 ## Tone-of-voice analysis prompt migration (0007)
 
@@ -123,6 +134,86 @@ idempotent: a second run changes nothing.
 - Existing structured profiles are not rewritten. They stay readable and usable for drafting.
 
 Migrations run through the `migrate` service on `docker compose up`, so the same backfill runs there.
+
+## Context Hub
+
+### Hub file volume (`HUB_FILES_DIR`)
+
+- Original hub files are stored encrypted at `{HUB_FILES_DIR}/{userId}/{storageKey}.bin` (default `/data/hub-files`).
+  Compose mounts the `hub_files` volume at that path in both `web` (writes uploads, serves downloads) and `worker`
+  (text extraction, account deletion). Both must see the same directory.
+- Without a persistent volume, a container rebuild loses the original files. The rows, the extracted text (in
+  `hub_file.extracted_text_enc`), search and the memory-store copies stay. A download of a lost file fails with an
+  internal error (`blob_missing` in the code), and a file still waiting for extraction fails in `hub.file-extract`.
+  Users must upload the file again.
+- Back up the volume together with Postgres. A restored database with no blobs has the same effect as a lost volume.
+  Blobs need `ENCRYPTION_KEYRING` to be read.
+- Account deletion removes `{HUB_FILES_DIR}/{userId}` and checks that it is gone; a failure retries like other
+  deletion steps (see overdue deletions).
+
+### Blob sweep
+
+`maintenance.hub-blob-sweep` (05:00 daily) deletes blobs older than 1 h that have no `hub_file` row: uploads whose
+database write failed and deletes whose blob removal failed. It never touches rows or blobs that have a row, and it
+skips directories whose names are not user ids. Nothing to do unless the volume keeps growing; then check that the
+worker runs and that the worker and web mount the same volume.
+
+### Mail-to-hub latency (`SYNC_POLL_INTERVAL_MINUTES`)
+
+- Spec 003 SC-009 (a new email reaches the hub and the memory store within 15 min) needs the poll interval plus the
+  60 s debounce plus queue time to stay under 15 min. The environment loader refuses `SYNC_POLL_INTERVAL_MINUTES`
+  above 10 at start.
+- Each source's poll scheduler is registered with the interval when the source is connected or reconnected
+  (`packages/core/src/services/sources.ts`). Changing the variable does not change existing schedulers; they keep the
+  old interval until the source is reconnected.
+- Due threads and sync items that lost their job are picked up within a minute by `maintenance.hub-thread-sweep` and
+  `maintenance.hub-sync-sweep`.
+
+### Daily thread cap and backfill cost
+
+- Turning the hub on for a mailbox starts `hub.backfill`, which feeds every already imported email of that mailbox to
+  the hub, newest first, 100 messages per page. Each thread costs up to one extraction call (`LLM_HUB_EXTRACTION_MODEL`,
+  default the profile model, effort `LLM_HUB_EXTRACTION_EFFORT`, at most 16,000 output tokens) plus one retry on an
+  invalid answer, and for some threads one triage call on `LLM_CLASSIFIER_MODEL`. A large mailbox therefore costs many
+  calls.
+- The admin setting `hub.daily_thread_cap_per_user` (default 500) limits threads with an extraction call per user per
+  24 h. Over the cap, threads wait until the next UTC midnight; the mailbox status shows the pause. Change it as an
+  admin with `PUT /api/admin/settings` `{"key": "hub.daily_thread_cap_per_user", "value": <n>}` (audit
+  `settings.changed`).
+- Watch cost on `/admin` system health: `llmCallsToday`, `inputTokensToday`, `outputTokensToday`, `threadsPending`
+  and `threadsFailed`. The token figures come from `hub_llm_call` and are estimates from character counts, not
+  provider usage. Use the provider console for billing.
+
+### Before changing the extraction prompt, schema or model
+
+The extraction prompt (`HUB_EXTRACTION_PROMPT_V1` with `HUB_EXTRACTION_PROMPT_VERSION`,
+`packages/core/src/hub/prompts.ts`) is a code constant, not an admin setting. A prompt change means a new constant and
+a new version. Before changing the prompt, the output schema (`packages/core/src/hub/extraction-schema.ts`),
+`LLM_HUB_EXTRACTION_MODEL` or `LLM_HUB_EXTRACTION_EFFORT`, run the live eval: `HUB_EVAL_LIVE=1 pnpm hub:eval --model
+<model>` with `ANTHROPIC_API_KEY` set. Compare the held-out line against SC-004 to SC-006. The eval writes only to the
+test database and an in-memory store, never to production. Note: the runner (`apps/worker/eval/hub/run.ts`) is not in
+the tree yet; until it is, there is no gate for these changes.
+
+### Scanners and `hub_` documents
+
+Hub documents share the user's memory namespace and have ids starting with `hub_` (`hub_person_<id>`,
+`hub_note_<id>`, ...).
+
+- Retroscan skips `hub_` ids; a filter change re-inspects hub items through `hub.refilter` instead.
+- The weekly credential audit samples hub documents separately. A hit on a hub document is never purged directly: it
+  marks the sync item `refilter_pending` and enqueues `hub.refilter`, which rebuilds the document from Postgres under
+  the current policy. `maintenance.hub-refilter-retry` (04:00 daily) re-enqueues users whose items stay
+  `refilter_pending`. Treat a hit as a filter bug, as in [Credential-audit hits](#credential-audit-hits).
+- Any new scanner or script that walks a namespace must tolerate `hub_` documents.
+- Draft memory search can return hub documents. They are filtered text, so this is accepted.
+
+### Hub sync failures
+
+`/admin` system health shows `syncFailed`. Users see per-item sync status on the hub settings screen and can retry
+failed items or run a full re-sync (`POST /api/hub/sync/retry`, `POST /api/hub/sync/resync`). Content stays in
+Postgres while the store is down; items are written again once it is back. For a Supermemory 401 or busy error, see
+the sections above. Rows of deleted items stay in `hub_sync_item` as tombstones (ids only) after the store delete is
+confirmed.
 
 ## Pilot measurements
 

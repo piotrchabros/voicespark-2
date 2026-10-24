@@ -13,6 +13,8 @@ const bodySchema = z.object({
   contentType: z.enum(DRAFT_CONTENT_TYPES),
   profileId: z.uuid(),
   brief: z.string().trim().min(1).max(drafts.BRIEF_MAX),
+  // FR-027: an owned person, company or project; another user's record is 404 not_found.
+  hubRecord: z.object({ kind: z.enum(drafts.HUB_RECORD_KINDS), id: z.uuid() }).optional(),
 });
 
 export const GET = handle(async (req: Request) => {

@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { RecordPicker, type PickedRecord } from '@/components/hub/record-picker';
 import { draftApiError } from './draft-status';
 
 const BRIEF_MAX = 2000;
@@ -23,18 +24,22 @@ const CONTENT_TYPES: { value: DraftContentType; label: string; hint: string }[] 
   { value: 'short_article', label: 'Short article', hint: 'Up to 1,500 words' },
 ];
 
-// New draft request (FR-049, FR-050); the brief is only sent to the API, never logged.
+// New draft request (FR-049, FR-050), optionally about a hub record (FR-027); the brief is only sent to the API,
+// never logged.
 export function DraftForm({
   profiles,
   initialProfileId,
+  initialRecord = null,
 }: {
   profiles: { id: string; name: string }[];
   initialProfileId: string | null;
+  initialRecord?: PickedRecord | null;
 }) {
   const router = useRouter();
   const [contentType, setContentType] = useState<DraftContentType>('social_post');
   const [profileId, setProfileId] = useState(initialProfileId ?? profiles[0]?.id ?? '');
   const [brief, setBrief] = useState('');
+  const [record, setRecord] = useState<PickedRecord | null>(initialRecord);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,10 +55,20 @@ export function DraftForm({
       const res = await fetch('/api/drafts', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ contentType, profileId, brief }),
+        body: JSON.stringify({
+          contentType,
+          profileId,
+          brief,
+          ...(record ? { hubRecord: { kind: record.kind, id: record.id } } : {}),
+        }),
       });
       if (!res.ok) {
-        setError(await draftApiError(res));
+        // A pinned record of another user or a deleted one is a plain 404 `not_found` (FR-027).
+        setError(
+          res.status === 404 && record
+            ? 'The chosen record or profile no longer exists. Choose again.'
+            : await draftApiError(res),
+        );
         return;
       }
       const { draftId } = (await res.json()) as { draftId: string };
@@ -125,6 +140,14 @@ export function DraftForm({
           {brief.length} / {BRIEF_MAX}
         </p>
       </div>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2 text-sm font-medium">About a person, company or project (optional)</legend>
+        <p className="text-muted-foreground text-xs">
+          Details from this hub record are used as background. Excluded information is never sent.
+        </p>
+        <RecordPicker value={record} onChange={setRecord} disabled={pending} />
+      </fieldset>
 
       {error ? (
         <p role="alert" className="text-destructive text-sm">

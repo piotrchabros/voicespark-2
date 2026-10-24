@@ -177,7 +177,8 @@ test.describe('hub US4: suggestions and merge', () => {
       await expect(badge(page), path).toHaveText('6');
     }
     await page.goto('/hub');
-    await expect(page.locator('li a[href="/hub/suggestions"]')).toContainText('6');
+    // The overview card (the nav link to the same page has no paragraph).
+    await expect(page.locator('a[href="/hub/suggestions"]').filter({ has: page.locator('p') })).toContainText('6');
 
     // US4.1 / FR-023: the queue shows the change, the current value, the conflict flag, the confidence and the sources.
     await page.goto('/hub/suggestions');
@@ -348,7 +349,8 @@ test.describe('hub US4: suggestions and merge', () => {
     await expect(moves).toContainText('1 file');
     await expect(moves).toContainText('1 link');
     await expect(moves).toContainText('1 conversation summary');
-    await expect(dialog.getByText(`${keptName} keeps: Phone`)).toBeVisible();
+    // Both have a name and a phone: the kept record's win.
+    await expect(dialog.getByText(`${keptName} keeps: Name, Phone`)).toBeVisible();
     await expect(dialog.getByText(`Filled from ${OLA.name}: Role`)).toBeVisible();
     await dialog.getByRole('button', { name: 'Merge records' }).click();
     await expect(toast(page, `Merged ${OLA.name} into ${keptName}.`)).toBeVisible();

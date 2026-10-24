@@ -74,6 +74,12 @@ const WARMUP_PATHS = [
   '/api/hub/suggestions/decide',
   `/api/hub/people/${HUB_WARMUP_ID}/merge-preview`,
   `/api/hub/people/${HUB_WARMUP_ID}/merge`,
+  // Drafts about a hub record (US6).
+  '/drafts/new',
+  `/drafts/${HUB_WARMUP_ID}`,
+  '/api/drafts',
+  `/api/drafts/${HUB_WARMUP_ID}`,
+  `/api/drafts/${HUB_WARMUP_ID}/regenerate`,
 ];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });

@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { KIND_PATH, SEARCH_TYPE_LABELS } from '@/components/hub/labels';
 import { CONTENT_TYPE_LABELS, DraftStatusBadge, draftApiError } from './draft-status';
 
 const ALL = 'all';
@@ -200,6 +201,21 @@ export function DraftList({
                       }`
                     : 'Deleted profile'}
                 </p>
+                {item.hubRecord ? (
+                  <p className="text-muted-foreground text-xs" data-testid="draft-hub-record">
+                    {SEARCH_TYPE_LABELS[item.hubRecord.kind]}:{' '}
+                    {item.hubRecord.id ? (
+                      <Link
+                        href={`/hub/${KIND_PATH[item.hubRecord.kind]}/${item.hubRecord.id}`}
+                        className="text-foreground underline-offset-4 hover:underline"
+                      >
+                        {item.hubRecord.label}
+                      </Link>
+                    ) : (
+                      <>{item.hubRecord.label} (removed)</>
+                    )}
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2 sm:justify-end">
                 {item.status === 'ready' ? (
