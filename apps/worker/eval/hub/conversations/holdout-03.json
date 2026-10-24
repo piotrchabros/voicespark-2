@@ -1,0 +1,41 @@
+{
+  "id": "holdout-03",
+  "set": "holdout",
+  "language": "pl",
+  "categories": ["role-address", "signature-sp-k"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-03",
+      "mailbox": "owner@example.com",
+      "subject": "Termin podpisania pełnomocnictwa",
+      "messages": [
+        {
+          "ref": "thr-holdout-03/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-03@kancelaria-dabek.example>\r\nDate: Wed, 05 Mar 2025 09:15:00 +0000\r\nFrom: Sekretariat Kancelarii <sekretariat@kancelaria-dabek.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Termin podpisania pełnomocnictwa\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nSzanowny Panie,\n\nw imieniu mecenasa potwierdzamy termin podpisania pełnomocnictwa procesowego na 12 marca o godz. 11:00 w siedzibie kancelarii. Prosimy o zabranie dowodu osobistego oraz odpisu z KRS.\n\nZ poważaniem\nSekretariat\nKancelaria Dąbek i Wspólnicy Sp. k.\nul. Przykładowa 8, 80-001 Gdańsk\ntel. +48 58 555 03 03\nwww.kancelaria-dabek.example\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [
+      {
+        "domain": "kancelaria-dabek.example",
+        "name": "Kancelaria Dąbek i Wspólnicy Sp. k."
+      }
+    ],
+    "projects": [],
+    "links": [],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["pełnomocnictw", "12 marca"]
+  }
+}

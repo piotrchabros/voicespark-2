@@ -1,0 +1,51 @@
+{
+  "id": "en-25",
+  "set": "reference",
+  "language": "en",
+  "categories": ["outgoing", "quoted-reply"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-25",
+      "mailbox": "owner@example.com",
+      "subject": "Print run quote - annual report 2024",
+      "messages": [
+        {
+          "ref": "thr-en-25/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-25a@vellum-print.example>\r\nDate: Tue, 10 Jun 2025 09:00:00 +0000\r\nFrom: Nikolai Petrov <nikolai.petrov@vellum-print.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Print run quote - annual report 2024\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-92c06b1c\"\r\n\r\n--mix-92c06b1c\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nhere is the quote for 500 copies of the 2024 annual report, 64 pages, matte cover: 2,140 GBP excluding VAT, delivery in 10 working days from proof approval.\n\nBest,\nNikolai Petrov\nAccount Manager\nVellum Print Co.\n+44 117 496 0321\r\n--mix-92c06b1c\r\nContent-Type: application/octet-stream; name=\"vellum-quote-AR2024.pdf\"\r\nContent-Disposition: attachment; filename=\"vellum-quote-AR2024.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHZlbGx1bS1xdW90ZS1BUjIwMjQucGRm\r\n--mix-92c06b1c--\r\n"
+        },
+        {
+          "ref": "thr-en-25/2",
+          "direction": "outbound",
+          "folders": ["SENT"],
+          "raw": "Message-ID: <en-25b@example.com>\r\nDate: Tue, 10 Jun 2025 13:30:00 +0000\r\nFrom: Marek Wiśniewski <owner@example.com>\r\nTo: Nikolai Petrov <nikolai.petrov@vellum-print.example>\r\nSubject: Print run quote - annual report 2024\r\nIn-Reply-To: <en-25a@vellum-print.example>\r\nReferences: <en-25a@vellum-print.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nThanks Nikolai, please go ahead. I will send the print-ready PDF on Thursday.\n\nMarek\n\n> here is the quote for 500 copies of the 2024 annual report, 64 pages, matte cover: 2,140 GBP excluding VAT\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "nikolai.petrov@vellum-print.example",
+        "name": "Nikolai Petrov",
+        "roleTitle": "Account Manager",
+        "companyDomain": "vellum-print.example"
+      }
+    ],
+    "companies": [{ "domain": "vellum-print.example", "name": "Vellum Print Co." }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "nikolai.petrov@vellum-print.example",
+        "b": "vellum-print.example",
+        "role": "Account Manager"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["500 copies"]
+  }
+}

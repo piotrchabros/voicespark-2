@@ -1,0 +1,53 @@
+{
+  "id": "pl-01",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["signature-sp-zoo", "named-project"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-01",
+      "mailbox": "owner@example.com",
+      "subject": "Projekt Wisła - warunki umowy",
+      "messages": [
+        {
+          "ref": "thr-pl-01/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-1@zielonka-logistyka.example>\r\nDate: Tue, 06 May 2025 07:45:00 +0000\r\nFrom: Krzysztof Malinowski <krzysztof.malinowski@zielonka-logistyka.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Projekt Wisła - warunki umowy\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-e8f8f7d0\"\r\n\r\n--mix-e8f8f7d0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry Marku,\n\nw załączeniu przesyłam poprawioną wersję umowy na Projekt Wisła. Uwzględniliśmy Państwa uwagi do §4 dotyczącego terminów odbioru. Proszę o odpowiedź do piątku, bo chcemy podpisać przed końcem miesiąca.\n\nZ poważaniem,\n\nKrzysztof Malinowski\nPrezes Zarządu\nZielonka Logistyka Sp. z o.o.\nul. Przykładowa 12, 00-001 Warszawa\ntel. +48 22 555 01 10 | kom. +48 600 555 010\nwww.zielonka-logistyka.example\r\n--mix-e8f8f7d0\r\nContent-Type: application/octet-stream; name=\"umowa-wisla-v2.pdf\"\r\nContent-Disposition: attachment; filename=\"umowa-wisla-v2.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHVtb3dhLXdpc2xhLXYyLnBkZg==\r\n--mix-e8f8f7d0--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "krzysztof.malinowski@zielonka-logistyka.example",
+        "name": "Krzysztof Malinowski",
+        "roleTitle": "Prezes Zarządu",
+        "companyDomain": "zielonka-logistyka.example"
+      }
+    ],
+    "companies": [
+      { "domain": "zielonka-logistyka.example", "name": "Zielonka Logistyka Sp. z o.o." }
+    ],
+    "projects": [{ "name": "Wisła" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "krzysztof.malinowski@zielonka-logistyka.example",
+        "b": "zielonka-logistyka.example",
+        "role": "Prezes Zarządu"
+      },
+      {
+        "kind": "person_project",
+        "a": "krzysztof.malinowski@zielonka-logistyka.example",
+        "b": "Wisła"
+      },
+      { "kind": "company_project", "a": "zielonka-logistyka.example", "b": "Wisła" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Wisła", "umow"]
+  }
+}

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --project unit --passWithNoTests",
     "test:integration": "vitest run --project integration --passWithNoTests",
-    "test:import-load": "vitest run --project import-load --passWithNoTests"
+    "test:import-load": "vitest run --project import-load --passWithNoTests",
+    "hub:eval": "tsx --env-file-if-exists=../../.env eval/hub/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

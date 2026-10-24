@@ -1,0 +1,58 @@
+{
+  "id": "pl-15",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["generic-project", "seeded-project"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-15",
+      "mailbox": "owner@example.com",
+      "subject": "Re: nasz projekt",
+      "messages": [
+        {
+          "ref": "thr-pl-15/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-17@zielonka-logistyka.example>\r\nDate: Mon, 16 Jun 2025 08:00:00 +0000\r\nFrom: Krzysztof Malinowski <krzysztof.malinowski@zielonka-logistyka.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Re: nasz projekt\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nMarku,\n\nwracając do projektu: podpisaliśmy umowę, więc możemy zacząć od analizy. Proszę o termin warsztatu z Waszym zespołem.\n\nKrzysztof Malinowski\nPrezes Zarządu, Zielonka Logistyka Sp. z o.o.\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "krzysztof.malinowski@zielonka-logistyka.example",
+        "name": "Krzysztof Malinowski",
+        "roleTitle": "Prezes Zarządu"
+      }
+    ],
+    "companies": [
+      { "name": "Zielonka Logistyka Sp. z o.o.", "domain": "zielonka-logistyka.example" }
+    ],
+    "projects": [{ "name": "Wisła", "companyDomains": ["zielonka-logistyka.example"] }]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "krzysztof.malinowski@zielonka-logistyka.example",
+        "name": "Krzysztof Malinowski",
+        "roleTitle": "Prezes Zarządu",
+        "companyDomain": "zielonka-logistyka.example"
+      }
+    ],
+    "companies": [{ "domain": "zielonka-logistyka.example" }],
+    "projects": [{ "name": "Wisła" }],
+    "links": [
+      {
+        "kind": "person_project",
+        "a": "krzysztof.malinowski@zielonka-logistyka.example",
+        "b": "Wisła"
+      },
+      { "kind": "company_project", "a": "zielonka-logistyka.example", "b": "Wisła" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["umow", "warsztat"]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "pl-12",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["large-cc", "signature-sp-zoo"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-12",
+      "mailbox": "owner@example.com",
+      "subject": "Zaproszenie: konferencja Logistyka 4.0, 24 września",
+      "messages": [
+        {
+          "ref": "thr-pl-12/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-14@konferencja-przyklad.example>\r\nDate: Wed, 11 Jun 2025 09:00:00 +0000\r\nFrom: Agnieszka Rutkowska <agnieszka.rutkowska@konferencja-przyklad.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nCc: Uczestnik 1 <uczestnik1@konferencja-przyklad.example>,\r\n Uczestnik 2 <uczestnik2@konferencja-przyklad.example>,\r\n Uczestnik 3 <uczestnik3@konferencja-przyklad.example>,\r\n Uczestnik 4 <uczestnik4@konferencja-przyklad.example>,\r\n Uczestnik 5 <uczestnik5@konferencja-przyklad.example>,\r\n Uczestnik 6 <uczestnik6@konferencja-przyklad.example>,\r\n Uczestnik 7 <uczestnik7@konferencja-przyklad.example>,\r\n Uczestnik 8 <uczestnik8@konferencja-przyklad.example>,\r\n Uczestnik 9 <uczestnik9@konferencja-przyklad.example>,\r\n Uczestnik 10 <uczestnik10@konferencja-przyklad.example>,\r\n Uczestnik 11 <uczestnik11@konferencja-przyklad.example>,\r\n Uczestnik 12 <uczestnik12@konferencja-przyklad.example>,\r\n Uczestnik 13 <uczestnik13@konferencja-przyklad.example>,\r\n Uczestnik 14 <uczestnik14@konferencja-przyklad.example>,\r\n Uczestnik 15 <uczestnik15@konferencja-przyklad.example>,\r\n Uczestnik 16 <uczestnik16@konferencja-przyklad.example>,\r\n Uczestnik 17 <uczestnik17@konferencja-przyklad.example>,\r\n Uczestnik 18 <uczestnik18@konferencja-przyklad.example>,\r\n Uczestnik 19 <uczestnik19@konferencja-przyklad.example>,\r\n Uczestnik 20 <uczestnik20@konferencja-przyklad.example>,\r\n Uczestnik 21 <uczestnik21@konferencja-przyklad.example>,\r\n Uczestnik 22 <uczestnik22@konferencja-przyklad.example>,\r\n Uczestnik 23 <uczestnik23@konferencja-przyklad.example>,\r\n Uczestnik 24 <uczestnik24@konferencja-przyklad.example>,\r\n Uczestnik 25 <uczestnik25@konferencja-przyklad.example>,\r\n Uczestnik 26 <uczestnik26@konferencja-przyklad.example>\r\nSubject: Zaproszenie: konferencja Logistyka 4.0, 24 września\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nSzanowni Państwo,\n\nzapraszamy na konferencję Logistyka 4.0, która odbędzie się 24 września w Gdańsku. Prosimy o potwierdzenie udziału do 15 lipca.\n\nAgnieszka Rutkowska\nMenedżer Wydarzeń\nKonferencja Przykład Sp. z o.o.\nkom. +48 507 555 012\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "agnieszka.rutkowska@konferencja-przyklad.example",
+        "name": "Agnieszka Rutkowska",
+        "roleTitle": "Menedżer Wydarzeń",
+        "companyDomain": "konferencja-przyklad.example"
+      }
+    ],
+    "companies": [
+      { "domain": "konferencja-przyklad.example", "name": "Konferencja Przykład Sp. z o.o." }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "agnieszka.rutkowska@konferencja-przyklad.example",
+        "b": "konferencja-przyklad.example",
+        "role": "Menedżer Wydarzeń"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Logistyka 4.0", "24 września"]
+  }
+}

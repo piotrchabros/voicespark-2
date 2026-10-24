@@ -1,0 +1,36 @@
+{
+  "id": "holdout-02",
+  "set": "holdout",
+  "language": "en",
+  "categories": ["notification", "bounce", "null-return-path"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-02",
+      "mailbox": "owner@example.com",
+      "subject": "Undeliverable: Revised quotation 2025/118",
+      "messages": [
+        {
+          "ref": "thr-holdout-02/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-02@relay-postbox.example>\r\nDate: Thu, 14 Aug 2025 10:12:44 +0000\r\nFrom: Mail Delivery Subsystem <mailer-daemon@relay-postbox.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Undeliverable: Revised quotation 2025/118\r\nReturn-Path: <>\r\nAuto-Submitted: auto-replied\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDelivery has failed to these recipients or groups:\n\nkatarzyna.lewicka@ferrocast.example\nThe recipient's mailbox is full and can't accept messages now. Please try resending this message later, or contact the recipient directly.\n\nDiagnostic information for administrators:\nGenerating server: relay-postbox.example\nkatarzyna.lewicka@ferrocast.example\nRemote Server returned '552 5.2.2 Mailbox full'\n\nOriginal message headers:\nSubject: Revised quotation 2025/118\nFrom: Marek Wiśniewski <owner@example.com>\n\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

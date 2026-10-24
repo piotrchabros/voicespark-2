@@ -180,3 +180,58 @@ Nothing in this record replaces these items:
     encrypt them (Constitution VII).
   - Check the remaining items in that file and in the `docs/provider-verification.md` checklist before launch.
 - Beta measurement of SC-007 and SC-013 rating shares over a real pilot cohort.
+
+---
+
+# Spec 003 Context Hub: quickstart validation record (T157, T158)
+
+Record of running `specs/003-context-hub/quickstart.md` sections 3–7 and the full e2e suite on branch `003-context-hub`.
+
+- Date: 2026-10-24
+- Result: every runnable step passes. One step is open: `pnpm hub:eval` in recorded mode needs the T151 recordings,
+  which need a live `ANTHROPIC_API_KEY` that this host does not have.
+
+## Gate
+
+| Step | Result |
+|---|---|
+| `pnpm db:migrate` twice (test DB) | pass both times; 22 `hub_*` tables present |
+| `pnpm lint` | pass (after removing one unused import in `apps/worker/test/hub-body-sentinel.integration.test.ts`) |
+| `pnpm typecheck` | pass (db, filters, integrations, core, web, worker) |
+| `pnpm test` | pass: core 437, integrations 344 (18 skipped), worker 12, web 431 |
+| `pnpm test:corpus` | pass: value recall 100% (467/467), item recall 100% (336/336), benign false positives 0/240 |
+| `pnpm test:integration` | pass, including the hub body-sentinel (SC-008), sync latency (SC-010) and note latency tests |
+| `pnpm test:admin-isolation` | pass, 64/64 |
+| `pnpm hub:eval` (recorded) | not runnable: exits 2, "no recordings"; T151 open. The scoring path is checked with `--synthetic` (all 73 conversations meet SC-004/005/006) and by `apps/worker/test/hub-eval-runner.integration.test.ts` |
+| Section 7 encryption and leak checks | pass: `hub_person.name_enc` holds `v1.k1.` envelopes, lookup columns are 64-char HMACs, a data-only dump of `hub_*` has no `BODY-SENTINEL`, a stored file blob is not a recognisable file type |
+
+## Measured success criteria
+
+| Criterion | Measured | Limit |
+|---|---|---|
+| Note save p95 (recorded classifier in the loop) | 345 ms | 3 s |
+| SC-010 sync | 200/200 stored, p99 24 s | 99% within 60 s |
+| SC-001 create record + first note | 5.8–11.8 s; file attach in 2 steps | 60 s; 3 steps |
+| SC-002 open a record with 100 notes + 100 files | 1.2–1.3 s on `E2E_PROD=1`; 1.8–3.0 s on `next dev` (recorded, not gated) | 2 s |
+
+SC-002 first measured 8.4 s. Fixes: batched sync-status lookups in the note and file lists, and a read-only note
+renderer without an editor instance per note.
+
+## E2E (T158)
+
+`flock /tmp/voicespark-e2e.lock pnpm test:e2e`, dev mode, 92 tests in 19 files, 45.7 min: 90 passed, 2 failed. Both
+failures passed when their files were re-run alone under the same lock:
+
+- `hub-us4-suggestions-merge.spec.ts` US4.3: `ECONNRESET` from the dev server on an API call after the merge.
+- `us6-admin.spec.ts` prompt rollback: the "Rolled back to version 1." toast did not appear within 5 s.
+
+## Defects found during validation (fixed)
+
+- A Polish mobile in `+48 …` format matched the German Steuer-ID check and was rejected in hub phone fields.
+- Reference eval conversation `pl-04` had mismatched Message-ID / In-Reply-To after the port.
+
+## Open items
+
+- T151: record the eval outputs with a live key, commit `apps/worker/eval/hub/recorded/`, add `pnpm hub:eval` to CI.
+- The worker logs a BullMQ `DelayedError` (an intended re-delay, used since spec 001) as a failed job at error level.
+- See `docs/security-review.md` OI-9 to OI-15.

@@ -1,0 +1,31 @@
+{
+  "id": "pl-11",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["role-address", "notification"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-11",
+      "mailbox": "owner@example.com",
+      "subject": "Zamówienie nr 2025/233",
+      "messages": [
+        {
+          "ref": "thr-pl-11/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-13@sklep-rower.example>\r\nDate: Tue, 10 Jun 2025 10:15:00 +0000\r\nFrom: Zamówienia <zamowienia@sklep-rower.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Zamówienie nr 2025/233\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nPotwierdzamy przyjęcie zamówienia nr 2025/233. Planowana wysyłka: 12 czerwca. W razie pytań prosimy o kontakt mailowy.\n\nDział Zamówień\nSklep Rower Sp. z o.o.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

@@ -1,0 +1,18 @@
+Message-ID: <orion-{{RUN}}@mail.example>
+Date: Thu, 10 Sep 2026 08:15:00 +0000
+From: Jan Kowalski <jan@acme.example>
+To: {{OWNER}}
+Subject: Harmonogram Orion
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Dzień dobry,
+
+przesyłam harmonogram projektu Orion na kolejny kwartał. hubfx:acme-project
+
+-- 
+Jan Kowalski
+Kierownik zakupów
+Acme Sp. z o.o.
+tel. +48 601 234 567

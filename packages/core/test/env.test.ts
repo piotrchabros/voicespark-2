@@ -22,10 +22,37 @@ describe('parseEnv', () => {
     expect(env.WORKER_CONCURRENCY_IMPORT).toBe(8);
     expect(env.WORKER_CONCURRENCY_LLM).toBe(4);
     expect(env.SYNC_POLL_INTERVAL_MINUTES).toBe(5);
+    expect(env.HUB_FILES_DIR).toBe('/data/hub-files');
+    expect(env.HUB_FILE_MAX_BYTES).toBe(26214400);
+    expect(env.LLM_HUB_EXTRACTION_MODEL).toBe('claude-sonnet-5-5');
+    expect(env.LLM_HUB_EXTRACTION_EFFORT).toBe('medium');
     expect(env.AUTH_TEST_MODE).toBe(false);
     expect(env.ENCRYPTION_KEYRING).toEqual({ k1: key });
     expect(env.SUPERMEMORY_API_VERSION).toBe('v3');
     expect(env.SUPERMEMORY_BASE_URL).toBe('https://supermemory.voicespark.ai');
+  });
+
+  it('defaults the hub extraction model to the profile model and validates the effort', () => {
+    expect(parseEnv({ ...base, LLM_PROFILE_MODEL: 'm-profile' }).LLM_HUB_EXTRACTION_MODEL).toBe(
+      'm-profile',
+    );
+    expect(
+      parseEnv({ ...base, LLM_PROFILE_MODEL: 'm-profile', LLM_HUB_EXTRACTION_MODEL: 'm-hub' })
+        .LLM_HUB_EXTRACTION_MODEL,
+    ).toBe('m-hub');
+    expect(parseEnv({ ...base, LLM_HUB_EXTRACTION_EFFORT: 'high' }).LLM_HUB_EXTRACTION_EFFORT).toBe(
+      'high',
+    );
+    expect(() => parseEnv({ ...base, LLM_HUB_EXTRACTION_EFFORT: 'max' })).toThrow(EnvError);
+  });
+
+  it('refuses a sync poll interval above 10 minutes', () => {
+    expect(parseEnv({ ...base, SYNC_POLL_INTERVAL_MINUTES: '10' }).SYNC_POLL_INTERVAL_MINUTES).toBe(
+      10,
+    );
+    expect(() => parseEnv({ ...base, SYNC_POLL_INTERVAL_MINUTES: '11' })).toThrow(
+      /SYNC_POLL_INTERVAL_MINUTES/,
+    );
   });
 
   it('validates the Supermemory API version against the base URL', () => {

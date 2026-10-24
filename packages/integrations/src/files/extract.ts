@@ -2,6 +2,7 @@ import { convert } from 'html-to-text';
 import { extractText as pdfExtractText, getDocumentProxy } from 'unpdf';
 import mammoth from 'mammoth';
 import type { UploadMime } from './sniff';
+import { extractOoxmlOdf } from './office';
 
 export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -93,4 +94,68 @@ export async function extractUpload(input: {
 }): Promise<{ text: string } | { reject: UploadRejectReason }> {
   const r = await extractText(input);
   return 'failure' in r ? { reject: r.failure } : r;
+}
+
+export const HUB_EXTRACT_TIMEOUT_MS = 30_000;
+export const HUB_TEXT_MAX_CHARS = 1_000_000;
+
+export type HubExtractResult = {
+  status: 'extracted' | 'empty' | 'unsupported' | 'failed';
+  reason?: 'empty' | 'no_text_extraction_for_type' | 'image_not_searchable' | 'timeout' | 'corrupt';
+  text?: string;
+};
+
+const HUB_OFFICE_EXT = new Set(['xlsx', 'pptx', 'odt', 'ods', 'odp']);
+const HUB_PLAIN_EXT = new Set(['csv', 'txt', 'md', 'markdown']);
+const HUB_NO_TEXT_EXT = new Set(['rtf', 'doc', 'xls', 'ppt']);
+const HUB_IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
+
+const hubText = (raw: string): HubExtractResult => {
+  const text = raw.trim();
+  return text ? { status: 'extracted', text: text.slice(0, HUB_TEXT_MAX_CHARS) } : { status: 'empty', reason: 'empty' };
+};
+
+async function extractHubBody(bytes: Uint8Array, ext: string): Promise<HubExtractResult> {
+  if (HUB_IMAGE_EXT.has(ext)) return { status: 'unsupported', reason: 'image_not_searchable' };
+  if (HUB_NO_TEXT_EXT.has(ext)) return { status: 'unsupported', reason: 'no_text_extraction_for_type' };
+  if (!bytes.length) return { status: 'empty', reason: 'empty' };
+  if (ext === 'pdf') {
+    const r = await extractPdf(Buffer.from(bytes));
+    if ('text' in r) return hubText(r.text);
+    return r.failure === 'no_text' ? { status: 'empty', reason: 'empty' } : { status: 'failed', reason: 'corrupt' };
+  }
+  if (ext === 'docx') {
+    try {
+      return hubText((await mammoth.extractRawText({ buffer: Buffer.from(bytes) })).value);
+    } catch {
+      return { status: 'failed', reason: 'corrupt' };
+    }
+  }
+  if (HUB_OFFICE_EXT.has(ext)) {
+    const r = await extractOoxmlOdf(bytes, ext);
+    if ('text' in r) return hubText(r.text);
+    return r.failure === 'empty' ? { status: 'empty', reason: 'empty' } : { status: 'failed', reason: 'corrupt' };
+  }
+  if (HUB_PLAIN_EXT.has(ext)) {
+    try {
+      return hubText(new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(bytes));
+    } catch {
+      return { status: 'failed', reason: 'corrupt' };
+    }
+  }
+  return { status: 'unsupported', reason: 'no_text_extraction_for_type' };
+}
+
+// Never throws. The timeout abandons the wait; the underlying parse cannot be cancelled.
+export async function extractHubText(bytes: Uint8Array, extension: string, opts: { timeoutMs?: number } = {}): Promise<HubExtractResult> {
+  const timeoutMs = opts.timeoutMs ?? HUB_EXTRACT_TIMEOUT_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<HubExtractResult>((resolve) => {
+    timer = setTimeout(() => resolve({ status: 'failed', reason: 'timeout' }), timeoutMs);
+  });
+  try {
+    return await Promise.race([extractHubBody(bytes, extension.toLowerCase()).catch((): HubExtractResult => ({ status: 'failed', reason: 'corrupt' })), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }

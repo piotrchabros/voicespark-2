@@ -1,14 +1,36 @@
 // SC-010 (001), SC-007 (002) / constitution III: admin responses carry metadata, counts and aggregates only; admin code
 // never reads *_enc columns or the memory store; an admin reaching another user's content gets
 // not_found plus an `admin.content_access_denied` audit entry. Real test DB + Redis-test.
+import { randomUUID } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { auditLogEntry, closeDb, connectedSource, contentItem, draft, getDb } from '@voicespark/db';
+import {
+  auditLogEntry,
+  closeDb,
+  connectedSource,
+  contentItem,
+  draft,
+  getDb,
+  hubCompany,
+  hubCompanyDomain,
+  hubFact,
+  hubFile,
+  hubIgnoreRule,
+  hubLink,
+  hubMailboxSetting,
+  hubNote,
+  hubPerson,
+  hubPersonEmail,
+  hubProject,
+} from '@voicespark/db';
 import { QUEUES, closeQueues, getQueue } from '@voicespark/core/queues';
 import { AppError } from '@voicespark/core/errors';
+// Not package exports; reached by path as the seed does.
+import { nameKey } from '@voicespark/core/hub/normalize';
+import { indexTokens } from '@voicespark/core/hub/search-tokens';
 import {
   ADMIN_FORBIDDEN_FIELDS,
   ADMIN_FORBIDDEN_FIELD_PATTERN,
@@ -177,6 +199,27 @@ function forbiddenKeys(value: unknown, path = '$'): string[] {
     return [...own, ...forbiddenKeys(v, `${path}.${k}`)];
   });
 }
+
+/** Content keys added for the Context Hub (FR-029): never present at any depth of an admin response. */
+const HUB_FORBIDDEN_FIELDS = [
+  'summary',
+  'evidence',
+  'participants',
+  'emails',
+  'phone',
+  'domains',
+  'roleTitle',
+  'industry',
+  'website',
+  'extractedText',
+  'fileName',
+] as const;
+
+/** Any JSON key ending in `_enc` or `Enc`, however nested, as it appears in the raw response text. */
+const ENC_KEY_IN_TEXT = /"[^"]*(?:_enc|Enc)"\s*:/;
+
+/** Blind search token hashes of user U's seeded note (`-H5`): the index must never reach an admin. */
+const hubTokenHashes = (sd: IsolationSeed) => indexTokens(sd.userU, [`${SECRET_MARKER}-H5`]);
 
 const deniedCount = async (actorUserId: string, targetId: string) =>
   (
@@ -503,6 +546,7 @@ describe('(a) admin responses are metadata only', () => {
     actor.current = { userId: seed.adminA, role: 'admin' };
     const state: State = {};
     const failures: string[] = [];
+    const tokenHashes = hubTokenHashes(seed);
     for (const step of scenario(seed)) {
       const label = `${step.verb} ${step.route}`;
       const file = routeFile(ADMIN_API_ROOT, step.route);
@@ -528,6 +572,11 @@ describe('(a) admin responses are metadata only', () => {
       if (res.status >= 500) failures.push(`${label}: status ${res.status}`);
       if (res.text.includes(SECRET_MARKER))
         failures.push(`${label}: response contains user content`);
+      if (res.text.includes(`${SECRET_MARKER}-H`))
+        failures.push(`${label}: response contains hub content`);
+      if (ENC_KEY_IN_TEXT.test(res.text)) failures.push(`${label}: response names an _enc key`);
+      if (tokenHashes.some((h) => res.text.includes(h)))
+        failures.push(`${label}: response contains a hub search token hash`);
       const bad = forbiddenKeys(res.json);
       if (bad.length > 0) failures.push(`${label}: forbidden keys ${bad.join(', ')}`);
       if (res.status >= 200 && res.status < 300 && res.status !== 204) {
@@ -547,6 +596,86 @@ describe('(a) admin responses are metadata only', () => {
   });
 });
 
+// (a') The Context Hub reaches admins as counts and aggregates only (FR-029, SC-011).
+
+describe("(a') admin hub views are numbers only", () => {
+  const HUB_COUNT_KEYS = [
+    'recordCount',
+    'noteCount',
+    'fileCount',
+    'pendingSuggestionCount',
+    'syncFailedCount',
+    'hubMailboxCount',
+  ];
+  const HUB_AGGREGATE_KEYS = [
+    'llmCallsToday',
+    'inputTokensToday',
+    'outputTokensToday',
+    'threadsPending',
+    'threadsFailed',
+    'syncFailed',
+  ];
+
+  const hubOf = (json: unknown) => (json as { hub?: Record<string, unknown> })?.hub;
+
+  /** The `hub` object accepts exactly its number keys: an extra key, a string or a missing `hub` fails. */
+  const expectStrictNumbers = (key: string, json: unknown, keys: string[]) => {
+    const schema = ADMIN_RESPONSE_SCHEMAS[key]!;
+    const hub = hubOf(json)!;
+    expect(Object.keys(hub).sort()).toEqual([...keys].sort());
+    for (const k of keys) expect(hub[k], k).toEqual(expect.any(Number));
+    expect(schema.safeParse(json).success).toBe(true);
+    expect(schema.safeParse({ ...(json as object), hub: { ...hub, extra: 1 } }).success).toBe(
+      false,
+    );
+    expect(
+      schema.safeParse({ ...(json as object), hub: { ...hub, [keys[0]!]: '1' } }).success,
+    ).toBe(false);
+    const { hub: _dropped, ...withoutHub } = json as Record<string, unknown>;
+    expect(schema.safeParse(withoutHub).success).toBe(false);
+  };
+
+  it('ADMIN_FORBIDDEN_FIELDS names every hub content key', () => {
+    const missing = HUB_FORBIDDEN_FIELDS.filter(
+      (k) => !(ADMIN_FORBIDDEN_FIELDS as readonly string[]).includes(k),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it("GET /api/admin/users/[id] carries user U's hub counts only", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const res = await call(ADMIN_API_ROOT, 'users/[id]', 'GET', { id: seed.userU });
+    expect(res.status).toBe(200);
+    // The seed: one person, company and project, one note, one file, one suggested fact, one
+    // failed sync item and one hub-enabled mailbox.
+    expect(hubOf(res.json)).toEqual({
+      recordCount: 3,
+      noteCount: 1,
+      fileCount: 1,
+      pendingSuggestionCount: 1,
+      syncFailedCount: 1,
+      hubMailboxCount: 1,
+    });
+    expectStrictNumbers('GET /api/admin/users/[id]', res.json, HUB_COUNT_KEYS);
+    expect(res.text).not.toContain(`${SECRET_MARKER}-H`);
+    expect(forbiddenKeys(res.json)).toEqual([]);
+    expect(res.text).not.toMatch(ENC_KEY_IN_TEXT);
+    for (const h of hubTokenHashes(seed)) expect(res.text).not.toContain(h);
+  });
+
+  it('GET /api/admin/system/health carries hub aggregates only', async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const res = await call(ADMIN_API_ROOT, 'system/health', 'GET');
+    expect(res.status).toBe(200);
+    expectStrictNumbers('GET /api/admin/system/health', res.json, HUB_AGGREGATE_KEYS);
+    // Both seeded users carry a failed sync item.
+    expect(hubOf(res.json)!.syncFailed).toBeGreaterThanOrEqual(2);
+    expect(res.text).not.toContain(`${SECRET_MARKER}-H`);
+    expect(forbiddenKeys(res.json)).toEqual([]);
+    expect(res.text).not.toMatch(ENC_KEY_IN_TEXT);
+  });
+});
+
 // (b) Another user's content is not_found for an admin, and the attempt is audited.
 
 describe("(b) an admin reaching another user's content", () => {
@@ -556,7 +685,8 @@ describe("(b) an admin reaching another user's content", () => {
     verb: Verb;
     params: (sd: IsolationSeed) => Record<string, string>;
     target: (sd: IsolationSeed) => string;
-    body?: unknown;
+    /** A JSON body, or one built from the seed's ids. */
+    body?: unknown | ((sd: IsolationSeed) => unknown);
     query?: Record<string, string>;
     /** Extra assertion that the target row is untouched after the denied call. */
     unchanged?: (sd: IsolationSeed) => Promise<void>;
@@ -676,6 +806,323 @@ describe("(b) an admin reaching another user's content", () => {
       params: (sd) => ({ id: sd.u.uploadId }),
       target: (sd) => sd.u.uploadId,
     },
+    {
+      name: 'hub person',
+      route: 'hub/[kind]/[id]',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+    },
+    {
+      name: 'hub project delete preview',
+      route: 'hub/[kind]/[id]',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'projects', id: sd.u.hub.projectId }),
+      target: (sd) => sd.u.hub.projectId,
+      query: { deletePreview: '1' },
+    },
+    {
+      name: 'hub company rename',
+      route: 'hub/[kind]/[id]',
+      verb: 'PATCH',
+      params: (sd) => ({ kind: 'companies', id: sd.u.hub.companyId }),
+      target: (sd) => sd.u.hub.companyId,
+      body: { name: 'renamed by an admin' },
+      unchanged: async (sd) => {
+        const [row] = await getDb()
+          .select({ nameKey: hubCompany.nameKey })
+          .from(hubCompany)
+          .where(eq(hubCompany.id, sd.u.hub.companyId));
+        expect(row?.nameKey).toBe(nameKey(sd.userU, 'company', `${SECRET_MARKER}-H2`));
+      },
+    },
+    {
+      name: 'hub project delete',
+      route: 'hub/[kind]/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ kind: 'projects', id: sd.u.hub.projectId }),
+      target: (sd) => sd.u.hub.projectId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubProject.id })
+          .from(hubProject)
+          .where(eq(hubProject.id, sd.u.hub.projectId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub person email add',
+      route: 'hub/[kind]/[id]/emails',
+      verb: 'POST',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+      body: { address: 'added-by-an-admin@example.test' },
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubPersonEmail.id })
+          .from(hubPersonEmail)
+          .where(eq(hubPersonEmail.personId, sd.u.hub.personId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub person email remove',
+      route: 'hub/[kind]/[id]/emails/[emailId]',
+      verb: 'DELETE',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId, emailId: randomUUID() }),
+      target: (sd) => sd.u.hub.personId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubPersonEmail.id })
+          .from(hubPersonEmail)
+          .where(eq(hubPersonEmail.personId, sd.u.hub.personId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub company domain add',
+      route: 'hub/[kind]/[id]/domains',
+      verb: 'POST',
+      params: (sd) => ({ kind: 'companies', id: sd.u.hub.companyId }),
+      target: (sd) => sd.u.hub.companyId,
+      body: { domain: 'added-by-an-admin.example.test' },
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubCompanyDomain.id })
+          .from(hubCompanyDomain)
+          .where(eq(hubCompanyDomain.companyId, sd.u.hub.companyId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub company domain remove',
+      route: 'hub/[kind]/[id]/domains/[domainId]',
+      verb: 'DELETE',
+      params: (sd) => ({ kind: 'companies', id: sd.u.hub.companyId, domainId: randomUUID() }),
+      target: (sd) => sd.u.hub.companyId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubCompanyDomain.id })
+          .from(hubCompanyDomain)
+          .where(eq(hubCompanyDomain.companyId, sd.u.hub.companyId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub link create',
+      route: 'hub/links',
+      verb: 'POST',
+      params: () => ({}),
+      target: (sd) => sd.u.hub.personId,
+      body: (sd: IsolationSeed) => ({
+        kind: 'person_project',
+        personId: sd.u.hub.personId,
+        projectId: sd.u.hub.projectId,
+      }),
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubLink.id })
+          .from(hubLink)
+          .where(eq(hubLink.userId, sd.userU));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub link role',
+      route: 'hub/links/[id]',
+      verb: 'PATCH',
+      params: (sd) => ({ id: sd.u.hub.linkId }),
+      target: (sd) => sd.u.hub.linkId,
+      body: { role: 'set by an admin' },
+    },
+    {
+      name: 'hub link delete',
+      route: 'hub/links/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ id: sd.u.hub.linkId }),
+      target: (sd) => sd.u.hub.linkId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubLink.id })
+          .from(hubLink)
+          .where(eq(hubLink.id, sd.u.hub.linkId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub record notes',
+      route: 'hub/[kind]/[id]/notes',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+    },
+    {
+      name: 'hub note create',
+      route: 'hub/[kind]/[id]/notes',
+      verb: 'POST',
+      params: (sd) => ({ kind: 'projects', id: sd.u.hub.projectId }),
+      target: (sd) => sd.u.hub.projectId,
+      body: {
+        title: 'Added by an admin',
+        body: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'added by an admin' }] }],
+        },
+      },
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubNote.id })
+          .from(hubNote)
+          .where(eq(hubNote.userId, sd.userU));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub note',
+      route: 'hub/notes/[id]',
+      verb: 'GET',
+      params: (sd) => ({ id: sd.u.hub.noteId }),
+      target: (sd) => sd.u.hub.noteId,
+    },
+    {
+      name: 'hub note edit',
+      route: 'hub/notes/[id]',
+      verb: 'PATCH',
+      params: (sd) => ({ id: sd.u.hub.noteId }),
+      target: (sd) => sd.u.hub.noteId,
+      body: { title: 'overwritten by an admin' },
+    },
+    {
+      name: 'hub note delete',
+      route: 'hub/notes/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ id: sd.u.hub.noteId }),
+      target: (sd) => sd.u.hub.noteId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubNote.id })
+          .from(hubNote)
+          .where(eq(hubNote.id, sd.u.hub.noteId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub record files',
+      route: 'hub/[kind]/[id]/files',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'companies', id: sd.u.hub.companyId }),
+      target: (sd) => sd.u.hub.companyId,
+    },
+    {
+      name: 'hub file',
+      route: 'hub/files/[id]',
+      verb: 'GET',
+      params: (sd) => ({ id: sd.u.hub.fileId }),
+      target: (sd) => sd.u.hub.fileId,
+    },
+    {
+      name: 'hub file rename',
+      route: 'hub/files/[id]',
+      verb: 'PATCH',
+      params: (sd) => ({ id: sd.u.hub.fileId }),
+      target: (sd) => sd.u.hub.fileId,
+      body: { name: 'renamed-by-admin.pdf' },
+    },
+    {
+      name: 'hub file delete',
+      route: 'hub/files/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ id: sd.u.hub.fileId }),
+      target: (sd) => sd.u.hub.fileId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubFile.id })
+          .from(hubFile)
+          .where(eq(hubFile.id, sd.u.hub.fileId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub file download',
+      route: 'hub/files/[id]/download',
+      verb: 'GET',
+      params: (sd) => ({ id: sd.u.hub.fileId }),
+      target: (sd) => sd.u.hub.fileId,
+    },
+    {
+      name: 'hub mailbox enable',
+      route: 'hub/mailboxes/[sourceId]/enable',
+      verb: 'POST',
+      params: (sd) => ({ sourceId: sd.u.hub.mailboxSourceId }),
+      target: (sd) => sd.u.hub.mailboxSourceId,
+      body: { acknowledgeAi: true },
+    },
+    {
+      name: 'hub mailbox disable',
+      route: 'hub/mailboxes/[sourceId]/disable',
+      verb: 'POST',
+      params: (sd) => ({ sourceId: sd.u.hub.mailboxSourceId }),
+      target: (sd) => sd.u.hub.mailboxSourceId,
+      body: { hubData: 'delete' },
+      unchanged: async (sd) => {
+        const [row] = await getDb()
+          .select({ enabled: hubMailboxSetting.enabled })
+          .from(hubMailboxSetting)
+          .where(eq(hubMailboxSetting.sourceId, sd.u.hub.mailboxSourceId));
+        expect(row?.enabled).toBe(true);
+      },
+    },
+    {
+      name: 'hub mailbox thread retry',
+      route: 'hub/mailboxes/[sourceId]/threads/[threadId]/retry',
+      verb: 'POST',
+      params: (sd) => ({ sourceId: sd.u.hub.mailboxSourceId, threadId: sd.u.hub.threadId }),
+      target: (sd) => sd.u.hub.threadId,
+    },
+    {
+      name: 'hub ignore rule delete',
+      route: 'hub/ignore-rules/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ id: sd.u.hub.ignoreRuleId }),
+      target: (sd) => sd.u.hub.ignoreRuleId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubIgnoreRule.id })
+          .from(hubIgnoreRule)
+          .where(eq(hubIgnoreRule.id, sd.u.hub.ignoreRuleId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub record sources',
+      route: 'hub/[kind]/[id]/sources',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+    },
+    {
+      name: 'hub merge preview',
+      route: 'hub/[kind]/[id]/merge-preview',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+      query: { sourceId: '00000000-0000-4000-8000-0000000000aa' },
+    },
+    {
+      name: 'hub merge',
+      route: 'hub/[kind]/[id]/merge',
+      verb: 'POST',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
+      body: { sourceId: '00000000-0000-4000-8000-0000000000aa' },
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubPerson.id })
+          .from(hubPerson)
+          .where(eq(hubPerson.id, sd.u.hub.personId));
+        expect(rows).toHaveLength(1);
+      },
+    },
   ];
 
   for (const probe of probes) {
@@ -684,8 +1131,9 @@ describe("(b) an admin reaching another user's content", () => {
       actor.current = { userId: seed.adminA, role: 'admin' };
       const target = probe.target(seed);
       const before = await deniedCount(seed.adminA, target);
+      const body = typeof probe.body === 'function' ? probe.body(seed) : probe.body;
       const res = await call(API_ROOT, probe.route, probe.verb, probe.params(seed), {
-        ...(probe.body !== undefined ? { body: probe.body } : {}),
+        ...(body !== undefined ? { body } : {}),
         ...(probe.query ? { query: probe.query } : {}),
       });
       expect(res.status).toBe(404);
@@ -761,6 +1209,86 @@ describe("(b) an admin reaching another user's content", () => {
     expect(res.text).not.toContain(SECRET_MARKER);
   });
 
+  it("GET /api/hub/people lists only the admin's own records", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const res = await call(
+      API_ROOT,
+      'hub/[kind]',
+      'GET',
+      { kind: 'people' },
+      { query: { limit: '100' } },
+    );
+    expect(res.status).toBe(200);
+    const ids = listIds(res.json);
+    expect(ids).toContain(seed.a.hub.personId);
+    expect(ids).not.toContain(seed.u.hub.personId);
+    expect(res.text).not.toContain(seed.u.hub.personId);
+  });
+
+  it("GET /api/hub/sync shows only the admin's own sync items", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const res = await call(API_ROOT, 'hub/sync', 'GET', {}, { query: { limit: '100' } });
+    expect(res.status).toBe(200);
+    const ids = listIds(res.json);
+    expect(ids).toContain(seed.a.hub.syncItemId);
+    expect(ids).not.toContain(seed.u.hub.syncItemId);
+    // The admin's own seeded hub data carries the same marker text, so the check is by user U's ids.
+    for (const id of Object.values(seed.u.hub)) expect(res.text).not.toContain(id);
+  });
+
+  it("GET /api/hub/search finds only the admin's own items, with no audit", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const before = await deniedCount(seed.adminA, seed.u.hub.noteId);
+    // Both hubs carry a note whose title and body are `${SECRET_MARKER}-H5`; only the admin's own one may come back.
+    const res = await call(
+      API_ROOT,
+      'hub/search',
+      'GET',
+      {},
+      { query: { q: `${SECRET_MARKER}-H5`, limit: '100' } },
+    );
+    expect(res.status).toBe(200);
+    const ids = listIds(res.json);
+    expect(ids).toContain(seed.a.hub.noteId);
+    expect(ids).not.toContain(seed.u.hub.noteId);
+    for (const id of Object.values(seed.u.hub)) expect(res.text).not.toContain(id);
+    for (const h of hubTokenHashes(seed)) expect(res.text).not.toContain(h);
+    expect(await deniedCount(seed.adminA, seed.u.hub.noteId)).toBe(before);
+  });
+
+  it("GET /api/hub/suggestions lists only the admin's own suggestions, with no audit", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const before = await deniedCount(seed.adminA, seed.u.hub.factId);
+    const res = await call(API_ROOT, 'hub/suggestions', 'GET', {}, { query: { limit: '100' } });
+    expect(res.status).toBe(200);
+    const ids = listIds(res.json);
+    expect(ids).toContain(seed.a.hub.factId);
+    expect(ids).not.toContain(seed.u.hub.factId);
+    for (const id of Object.values(seed.u.hub)) expect(res.text).not.toContain(id);
+    expect(await deniedCount(seed.adminA, seed.u.hub.factId)).toBe(before);
+  });
+
+  it("GET /api/hub/suggestions/count counts only the admin's own suggestions", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const res = await call(API_ROOT, 'hub/suggestions/count', 'GET');
+    expect(res.status).toBe(200);
+    // The admin's own hub seed holds exactly one suggestion; user U's is not counted.
+    expect(res.json).toEqual({ pending: 1 });
+  });
+
+  it("POST /api/hub/suggestions/decide leaves user U's suggestion untouched, with no audit", async () => {
+    actor.current = { userId: seed.adminA, role: 'admin' };
+    const target = seed.u.hub.factId;
+    const before = await deniedCount(seed.adminA, target);
+    const res = await call(API_ROOT, 'hub/suggestions/decide', 'POST', {}, { body: { ids: [target], action: 'reject' } });
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ results: [{ id: target, status: 'failed', errorCode: 'not_found' }] });
+    expect(res.text).not.toContain(SECRET_MARKER);
+    const [row] = await getDb().select({ state: hubFact.state }).from(hubFact).where(eq(hubFact.id, target));
+    expect(row?.state).toBe('suggested');
+    expect(await deniedCount(seed.adminA, target)).toBe(before);
+  });
+
   it("GET /api/content-items lists only the admin's own items", async () => {
     actor.current = { userId: seed.adminA, role: 'admin' };
     const res = await call(API_ROOT, 'content-items', 'GET', {}, { query: { limit: '100' } });
@@ -804,6 +1332,39 @@ describe('(c) admin import bans', () => {
         .map((m) => `${toPosix(relative(REPO_ROOT, r.filePath))}:${m.line} ${m.message}`),
     );
     expect(banned).toEqual([]);
+  });
+
+  it('pnpm lint fails when an admin file imports a hub service (fixture)', async () => {
+    const fixture = join(
+      WEB_ROOT,
+      'test',
+      'admin-isolation',
+      'lint-fixtures',
+      'admin-imports-hub-service.ts',
+    );
+    const code = readFileSync(fixture, 'utf8');
+    const importLines = code
+      .split('\n')
+      .map((line, i) => (line.startsWith('import ') ? i + 1 : 0))
+      .filter((n) => n > 0);
+    expect(importLines.length).toBeGreaterThan(0);
+    const { ESLint } = await import('eslint');
+    const eslint = new ESLint({ cwd: REPO_ROOT });
+    const adminPaths = [
+      'apps/web/app/api/admin/hub/route.ts',
+      'apps/web/app/(admin)/admin/hub/page.tsx',
+      'apps/web/components/admin/hub.tsx',
+      'packages/core/src/services/admin-users.ts',
+      'packages/core/src/services/admin-system.ts',
+      'packages/db/src/repos/admin/hub.ts',
+    ];
+    for (const filePath of adminPaths) {
+      const [result] = await eslint.lintText(code, { filePath: join(REPO_ROOT, filePath) });
+      const bannedLines = result!.messages
+        .filter((m) => m.ruleId === 'no-restricted-imports')
+        .map((m) => m.line);
+      expect(bannedLines, `${filePath} bans every hub import`).toEqual(importLines);
+    }
   });
 
   it('the ban is wired for admin files', async () => {

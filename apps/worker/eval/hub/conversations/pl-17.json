@@ -1,0 +1,63 @@
+{
+  "id": "pl-17",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["multi-address", "freemail", "seeded-person"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-17",
+      "mailbox": "owner@example.com",
+      "subject": "Prywatnie: CV i referencje",
+      "messages": [
+        {
+          "ref": "thr-pl-17/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-19@gmail.com>\r\nDate: Wed, 18 Jun 2025 18:00:00 +0000\r\nFrom: Natalia Woźniak <natalia.wozniak.priv@gmail.com>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Prywatnie: CV i referencje\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-cb102a85\"\r\n\r\n--mix-cb102a85\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nCześć Marek,\n\nwysyłam z prywatnej skrzynki, bo służbowa jest chwilowo niedostępna. W załączeniu moje CV i dwie referencje.\n\nNatalia Woźniak\nKierownik Działu Finansów\nBrzoza Doradztwo Sp. j.\ntel. +48 22 555 01 17\r\n--mix-cb102a85\r\nContent-Type: application/octet-stream; name=\"cv-natalia-wozniak.pdf\"\r\nContent-Disposition: attachment; filename=\"cv-natalia-wozniak.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGN2LW5hdGFsaWEtd296bmlhay5wZGY=\r\n--mix-cb102a85--\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "natalia.wozniak@brzoza-doradztwo.example",
+        "name": "Natalia Woźniak",
+        "roleTitle": "Kierownik Działu Finansów",
+        "phone": "+48 22 555 01 17"
+      }
+    ],
+    "companies": [{ "name": "Brzoza Doradztwo Sp. j.", "domain": "brzoza-doradztwo.example" }]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "natalia.wozniak.priv@gmail.com",
+        "name": "Natalia Woźniak",
+        "roleTitle": "Kierownik Działu Finansów",
+        "companyDomain": "brzoza-doradztwo.example"
+      }
+    ],
+    "companies": [{ "domain": "brzoza-doradztwo.example", "name": "Brzoza Doradztwo Sp. j." }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "natalia.wozniak.priv@gmail.com",
+        "b": "brzoza-doradztwo.example",
+        "role": "Kierownik Działu Finansów"
+      }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "person_email",
+        "reason": "name_only_match",
+        "person": "natalia.wozniak@brzoza-doradztwo.example",
+        "address": "natalia.wozniak.priv@gmail.com"
+      }
+    ],
+    "summaryMentions": ["CV", "referencj"]
+  }
+}

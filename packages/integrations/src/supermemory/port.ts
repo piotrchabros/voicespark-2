@@ -78,4 +78,12 @@ export const META = {
   folders: 'vs_folders',
   senderHash: 'vs_sender_hash',
   senderDomainHash: 'vs_sender_domain_hash',
+  // Context Hub documents (contracts/memory-store-hub.md "Metadata"); never names, addresses or domains.
+  hubItemId: 'vs_hub_item_id',
+  hubOwnerKind: 'vs_hub_owner_kind',
+  hubOwnerId: 'vs_hub_owner_id',
+  hubLinkedKeys: 'vs_hub_linked_keys',
+  hubVersion: 'vs_hub_version',
+  hubEmailHashes: 'vs_hub_email_hashes',
+  hubDomainHashes: 'vs_hub_domain_hashes',
 } as const;

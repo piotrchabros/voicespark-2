@@ -50,6 +50,9 @@ function splitDocument(content: string): { subject?: string; body: string } {
   return { ...(subject !== undefined ? { subject } : {}), body: content.slice(split + 2) };
 }
 
+/** Context hub documents (`hub_{type}_{uuid}`) are re-filtered by `hub.refilter`, never retro-scanned. */
+const HUB_ID_PREFIX = 'hub_';
+
 async function* listAll(
   store: MemoryStore,
   ns: string,
@@ -61,7 +64,7 @@ async function* listAll(
       page,
       limit: SCAN_PAGE_SIZE,
     });
-    yield* res.documents;
+    for (const doc of res.documents) if (!doc.id.startsWith(HUB_ID_PREFIX)) yield doc;
     if (!res.hasMore || res.documents.length === 0) return;
   }
 }

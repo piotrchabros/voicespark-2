@@ -6,7 +6,7 @@ import * as adminUsers from '@voicespark/core/services/admin-users';
 import { Forbidden } from '@/components/admin/forbidden';
 import { UserActions } from '@/components/admin/user-actions';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -136,6 +136,32 @@ export default async function AdminUserDetailPage({
               </Table>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Context Hub</CardTitle>
+          <CardDescription>Counts only; hub content is never shown to admins.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+            {(
+              [
+                ['Records', u.hub.recordCount],
+                ['Notes', u.hub.noteCount],
+                ['Files', u.hub.fileCount],
+                ['Pending suggestions', u.hub.pendingSuggestionCount],
+                ['Failed syncs', u.hub.syncFailedCount],
+                ['Hub mailboxes', u.hub.hubMailboxCount],
+              ] as const
+            ).map(([label, value]) => (
+              <div key={label} className="flex flex-col">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium">{value}</dd>
+              </div>
+            ))}
+          </dl>
         </CardContent>
       </Card>
 

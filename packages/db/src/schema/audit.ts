@@ -47,6 +47,16 @@ export const AUDIT_ACTIONS = [
   'analysis_prompt.saved',
   'analysis_prompt.reset',
   'profile.document_edited',
+  'hub.mailbox_enabled',
+  'hub.mailbox_disabled',
+  'hub.mailbox_data_deleted',
+  'hub.record_deleted',
+  'hub.records_merged',
+  'hub.suggestions_bulk_decided',
+  'hub.ignore_rule_created',
+  'hub.ignore_rule_deleted',
+  'hub.resync_requested',
+  'hub.file_excluded',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

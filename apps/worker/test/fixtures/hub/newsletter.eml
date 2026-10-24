@@ -1,0 +1,12 @@
+Message-ID: <newsletter-{{RUN}}@mail.example>
+Date: Fri, 11 Sep 2026 06:00:00 +0000
+From: Shop News <hello@shop.example>
+To: {{OWNER}}
+Subject: Nowości tygodnia
+List-Unsubscribe: <https://shop.example/unsubscribe>
+List-Id: <weekly.shop.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Nowości tygodnia w naszym sklepie. Promocje na stal i narzędzia. hubfx:acme-offer

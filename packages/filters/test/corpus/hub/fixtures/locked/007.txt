@@ -1,0 +1,7 @@
+Hello,
+
+Notes from today.
+Questions? Write to anna.nowak@brightpay.example.
+Reset your password here: https://accounts.northwind-test.example/reset-password?token=NKw0yX4CUhw4yK0fVXYyNMbfzpQXppT2
+
+Thanks

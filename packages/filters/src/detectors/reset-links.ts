@@ -1,10 +1,10 @@
 import type { Detector, Span } from '../categories';
-import { findAllMatches, mergeSpans, shannonEntropy } from './util';
+import { findAllMatches, mergeSpans, shannonEntropy, trimTrailing } from './util';
 
 export const DETECTOR_CHECKSUM = 'reset-links@1';
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"'`]+/gi;
-const TRAILING_PUNCT = /[.,;:!?)\]}>]+$/;
+const TRAILING_PUNCT = '.,;:!?)]}>';
 
 const SENSITIVE_PATH =
   /(?:^|[/_.-])(?:reset|recover|verif|confirm|magic|login|signin|sign-in|activate|unsubscribe-token)/i;
@@ -48,10 +48,11 @@ function isSensitive(url: string): boolean {
   return false;
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
   for (const m of findAllMatches(URL_RE, text)) {
-    const url = m[0].replace(TRAILING_PUNCT, '');
+    const url = trimTrailing(m[0], TRAILING_PUNCT);
     if (isSensitive(url)) {
       spans.push({
         start: m.index,
@@ -62,3 +63,5 @@ export const detect: Detector = async (text) => {
   }
   return mergeSpans(spans);
 };
+
+export const detect: Detector = async (text) => detectSync(text);

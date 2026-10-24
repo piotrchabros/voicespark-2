@@ -1,0 +1,31 @@
+{
+  "id": "pl-07",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["notification"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-07",
+      "mailbox": "owner@example.com",
+      "subject": "Faktura FV/2025/06/0142 jest dostępna",
+      "messages": [
+        {
+          "ref": "thr-pl-07/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-9@fakturownia-online.example>\r\nDate: Wed, 04 Jun 2025 04:30:00 +0000\r\nFrom: Fakturownia Online <no-reply@fakturownia-online.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Faktura FV/2025/06/0142 jest dostępna\r\nAuto-Submitted: auto-generated\r\nX-Auto-Response-Suppress: All\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nnowa faktura FV/2025/06/0142 na kwotę 1 230,00 zł została wystawiona. Termin płatności: 18.06.2025. Wiadomość wygenerowana automatycznie, prosimy na nią nie odpowiadać.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

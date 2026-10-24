@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --project unit --passWithNoTests",
     "test:integration": "vitest run --project integration --passWithNoTests",
-    "test:corpus": "vitest run --project corpus",
+    "test:corpus": "vitest run --project corpus test/corpus/hub-corpus.test.ts && vitest run --project corpus test/corpus/corpus.test.ts",
     "test:corpus:live": "CORPUS_LIVE=1 vitest run --project corpus"
   },
   "dependencies": {

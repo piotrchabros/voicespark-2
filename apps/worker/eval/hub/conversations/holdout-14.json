@@ -1,0 +1,69 @@
+{
+  "id": "holdout-14",
+  "set": "holdout",
+  "language": "en",
+  "categories": ["large-cc", "named-project", "signature-ltd"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-14",
+      "mailbox": "owner@example.com",
+      "subject": "Project Tideline - steering committee minutes",
+      "messages": [
+        {
+          "ref": "thr-holdout-14/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-14@tideline-ports.example>\r\nDate: Wed, 27 Aug 2025 15:40:00 +0000\r\nFrom: Declan Moore <declan.moore@tideline-ports.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nCc: Aoife Byrne <aoife.byrne@tideline-ports.example>,\r\n Brendan Kelly <brendan.kelly@tideline-ports.example>,\r\n Ciara Walsh <ciara.walsh@tideline-ports.example>,\r\n Darragh Ryan <darragh.ryan@tideline-ports.example>,\r\n Eimear Doyle <eimear.doyle@tideline-ports.example>,\r\n Fionn Murphy <fionn.murphy@tideline-ports.example>,\r\n Grainne Nolan <grainne.nolan@tideline-ports.example>,\r\n Hugh Brennan <hugh.brennan@tideline-ports.example>,\r\n Iseult Quinn <iseult.quinn@tideline-ports.example>,\r\n Jarlath Reilly <jarlath.reilly@tideline-ports.example>,\r\n Kate Dunne <kate.dunne@tideline-ports.example>,\r\n Liam Healy <liam.healy@tideline-ports.example>,\r\n Maeve Burke <maeve.burke@tideline-ports.example>,\r\n Niall Flynn <niall.flynn@tideline-ports.example>,\r\n Orla Keane <orla.keane@tideline-ports.example>,\r\n Padraig Lynch <padraig.lynch@tideline-ports.example>,\r\n Roisin Kenny <roisin.kenny@tideline-ports.example>,\r\n Sean Molloy <sean.molloy@tideline-ports.example>,\r\n Tara Higgins <tara.higgins@tideline-ports.example>,\r\n Ultan Power <ultan.power@tideline-ports.example>,\r\n Victor Osei <v.osei@harbour-consult.example>,\r\n Wendy Lam <w.lam@harbour-consult.example>,\r\n Xenia Petrova <x.petrova@harbour-consult.example>,\r\n Yemi Adeyemi <y.adeyemi@harbour-consult.example>,\r\n Zoe Novak <z.novak@harbour-consult.example>\r\nSubject: Project Tideline - steering committee minutes\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-526b2d97\"\r\n\r\n--mix-526b2d97\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nAll,\n\nminutes of today's Project Tideline steering committee are attached. Decisions: the berth scheduling module moves to phase 2, and the go-live for phase 1 stays at 3 November. Marek, action for you: confirm the integration test window by 5 September.\n\nRegards,\nDeclan Moore\nHead of PMO\nTideline Ports Ltd\n+353 1 555 0142\r\n--mix-526b2d97\r\nContent-Type: application/octet-stream; name=\"tideline-steerco-2025-08-minutes.docx\"\r\nContent-Disposition: attachment; filename=\"tideline-steerco-2025-08-minutes.docx\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHRpZGVsaW5lLXN0ZWVyY28tMjAyNS0wOC1taW51dGVzLmRvY3g=\r\n--mix-526b2d97--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "declan.moore@tideline-ports.example",
+        "name": "Declan Moore",
+        "roleTitle": "Head of PMO",
+        "companyDomain": "tideline-ports.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "tideline-ports.example",
+        "name": "Tideline Ports Ltd"
+      }
+    ],
+    "projects": [
+      {
+        "name": "Tideline"
+      }
+    ],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "declan.moore@tideline-ports.example",
+        "b": "tideline-ports.example",
+        "role": "Head of PMO"
+      },
+      {
+        "kind": "person_project",
+        "a": "declan.moore@tideline-ports.example",
+        "b": "Tideline"
+      },
+      {
+        "kind": "company_project",
+        "a": "tideline-ports.example",
+        "b": "Tideline"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Tideline", "3 November"]
+  }
+}

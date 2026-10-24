@@ -1,0 +1,53 @@
+{
+  "id": "en-02",
+  "set": "reference",
+  "language": "en",
+  "categories": ["named-project", "quoted-reply", "outgoing"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-02",
+      "mailbox": "owner@example.com",
+      "subject": "Atlas migration - staging cut-over date",
+      "messages": [
+        {
+          "ref": "thr-en-02/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-02a@quillstone.example>\r\nDate: Mon, 12 May 2025 10:05:00 +0000\r\nFrom: Daniel Mercer <daniel.mercer@quillstone.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Atlas migration - staging cut-over date\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\ncan we move the Atlas staging cut-over to 26 May? Our QA team needs three more days for the regression run.\n\nThanks,\nDaniel Mercer\nEngineering Manager, Quillstone Software Inc.\nTel +44 20 7946 0101\r\n"
+        },
+        {
+          "ref": "thr-en-02/2",
+          "direction": "outbound",
+          "folders": ["SENT"],
+          "raw": "Message-ID: <en-02b@example.com>\r\nDate: Mon, 12 May 2025 11:20:00 +0000\r\nFrom: Marek Wiśniewski <owner@example.com>\r\nTo: Daniel Mercer <daniel.mercer@quillstone.example>\r\nSubject: Atlas migration - staging cut-over date\r\nIn-Reply-To: <en-02a@quillstone.example>\r\nReferences: <en-02a@quillstone.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Daniel,\n\n26 May works for us. I will update the Atlas runbook.\n\nMarek\n\nOn Mon, 12 May 2025 at 11:05, Daniel Mercer <daniel.mercer@quillstone.example> wrote:\n> can we move the Atlas staging cut-over to 26 May? Our QA team needs three more days for the regression run.\n>\n> Daniel Mercer\n> Engineering Manager, Quillstone Software Inc.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "daniel.mercer@quillstone.example",
+        "name": "Daniel Mercer",
+        "roleTitle": "Engineering Manager",
+        "companyDomain": "quillstone.example"
+      }
+    ],
+    "companies": [{ "domain": "quillstone.example", "name": "Quillstone Software Inc." }],
+    "projects": [{ "name": "Atlas" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "daniel.mercer@quillstone.example",
+        "b": "quillstone.example",
+        "role": "Engineering Manager"
+      },
+      { "kind": "person_project", "a": "daniel.mercer@quillstone.example", "b": "Atlas" },
+      { "kind": "company_project", "a": "quillstone.example", "b": "Atlas" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["26 May"]
+  }
+}

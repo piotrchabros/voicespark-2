@@ -6,6 +6,7 @@ import { decrypt } from '@voicespark/core/crypto';
 import { AppError, type ServiceContext } from '@voicespark/core/errors';
 import { enqueue } from '@voicespark/core/queues';
 import * as drafts from '@voicespark/core/services/drafts';
+import * as records from '@voicespark/core/services/hub/records';
 import * as profiles from '@voicespark/core/services/profiles';
 import {
   choose,
@@ -231,6 +232,8 @@ describe('list', () => {
       status: 'queued',
       rating: null,
       createdAt: expect.any(String),
+      hubRecord: null,
+      hubContextStatus: null,
     });
     expect(new Date(all.items[0]!.createdAt).toISOString()).toBe(all.items[0]!.createdAt);
 
@@ -379,6 +382,121 @@ describe('regenerate (FR-053, FR-058, D-D2)', () => {
     const { draftId } = await drafts.regenerate(a.ctx, parentId);
     expect((await row(draftId))!.feedbackEnc).toBeNull();
     await expectCode(drafts.regenerate(a.ctx, parentId, 'f'.repeat(2001)), 'validation_failed');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+describe('hub record pin (FR-027, AS6.3)', () => {
+  const brief = 'Follow up on the pilot';
+
+  it('stores kind, id and the encrypted name at creation; list and get carry hubRecord', async () => {
+    const a = await author();
+    const { record } = await records.create(a.ctx, 'person', { name: 'Jan Kowalski', roleTitle: 'CTO' });
+
+    const { draftId } = await drafts.create(a.ctx, {
+      contentType: 'social_post',
+      profileId: a.profileId,
+      brief,
+      hubRecord: { kind: 'person', id: record.id },
+    });
+
+    const r = await row(draftId);
+    expect(r).toMatchObject({ hubRecordKind: 'person', hubRecordId: record.id, hubContextStatus: null });
+    expect(r!.hubRecordLabelEnc).not.toContain('Kowalski');
+    expect(decrypt('user-content', r!.hubRecordLabelEnc!)).toBe('Jan Kowalski');
+
+    const pin = { kind: 'person', id: record.id, label: 'Jan Kowalski' };
+    expect((await drafts.list(a.ctx, { limit: 50 })).items[0]).toMatchObject({ id: draftId, hubRecord: pin, hubContextStatus: null });
+    expect(await drafts.get(a.ctx, draftId)).toMatchObject({ hubRecord: pin, hubContextStatus: null });
+
+    // The label is the name at creation: a later rename does not change it.
+    await records.patch(a.ctx, 'person', record.id, { name: 'Jan K.' });
+    expect((await drafts.get(a.ctx, draftId)).hubRecord).toEqual(pin);
+  });
+
+  it('a draft without a record has hubRecord null and no pin columns', async () => {
+    const a = await author();
+    const { draftId } = await drafts.create(a.ctx, { contentType: 'bio', profileId: a.profileId, brief });
+    expect(await row(draftId)).toMatchObject({ hubRecordKind: null, hubRecordId: null, hubRecordLabelEnc: null });
+    expect(await drafts.get(a.ctx, draftId)).toMatchObject({ hubRecord: null, hubContextStatus: null });
+  });
+
+  it("refuses another user's record, an unknown id and a kind mismatch with 404 not_found and stores nothing", async () => {
+    const a = await author();
+    const other = await author();
+    const { record: foreign } = await records.create(other.ctx, 'company', { name: 'Acme' });
+    const { record: own } = await records.create(a.ctx, 'company', { name: 'Own Co' });
+    vi.mocked(enqueue).mockClear();
+
+    for (const hubRecord of [
+      { kind: 'company' as const, id: foreign.id },
+      { kind: 'company' as const, id: randomUUID() },
+      { kind: 'project' as const, id: own.id },
+      { kind: 'person' as const, id: 'not-a-uuid' },
+    ]) {
+      await expectCode(
+        drafts.create(a.ctx, { contentType: 'bio', profileId: a.profileId, brief, hubRecord }),
+        'not_found',
+        404,
+      );
+    }
+    expect(await getDb().select().from(draft).where(eq(draft.userId, a.ctx.userId))).toHaveLength(0);
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('regenerate copies the three pin columns', async () => {
+    const a = await author();
+    const { record } = await records.create(a.ctx, 'project', { name: 'Pilot' });
+    const { draftId: parentId } = await drafts.create(a.ctx, {
+      contentType: 'short_article',
+      profileId: a.profileId,
+      brief,
+      hubRecord: { kind: 'project', id: record.id },
+    });
+    const parent = await row(parentId);
+
+    const { draftId } = await drafts.regenerate(a.ctx, parentId, 'Shorter');
+    const child = await row(draftId);
+    expect(child).toMatchObject({
+      hubRecordKind: 'project',
+      hubRecordId: record.id,
+      hubRecordLabelEnc: parent!.hubRecordLabelEnc,
+      hubContextStatus: null,
+    });
+    expect((await drafts.get(a.ctx, draftId)).hubRecord).toEqual({ kind: 'project', id: record.id, label: 'Pilot' });
+  });
+
+  it('keeps the draft and the label after the record is deleted, with id null (AS6.3)', async () => {
+    const a = await author();
+    const { record } = await records.create(a.ctx, 'person', { name: 'Ewa Nowak' });
+    const draftId = (
+      await drafts.create(a.ctx, {
+        contentType: 'bio',
+        profileId: a.profileId,
+        brief,
+        hubRecord: { kind: 'person', id: record.id },
+      })
+    ).draftId;
+
+    await records.remove(a.ctx, 'person', record.id);
+
+    expect(await row(draftId)).toBeDefined();
+    const removed = { kind: 'person', id: null, label: 'Ewa Nowak' };
+    expect((await drafts.list(a.ctx, { limit: 50 })).items[0]).toMatchObject({ id: draftId, hubRecord: removed });
+    expect((await drafts.get(a.ctx, draftId)).hubRecord).toEqual(removed);
+
+    // Regenerating still inherits the pin (the worker reports it as missing).
+    const { draftId: childId } = await drafts.regenerate(a.ctx, draftId);
+    expect((await drafts.get(a.ctx, childId)).hubRecord).toEqual(removed);
+  });
+
+  it.each(['used', 'missing', 'inspection_failed'] as const)('carries hubContextStatus %s from the row', async (status) => {
+    const a = await author();
+    const id = await readyDraft(a);
+    await getDb().update(draft).set({ hubContextStatus: status }).where(eq(draft.id, id));
+    expect((await drafts.get(a.ctx, id)).hubContextStatus).toBe(status);
+    expect((await drafts.list(a.ctx, { limit: 50 })).items[0]!.hubContextStatus).toBe(status);
   });
 });
 

@@ -1,0 +1,42 @@
+{
+  "id": "holdout-05",
+  "set": "holdout",
+  "language": "en",
+  "categories": ["freemail"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-05",
+      "mailbox": "owner@example.com",
+      "subject": "UX audit of the onboarding flow - proposal",
+      "messages": [
+        {
+          "ref": "thr-holdout-05/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-05@gmail.com>\r\nDate: Wed, 18 Jun 2025 15:05:00 +0000\r\nFrom: Jonas Ekdahl <jonas.ekdahl.consulting@gmail.com>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: UX audit of the onboarding flow - proposal\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-41fb8f23\"\r\n\r\n--mix-41fb8f23\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nas promised after the meetup, here is my proposal for a UX audit of your onboarding flow: two weeks, five user interviews, a heuristic review and a prioritised findings deck. I can start on 7 July.\n\nLet me know if the scope fits.\n\nBest regards,\nJonas Ekdahl\nIndependent UX consultant\n+46 70 123 45 67\r\n--mix-41fb8f23\r\nContent-Type: application/octet-stream; name=\"ux-audit-proposal.pdf\"\r\nContent-Disposition: attachment; filename=\"ux-audit-proposal.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHV4LWF1ZGl0LXByb3Bvc2FsLnBkZg==\r\n--mix-41fb8f23--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "jonas.ekdahl.consulting@gmail.com",
+        "name": "Jonas Ekdahl",
+        "roleTitle": "Independent UX consultant"
+      }
+    ],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["audit", "7 July"]
+  }
+}

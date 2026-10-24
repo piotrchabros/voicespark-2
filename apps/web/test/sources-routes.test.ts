@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   startConnect: vi.fn(),
   completeConnect: vi.fn(),
   connectImap: vi.fn(),
+  disconnect: vi.fn(),
 }));
 
 vi.mock('../lib/guards', () => ({
@@ -29,6 +30,7 @@ vi.mock('@voicespark/core/services/sources', () => ({
   startConnect: mocks.startConnect,
   completeConnect: mocks.completeConnect,
   connectImap: mocks.connectImap,
+  disconnect: mocks.disconnect,
 }));
 
 import { AppError } from '@voicespark/core/errors';
@@ -37,6 +39,7 @@ import { GET as getSource } from '../app/api/sources/[id]/route';
 import { POST as connect } from '../app/api/sources/connect/[provider]/route';
 import { GET as callback } from '../app/api/sources/connect/[provider]/callback/route';
 import { POST as connectImap } from '../app/api/sources/imap/route';
+import { POST as disconnect } from '../app/api/sources/[id]/disconnect/route';
 
 const user = { userId: 'u1', role: 'user' as const };
 const params = <T>(p: T) => ({ params: Promise.resolve(p) });
@@ -57,6 +60,62 @@ describe('GET /api/sources', () => {
     const res = await listSources(new Request('http://localhost/x'), undefined);
     expect(await res.json()).toEqual([{ id: 's1' }]);
     expect(mocks.list).toHaveBeenCalledWith(user);
+  });
+});
+
+describe('GET /api/sources hub state', () => {
+  it('carries hub.enabled per source', async () => {
+    mocks.list.mockResolvedValue([
+      { id: 's1', hub: { enabled: true } },
+      { id: 's2', hub: { enabled: false } },
+    ]);
+    const res = await listSources(new Request('http://localhost/x'), undefined);
+    expect(await res.json()).toEqual([
+      { id: 's1', hub: { enabled: true } },
+      { id: 's2', hub: { enabled: false } },
+    ]);
+  });
+
+  it('carries hub.enabled on the detail', async () => {
+    mocks.get.mockResolvedValue({ id: 's1', hub: { enabled: true }, recentImports: [] });
+    const res = await getSource(new Request('http://localhost/x'), params({ id: 's1' }));
+    expect((await res.json()).hub).toEqual({ enabled: true });
+  });
+});
+
+describe('POST /api/sources/{id}/disconnect hub data choice', () => {
+  it('passes hubData and returns the hub_source deletion request id', async () => {
+    mocks.disconnect.mockResolvedValue({ source: { id: 's1' }, deletionRequestId: 'hd1' });
+    const res = await disconnect(
+      post({ deleteContent: false, hubData: 'delete' }),
+      params({ id: 's1' }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ source: { id: 's1' }, deletionRequestId: 'hd1' });
+    expect(mocks.disconnect).toHaveBeenCalledWith(user, 's1', false, 'delete');
+  });
+
+  it('passes keep through', async () => {
+    mocks.disconnect.mockResolvedValue({ source: { id: 's1' }, deletionRequestId: 'd1' });
+    await disconnect(post({ deleteContent: true, hubData: 'keep' }), params({ id: 's1' }));
+    expect(mocks.disconnect).toHaveBeenCalledWith(user, 's1', true, 'keep');
+  });
+
+  it('rejects an unknown hubData value', async () => {
+    const res = await disconnect(
+      post({ deleteContent: false, hubData: 'maybe' }),
+      params({ id: 's1' }),
+    );
+    expect(res.status).toBe(422);
+    expect(mocks.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('maps a missing choice for an enabled hub to 422 hub_data_choice_required', async () => {
+    mocks.disconnect.mockRejectedValue(new AppError('hub_data_choice_required'));
+    const res = await disconnect(post({ deleteContent: false }), params({ id: 's1' }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error.code).toBe('hub_data_choice_required');
+    expect(mocks.auditForeignAccess).not.toHaveBeenCalled();
   });
 });
 

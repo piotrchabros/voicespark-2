@@ -1,5 +1,5 @@
 import type { Detector, Span } from '../categories';
-import { findAllMatches, groupSpan, mergeSpans } from './util';
+import { findAllMatches, groupSpan, mergeSpans, trimTrailing } from './util';
 
 export const DETECTOR_CHECKSUM = 'passwords@1';
 
@@ -14,7 +14,9 @@ const VALUE = String.raw`(?:\r?\n[ \t]*)?(\S+)`;
 const ANCHORED = new RegExp(String.raw`(?<![\p{L}\p{N}_])(?:${ANCHORS})${SEP}${VALUE}`, 'giud');
 // Bare "pass" is too common a word to accept a copula; require an explicit separator.
 const BARE_PASS = new RegExp(String.raw`(?<![\p{L}\p{N}_])pass[ \t]*[:=][ \t]*(\S+)`, 'giud');
-const URL_CREDENTIALS = /\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:([^\s/@]+)@/dgiu;
+// The scheme is checked by a lookbehind after "://" so the search anchors on "://"; a leading
+// `\b[a-z][a-z0-9+.-]*` is retried from every word boundary of a long "a.a.a..." run (quadratic time).
+const URL_CREDENTIALS = /:\/\/(?<=\b[a-z][a-z0-9+.-]*:\/\/)[^\s/:@]+:([^\s/@]+)@/dgiu;
 
 // Words that follow "password is ..." in prose rather than being a password.
 const PROSE_WORDS = new Set([
@@ -71,20 +73,21 @@ const PROSE_WORDS = new Set([
 ]);
 
 const LEADING_JUNK = /^["'`(<[]+/;
-const TRAILING_JUNK = /[.,;)\]>"'`]+$/;
+const TRAILING_JUNK = '.,;)]>"\'`';
 
 function trimmed(m: RegExpExecArray, requireNonProse: boolean): Span | null {
   const raw = groupSpan(m, 1, 'passwords');
   if (!raw) return null;
   const value = m[1] ?? '';
   const lead = LEADING_JUNK.exec(value)?.[0].length ?? 0;
-  const core = value.slice(lead).replace(TRAILING_JUNK, '');
+  const core = trimTrailing(value.slice(lead), TRAILING_JUNK);
   if (core.length === 0) return null;
   if (requireNonProse && PROSE_WORDS.has(core.toLowerCase())) return null;
   return { start: raw.start + lead, end: raw.start + lead + core.length, category: 'passwords' };
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
   for (const m of findAllMatches(ANCHORED, text)) {
     // A bare separator is explicit enough; a copula needs the prose-word guard.
@@ -102,3 +105,5 @@ export const detect: Detector = async (text) => {
   }
   return mergeSpans(spans);
 };
+
+export const detect: Detector = async (text) => detectSync(text);

@@ -35,6 +35,7 @@ vi.mock('@voicespark/core/services/drafts', () => ({
   BRIEF_MAX: 2000,
   FEEDBACK_MAX: 2000,
   EDITED_TEXT_MAX: 20000,
+  HUB_RECORD_KINDS: ['person', 'company', 'project'],
   create: mocks.create,
   list: mocks.list,
   get: mocks.get,
@@ -48,6 +49,7 @@ vi.mock('@voicespark/core/services/drafts', () => ({
 const user = { userId: 'u1', role: 'user' as const };
 const ID = '11111111-1111-4111-8111-111111111111';
 const PID = '33333333-3333-4333-8333-333333333333';
+const RID = '44444444-4444-4444-8444-444444444444';
 const VALIDATION = 422;
 const params = { params: Promise.resolve({ id: ID }) };
 
@@ -79,6 +81,17 @@ describe('GET /api/drafts', () => {
       cursor: 'c',
       limit: 5,
     });
+  });
+
+  it('returns items with hubRecord and hubContextStatus as the service gives them', async () => {
+    const items = [
+      { id: ID, hubRecord: { kind: 'person', id: null, label: 'Ewa' }, hubContextStatus: 'missing' },
+      { id: PID, hubRecord: null, hubContextStatus: null },
+    ];
+    mocks.list.mockResolvedValue({ items, nextCursor: null });
+    const { GET } = draftsRoute;
+    const res = await GET(new Request('http://x/api/drafts'), undefined);
+    expect(await res.json()).toEqual({ items, nextCursor: null });
   });
 
   it('rejects an unknown content type with 422', async () => {
@@ -119,6 +132,55 @@ describe('POST /api/drafts', () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
+  it('passes an optional hubRecord {kind, id} to the service (FR-027)', async () => {
+    mocks.create.mockResolvedValue({ draftId: ID });
+    const { POST } = draftsRoute;
+    const hubRecord = { kind: 'person', id: RID };
+    const res = await POST(
+      json('POST', { contentType: 'bio', profileId: PID, brief: 'hi', hubRecord }),
+      undefined,
+    );
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ draftId: ID });
+    expect(mocks.create).toHaveBeenCalledWith(user, {
+      contentType: 'bio',
+      profileId: PID,
+      brief: 'hi',
+      hubRecord,
+    });
+  });
+
+  it.each([
+    ['unknown kind', { kind: 'thread', id: RID }],
+    ['bad id', { kind: 'company', id: 'nope' }],
+    ['missing id', { kind: 'project' }],
+    ['not an object', 'person'],
+  ])('rejects a hubRecord with %s with 422', async (_name, hubRecord) => {
+    const { POST } = draftsRoute;
+    const res = await POST(
+      json('POST', { contentType: 'bio', profileId: PID, brief: 'hi', hubRecord }),
+      undefined,
+    );
+    expect(res.status).toBe(VALIDATION);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("maps another user's record to 404 not_found", async () => {
+    mocks.create.mockRejectedValue(new AppError('not_found', undefined, undefined, 404));
+    const { POST } = draftsRoute;
+    const res = await POST(
+      json('POST', {
+        contentType: 'bio',
+        profileId: PID,
+        brief: 'hi',
+        hubRecord: { kind: 'company', id: RID },
+      }),
+      undefined,
+    );
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.code).toBe('not_found');
+  });
+
   it('maps no_profile to 409', async () => {
     mocks.create.mockRejectedValue(new AppError('no_profile'));
     const { POST } = draftsRoute;
@@ -150,6 +212,17 @@ describe('/api/drafts/[id]', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ id: ID, text: 'hello' });
     expect(mocks.get).toHaveBeenCalledWith(user, ID);
+  });
+
+  it('GET carries hubRecord and hubContextStatus', async () => {
+    const view = {
+      id: ID,
+      hubRecord: { kind: 'company', id: RID, label: 'Acme' },
+      hubContextStatus: 'used',
+    };
+    mocks.get.mockResolvedValue(view);
+    const { GET } = draftsIdRoute;
+    expect(await (await GET(new Request('http://x'), params)).json()).toEqual(view);
   });
 
   it('GET audits a foreign access and returns 404', async () => {

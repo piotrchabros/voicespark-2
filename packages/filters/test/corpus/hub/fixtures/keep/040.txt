@@ -1,0 +1,9 @@
+Hello,
+
+Please contact Claire Dubois at claire.dubois@acme.example or call +44 20 7946 0958 about the schedule.
+
+Regards,
+Maria Zielinska
+Account executive, northwind-test Ltd
+Tel: +48 512 000 345
+E-mail: maria.zielinska@northwind-test.example

@@ -8,8 +8,11 @@ const SSN_SEPARATED = /(?<![\d-])\d{3}([- ])\d{2}\1\d{4}(?![\d-])/g;
 /** Plain 9-digit SSN, only right after an SSN keyword. */
 const SSN_ANCHORED = /\b(?:SSN|social security(?: number| no\.?)?)[^\d\n]{0,20}(\d{9})(?!\d)/gi;
 const NINO = /(?<![A-Za-z0-9])[A-Z]{2} ?\d{2} ?\d{2} ?\d{2} ?[A-D](?![A-Za-z0-9])/g;
-/** 11 digits, plain (PESEL, Steuer-ID) or grouped 2-3-3-3 (Steuer-ID). */
-const ELEVEN_DIGITS = /(?<![\d-])(?:\d{11}|\d{2} \d{3} \d{3} \d{3})(?![\d-])/g;
+/**
+ * 11 digits, plain (PESEL, Steuer-ID) or grouped 2-3-3-3 (Steuer-ID). A leading `+` marks an international phone
+ * number (`+48 601 300 707`), never a national ID, so it is excluded like a preceding digit or dash.
+ */
+const ELEVEN_DIGITS = /(?<![\d+-])(?:\d{11}|\d{2} \d{3} \d{3} \d{3})(?![\d-])/g;
 
 /**
  * Keyword-anchored document numbers: Polish ID card and passport, plus generic
@@ -22,7 +25,8 @@ function span(start: number, value: string): Span {
   return { start, end: start + value.length, category: 'government_ids' };
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
 
   for (const m of text.matchAll(SSN_SEPARATED)) {
@@ -46,6 +50,8 @@ export const detect: Detector = async (text) => {
 
   return dedupe(spans);
 };
+
+export const detect: Detector = async (text) => detectSync(text);
 
 function dedupe(spans: Span[]): Span[] {
   const seen = new Set<string>();

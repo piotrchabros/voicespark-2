@@ -1,0 +1,2 @@
+ALTER TABLE "notification" DROP CONSTRAINT "notification_type_check";--> statement-breakpoint
+ALTER TABLE "notification" ADD CONSTRAINT "notification_type_check" CHECK ("notification"."type" in ('source_needs_reconnection', 'import_completed', 'deletion_completed', 'profile_ready', 'profile_outdated', 'draft_ready', 'draft_failed', 'generation_failed', 'analysis_prompt_default_changed', 'hub_refilter_pending'));

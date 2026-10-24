@@ -1,0 +1,7 @@
+Hello,
+
+Notes from today.
+Questions? Write to anna.nowak@lumen-labs.example.
+Reset your password here: https://accounts.lumen-labs.example/reset-password?token=Du130ugAjobyI9mfotVjR98H77EdBrNh
+
+Thanks

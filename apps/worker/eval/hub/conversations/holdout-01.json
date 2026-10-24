@@ -1,0 +1,36 @@
+{
+  "id": "holdout-01",
+  "set": "holdout",
+  "language": "pl",
+  "categories": ["newsletter", "html-only", "esp-header"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-01",
+      "mailbox": "owner@example.com",
+      "subject": "Jesienne nowości w Studio Ruch - zapisz się na zajęcia",
+      "messages": [
+        {
+          "ref": "thr-holdout-01/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-01@mg.studio-ruch.example>\r\nDate: Tue, 02 Sep 2025 05:30:00 +0000\r\nFrom: Studio Ruch <newsletter@studio-ruch.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Jesienne nowości w Studio Ruch - zapisz się na zajęcia\r\nList-Unsubscribe: <https://studio-ruch.example/wypisz?u=4f1a>, <mailto:unsub@studio-ruch.example>\r\nList-Id: Studio Ruch newsletter <news.studio-ruch.example>\r\nX-Mailgun-Sid: WyI0ZjFhIiwib3duZXJAZXhhbXBsZS5jb20iLCIxMiJd\r\nPrecedence: bulk\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n<html><body><h1>Jesień w Studio Ruch</h1><p>Nowy grafik zajęć od 15 września: pilates o 7:00, joga o 18:30 i trening obwodowy w soboty.</p><p><a href=\"https://studio-ruch.example/grafik\">Zobacz grafik</a></p><p>Pierwsze zajęcia gratis dla stałych klientów.</p><p style=\"font-size:11px\">Otrzymujesz tę wiadomość, bo zapisałeś się do newslettera. <a href=\"https://studio-ruch.example/wypisz?u=4f1a\">Wypisz się</a></p></body></html>\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

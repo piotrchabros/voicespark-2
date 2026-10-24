@@ -1,10 +1,16 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DelayedError, type Job } from 'bullmq';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDb, getPool, type SourceType } from '@voicespark/db';
 import { encrypt, subjectRef } from '@voicespark/core/crypto';
+import { resetEnvForTests } from '@voicespark/core/env';
+import { createFsBlobStore, type BlobStore } from '@voicespark/core/hub/blob-store';
 import { jobIds, removeScheduler } from '@voicespark/core/queues';
 import { getDeletion, requestDeletion } from '@voicespark/core/services/deletion';
+import { flaggedDeletions } from '@voicespark/db/repos/system/deletions';
 import type { FilteredText } from '@voicespark/filters';
 import type { Mailer } from '@voicespark/integrations/smtp';
 import { InMemoryMemoryStore, META, namespaceFor } from '@voicespark/integrations/supermemory';
@@ -21,11 +27,19 @@ import {
 
 // deletion.execute, account scope (T142, research R19, D-U7a) plus the deletion_completed notification of the
 // source / content_item scopes. Compose Postgres + in-memory Supermemory; queues mocked (no Redis needed).
+// The `hub` queue is a recording fake: account deletion removes the user's queued hub jobs best effort (T069).
+const { hubQueue } = vi.hoisted(() => ({
+  hubQueue: {
+    remove: vi.fn(async (_jobId: string) => 1),
+    getJobs: vi.fn(async (_types?: string[]) => [] as { id?: string }[]),
+  },
+}));
 vi.mock('@voicespark/core/queues', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@voicespark/core/queues')>()),
   enqueue: vi.fn(async () => ({})),
   upsertScheduler: vi.fn(async () => undefined),
   removeScheduler: vi.fn(async () => undefined),
+  getQueue: vi.fn(() => hubQueue),
 }));
 
 process.env.DATABASE_URL ??= 'postgres://voicespark:voicespark@localhost:55432/voicespark_test';
@@ -35,6 +49,10 @@ process.env.ENCRYPTION_ACTIVE_KEY_ID ??= 'k1';
 process.env.DEDUP_HMAC_KEY ??= Buffer.alloc(32, 2).toString('base64');
 process.env.REDIS_URL ??= 'redis://localhost:56379';
 process.env.NODE_ENV ??= 'test';
+// Hub file blobs go to a temp directory for this file (T069); the env cache is reset so loadEnv() picks it up.
+const hubFilesDir = mkdtempSync(join(tmpdir(), 'vs-hub-files-'));
+process.env.HUB_FILES_DIR = hubFilesDir;
+resetEnvForTests();
 
 const GMAIL_REFRESH = 'gmail-refresh-token-for-revoke';
 
@@ -181,6 +199,10 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.mocked(removeScheduler).mockClear();
+  hubQueue.remove.mockReset();
+  hubQueue.remove.mockImplementation(async () => 1);
+  hubQueue.getJobs.mockReset();
+  hubQueue.getJobs.mockImplementation(async () => []);
 });
 
 afterAll(async () => {
@@ -197,6 +219,7 @@ afterAll(async () => {
   }
   await cleanupProfiles();
   await closeDb();
+  rmSync(hubFilesDir, { recursive: true, force: true });
 });
 
 describe('deletion processor module', () => {
@@ -456,5 +479,232 @@ describe('deletion.execute completion notifications', () => {
       [userId],
     );
     expect(notes.rows).toEqual([{ payload: { deletionRequestId: id, scope: 'content_item' } }]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Context hub (T069, FR-030, SC-012)
+
+const HUB_TABLES = [
+  'hub_person',
+  'hub_note',
+  'hub_file',
+  'hub_thread',
+  'hub_fact',
+  'hub_sync_item',
+] as const;
+
+const hubDocsLeft = async (store: InMemoryMemoryStore, userId: string) =>
+  (await store.listDocuments(namespaceFor(userId), { page: 1, limit: 100 })).documents.filter((d) =>
+    d.id.startsWith('hub_'),
+  );
+
+/** accountWorld plus a person with a note and a file (blob on disk), a thread, a fact, sync items and hub_ docs. */
+async function hubAccountWorld() {
+  const w = await accountWorld();
+  const enc = (v: string) => encrypt('user-content', v);
+  const hex = () => randomBytes(32).toString('hex');
+  const pool = getPool();
+  const personId = (
+    await pool.query<{ id: string }>(
+      `insert into hub_person (user_id, name_enc, name_key, match_key) values ($1, $2, $3, $4) returning id`,
+      [w.userId, enc('Grace Hopper'), hex(), hex()],
+    )
+  ).rows[0]!.id;
+  await pool.query(
+    `insert into hub_note (user_id, person_id, title_enc, body_json_enc) values ($1, $2, $3, $4)`,
+    [w.userId, personId, enc('Call notes'), enc('{}')],
+  );
+  const storageKey = randomUUID();
+  const { keyId } = await createFsBlobStore(hubFilesDir).put(
+    w.userId,
+    storageKey,
+    new TextEncoder().encode('private file bytes'),
+  );
+  const fileId = (
+    await pool.query<{ id: string }>(
+      `insert into hub_file (user_id, person_id, name_enc, mime_type, extension, size_bytes, sha256, storage_key, key_id)
+       values ($1, $2, $3, 'text/plain', 'txt', 18, $4, $5, $6) returning id`,
+      [w.userId, personId, enc('notes.txt'), hex(), storageKey, keyId],
+    )
+  ).rows[0]!.id;
+  const thread = (
+    await pool.query<{ id: string; version: string }>(
+      `insert into hub_thread (user_id, thread_key, version) values ($1, $2, 3) returning id, version`,
+      [w.userId, hex()],
+    )
+  ).rows[0]!;
+  await pool.query(
+    `insert into hub_fact (user_id, thread_id, type, state, person_id, confidence, fingerprint, policy_version, prompt_version)
+     values ($1, $2, 'person', 'applied', $3, 0.9, $4, 'p1', 'v1')`,
+    [w.userId, thread.id, personId, hex()],
+  );
+  for (const [entity, id] of [
+    ['person', personId],
+    ['file', fileId],
+  ] as const) {
+    await pool.query(
+      `insert into hub_sync_item (user_id, entity_type, entity_id, doc_id, status, synced_version)
+       values ($1, $2, $3, $4, 'stored', 1)`,
+      [w.userId, entity, id, `hub_${entity}_${id}`],
+    );
+    await w.store.addDocuments(namespaceFor(w.userId), [
+      {
+        id: `hub_${entity}_${id}`,
+        content: 'hub record copy' as FilteredText,
+        documentDate: new Date().toISOString(),
+        metadata: {},
+      },
+    ]);
+  }
+  await pool.query(
+    `insert into audit_log_entry (actor_type, actor_user_id, action, target_type, target_id, subject_ref, metadata)
+     values ('user', $1, 'hub.record_deleted', 'hub_person', $2, $3, $4::jsonb)`,
+    [
+      w.userId,
+      personId,
+      subjectRef(w.userId),
+      JSON.stringify({ recordId: personId, notes: 1, files: 1 }),
+    ],
+  );
+  return {
+    ...w,
+    personId,
+    fileId,
+    storageKey,
+    threadId: thread.id,
+    threadVersion: Number(thread.version),
+  };
+}
+
+describe('deletion.execute account: context hub', () => {
+  it('removes hub rows, the blob directory (before the user row), hub_ documents and queued hub jobs', async () => {
+    const w = await hubAccountWorld();
+    const userDir = join(hubFilesDir, w.userId);
+    expect(existsSync(userDir)).toBe(true);
+    expect(await hubDocsLeft(w.store, w.userId)).toHaveLength(2);
+    for (const table of HUB_TABLES) {
+      expect(
+        await count(`select count(*) as n from ${table} where user_id = $1`, [w.userId]),
+      ).toBeGreaterThan(0);
+    }
+    const otherUser = randomUUID();
+    hubQueue.getJobs.mockImplementation(async () => [
+      { id: jobIds.hubRefilter(w.userId, 4) },
+      { id: jobIds.hubRefilter(otherUser, 4) },
+      { id: jobIds.hubSync(otherUser) },
+    ]);
+    // The blob store runs while the user row still exists (rows cascade only after the directory is gone).
+    const real = createFsBlobStore(hubFilesDir);
+    const userRowAtBlobDelete: number[] = [];
+    const blobStore: BlobStore = {
+      ...real,
+      deleteUser: vi.fn(async (userId: string) => {
+        userRowAtBlobDelete.push(
+          await count('select count(*) as n from "user" where id = $1', [userId]),
+        );
+        await real.deleteUser(userId);
+      }),
+    };
+
+    const { mailer } = recordingMailer();
+    await run(
+      { store: w.store, mailer, revokeGoogleToken: vi.fn(async () => undefined), blobStore },
+      fakeJob(w.requestId),
+    );
+
+    expect(blobStore.deleteUser).toHaveBeenCalledWith(w.userId);
+    expect(userRowAtBlobDelete).toEqual([1]);
+    expect(existsSync(userDir)).toBe(false);
+    for (const table of HUB_TABLES) {
+      expect(await count(`select count(*) as n from ${table} where user_id = $1`, [w.userId])).toBe(
+        0,
+      );
+    }
+    expect(await hubDocsLeft(w.store, w.userId)).toHaveLength(0);
+
+    // Queued hub jobs for this user only (best effort).
+    const removed = hubQueue.remove.mock.calls.map((c) => c[0]);
+    expect(removed).toEqual(
+      expect.arrayContaining([
+        jobIds.hubSync(w.userId),
+        jobIds.hubThread(w.threadId, w.threadVersion),
+        jobIds.hubRefilter(w.userId, 4),
+      ]),
+    );
+    expect(removed).not.toContain(jobIds.hubRefilter(otherUser, 4));
+    expect(removed).not.toContain(jobIds.hubSync(otherUser));
+
+    // Completed within the SLA: nothing for maintenance.deletion-sla to flag.
+    const row = await getDeletion(w.requestId);
+    expect(row?.status).toBe('completed');
+    expect(row!.completedAt!.getTime()).toBeLessThanOrEqual(row!.dueBy.getTime());
+    expect((await flaggedDeletions(new Date())).map((r) => r.id)).not.toContain(w.requestId);
+
+    // Hub audit rows remain, unlinked from the user, with ids and counts only.
+    const audits = await getPool().query<{
+      actor_user_id: string | null;
+      metadata: Record<string, unknown>;
+    }>(
+      `select actor_user_id, metadata from audit_log_entry where action = 'hub.record_deleted' and subject_ref = $1`,
+      [subjectRef(w.userId)],
+    );
+    expect(audits.rows).toHaveLength(1);
+    expect(audits.rows[0]!.actor_user_id).toBeNull();
+    expect(audits.rows[0]!.metadata).toEqual({ recordId: w.personId, notes: 1, files: 1 });
+    expect(JSON.stringify(audits.rows[0]!.metadata)).not.toContain('Grace');
+  });
+
+  it('throws verify_failed (retryable) while the blob directory still exists, then completes on retry', async () => {
+    const w = await hubAccountWorld();
+    const userDir = join(hubFilesDir, w.userId);
+    const real = createFsBlobStore(hubFilesDir);
+    const stuck: BlobStore = { ...real, deleteUser: vi.fn(async () => undefined) };
+    const { mailer, sent } = recordingMailer();
+    const revokeGoogleToken = vi.fn(async () => undefined);
+
+    await expect(
+      run({ store: w.store, mailer, revokeGoogleToken, blobStore: stuck }, fakeJob(w.requestId)),
+    ).rejects.toThrow('verify_failed');
+
+    const failed = await getDeletion(w.requestId);
+    expect(failed?.lastErrorCode).toBe('verify_failed');
+    expect(failed?.status).not.toBe('failed');
+    expect(failed?.status).not.toBe('completed');
+    expect(existsSync(userDir)).toBe(true);
+    expect(await count('select count(*) as n from "user" where id = $1', [w.userId])).toBe(1);
+    expect(sent).toHaveLength(0);
+
+    await run(
+      { store: w.store, mailer, revokeGoogleToken, blobStore: real },
+      fakeJob(w.requestId, { attemptsMade: 1 }),
+    );
+    expect(existsSync(userDir)).toBe(false);
+    expect((await getDeletion(w.requestId))?.status).toBe('completed');
+    expect(await count('select count(*) as n from "user" where id = $1', [w.userId])).toBe(0);
+  });
+
+  it('still completes when removing hub jobs fails (best effort)', async () => {
+    const w = await hubAccountWorld();
+    hubQueue.remove.mockImplementation(async () => {
+      throw new Error('redis_unavailable');
+    });
+    hubQueue.getJobs.mockImplementation(async () => {
+      throw new Error('redis_unavailable');
+    });
+
+    await run(
+      {
+        store: w.store,
+        mailer: recordingMailer().mailer,
+        revokeGoogleToken: vi.fn(async () => undefined),
+        blobStore: createFsBlobStore(hubFilesDir),
+      },
+      fakeJob(w.requestId),
+    );
+
+    expect((await getDeletion(w.requestId))?.status).toBe('completed');
+    expect(existsSync(join(hubFilesDir, w.userId))).toBe(false);
+    expect(await count('select count(*) as n from "user" where id = $1', [w.userId])).toBe(0);
   });
 });

@@ -1,0 +1,55 @@
+{
+  "id": "holdout-20",
+  "set": "holdout",
+  "language": "en",
+  "categories": ["freemail-tenant", "signature-company", "multipart-alternative"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-20",
+      "mailbox": "owner@example.com",
+      "subject": "Pricing workshop - 2 October",
+      "messages": [
+        {
+          "ref": "thr-holdout-20/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-20@quinnadvisory.onmicrosoft.com>\r\nDate: Thu, 18 Sep 2025 08:15:00 +0000\r\nFrom: Sarah Quinn <sarah.quinn@quinnadvisory.onmicrosoft.com>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Pricing workshop - 2 October\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"alt-092b9893\"\r\n\r\n--alt-092b9893\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nI have booked the pricing workshop for 2 October, 9:00 to 13:00, at your office. Please invite whoever owns the plan structure; four to six people works best. I will send the pre-read next week.\n\nBest,\nSarah Quinn\nPrincipal\nQuinn Advisory\nwww.quinn-advisory.example | +353 1 555 0233\r\n--alt-092b9893\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n<div dir=\"ltr\"><p>Hi Marek,</p><p>I have booked the pricing workshop for 2 October, 9:00 to 13:00, at your office. Please invite whoever owns the plan structure; four to six people works best. I will send the pre-read next week.</p><p>Best,<br>Sarah Quinn<br>Principal<br>Quinn Advisory<br><a href=\"https://www.quinn-advisory.example\">www.quinn-advisory.example</a> | +353 1 555 0233</p></div>\r\n--alt-092b9893--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "sarah.quinn@quinnadvisory.onmicrosoft.com",
+        "name": "Sarah Quinn",
+        "roleTitle": "Principal",
+        "companyDomain": "quinn-advisory.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "quinn-advisory.example",
+        "name": "Quinn Advisory"
+      }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "sarah.quinn@quinnadvisory.onmicrosoft.com",
+        "b": "quinn-advisory.example",
+        "role": "Principal"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["workshop", "2 October"]
+  }
+}

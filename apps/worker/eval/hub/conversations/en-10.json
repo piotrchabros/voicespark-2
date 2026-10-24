@@ -1,0 +1,63 @@
+{
+  "id": "en-10",
+  "set": "reference",
+  "language": "en",
+  "categories": ["owner-conflict", "seeded-person", "signature-ltd"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-10",
+      "mailbox": "owner@example.com",
+      "subject": "Invoice approval - April warehouse services",
+      "messages": [
+        {
+          "ref": "thr-en-10/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-10@harbourline.example>\r\nDate: Fri, 16 May 2025 10:15:00 +0000\r\nFrom: Grace Holloway <grace.holloway@harbourline.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Invoice approval - April warehouse services\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-f9d7cf37\"\r\n\r\n--mix-f9d7cf37\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nthe April invoice for the warehouse services is attached; could you approve it by Friday so it goes into this month's payment run?\n\nThanks,\nGrace Holloway\nHead of Operations\nHarbourline Logistics Ltd.\r\n--mix-f9d7cf37\r\nContent-Type: application/octet-stream; name=\"HL-INV-2025-0088.pdf\"\r\nContent-Disposition: attachment; filename=\"HL-INV-2025-0088.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIEhMLUlOVi0yMDI1LTAwODgucGRm\r\n--mix-f9d7cf37--\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "grace.holloway@harbourline.example",
+        "name": "Grace Holloway",
+        "roleTitle": "COO",
+        "roleSource": "owner"
+      }
+    ],
+    "companies": [{ "name": "Harbourline Logistics Ltd.", "domain": "harbourline.example" }]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "grace.holloway@harbourline.example",
+        "name": "Grace Holloway",
+        "roleTitle": "COO",
+        "companyDomain": "harbourline.example"
+      }
+    ],
+    "companies": [{ "domain": "harbourline.example", "name": "Harbourline Logistics Ltd." }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "grace.holloway@harbourline.example",
+        "b": "harbourline.example",
+        "role": "COO"
+      }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "field",
+        "reason": "conflict",
+        "person": "grace.holloway@harbourline.example",
+        "field": "roleTitle"
+      }
+    ],
+    "summaryMentions": ["invoice", "Friday"]
+  }
+}

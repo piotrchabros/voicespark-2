@@ -8,6 +8,11 @@ export const ERROR_STATUS = {
   last_admin: 409,
   last_available_definition: 409,
   last_identity: 409,
+  link_exists: 409,
+  invalid_link: 409,
+  suggestion_not_pending: 409,
+  merge_invalid: 409,
+  hub_not_enabled: 409,
   definition_retired: 409,
   no_profile: 409,
   validation_failed: 422,
@@ -16,6 +21,8 @@ export const ERROR_STATUS = {
   unknown_template_variable: 422,
   model_not_allowed: 422,
   sensitive_content: 422,
+  note_excluded: 422,
+  hub_data_choice_required: 422,
   unsupported_type: 415,
   version_not_draft: 422,
   too_large: 413,
@@ -25,6 +32,7 @@ export const ERROR_STATUS = {
   oauth_failed: 400,
   rate_limited: 429,
   internal_error: 500,
+  inspection_unavailable: 503,
 } as const satisfies Record<string, number>;
 
 export type ErrorCode = keyof typeof ERROR_STATUS;

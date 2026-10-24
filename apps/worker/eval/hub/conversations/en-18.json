@@ -1,0 +1,86 @@
+{
+  "id": "en-18",
+  "set": "reference",
+  "language": "en",
+  "categories": ["two-company-project", "named-project", "outgoing"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-18",
+      "mailbox": "owner@example.com",
+      "subject": "Project Nightingale - pilot ward schedule",
+      "messages": [
+        {
+          "ref": "thr-en-18/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-18a@kestrel-health.example>\r\nDate: Wed, 28 May 2025 08:00:00 +0000\r\nFrom: Dr Samuel Reyes <samuel.reyes@kestrel-health.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Aiko Tanaka <aiko.tanaka@helix-robotics.example>\r\nSubject: Project Nightingale - pilot ward schedule\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear both,\n\nthe hospital board approved the Project Nightingale pilot on two wards starting 1 September. Helix will deliver the four units by mid-August; Marek's team integrates the telemetry.\n\nBest regards,\nDr Samuel Reyes\nChief Medical Officer\nKestrel Health Systems\r\n"
+        },
+        {
+          "ref": "thr-en-18/2",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-18b@helix-robotics.example>\r\nDate: Wed, 28 May 2025 10:40:00 +0000\r\nFrom: Aiko Tanaka <aiko.tanaka@helix-robotics.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Dr Samuel Reyes <samuel.reyes@kestrel-health.example>\r\nSubject: Project Nightingale - pilot ward schedule\r\nIn-Reply-To: <en-18a@kestrel-health.example>\r\nReferences: <en-18a@kestrel-health.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nThank you Samuel. Helix Robotics confirms delivery of four units by 15 August.\n\nAiko Tanaka\nCEO, Helix Robotics\n+81 3 4520 9900\r\n"
+        },
+        {
+          "ref": "thr-en-18/3",
+          "direction": "outbound",
+          "folders": ["SENT"],
+          "raw": "Message-ID: <en-18c@example.com>\r\nDate: Wed, 28 May 2025 12:00:00 +0000\r\nFrom: Marek Wiśniewski <owner@example.com>\r\nTo: Dr Samuel Reyes <samuel.reyes@kestrel-health.example>,\r\n Aiko Tanaka <aiko.tanaka@helix-robotics.example>\r\nSubject: Project Nightingale - pilot ward schedule\r\nIn-Reply-To: <en-18b@helix-robotics.example>\r\nReferences: <en-18a@kestrel-health.example> <en-18b@helix-robotics.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nGreat news. Telemetry integration will be ready for a dry run in the last week of August.\n\nMarek\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "samuel.reyes@kestrel-health.example",
+        "name": "Samuel Reyes",
+        "roleTitle": "Chief Medical Officer",
+        "companyDomain": "kestrel-health.example"
+      },
+      {
+        "email": "aiko.tanaka@helix-robotics.example",
+        "name": "Aiko Tanaka",
+        "roleTitle": "CEO",
+        "companyDomain": "helix-robotics.example"
+      }
+    ],
+    "companies": [
+      { "domain": "kestrel-health.example", "name": "Kestrel Health Systems" },
+      { "domain": "helix-robotics.example", "name": "Helix Robotics" }
+    ],
+    "projects": [{ "name": "Nightingale" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "samuel.reyes@kestrel-health.example",
+        "b": "kestrel-health.example",
+        "role": "Chief Medical Officer"
+      },
+      {
+        "kind": "person_company",
+        "a": "aiko.tanaka@helix-robotics.example",
+        "b": "helix-robotics.example",
+        "role": "CEO"
+      },
+      { "kind": "person_project", "a": "samuel.reyes@kestrel-health.example", "b": "Nightingale" },
+      { "kind": "person_project", "a": "aiko.tanaka@helix-robotics.example", "b": "Nightingale" },
+      {
+        "kind": "company_project",
+        "a": "kestrel-health.example",
+        "b": "Nightingale",
+        "role": "client"
+      },
+      {
+        "kind": "company_project",
+        "a": "helix-robotics.example",
+        "b": "Nightingale",
+        "role": "supplier"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Nightingale", "September"]
+  }
+}

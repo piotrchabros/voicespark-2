@@ -61,10 +61,10 @@ afterAll(async () => {
 });
 
 describe('health', () => {
-  it('returns counts for all 9 queues from the real Redis', async () => {
+  it('returns counts for every queue in QUEUES from the real Redis', async () => {
     const health = await adminSystem.health();
     const names = Object.values(QUEUES);
-    expect(names).toHaveLength(9);
+    expect(names).toContain('hub');
     expect(Object.keys(health.queues).sort()).toEqual([...names].sort());
     for (const name of names) {
       expect(health.queues[name]).toEqual({

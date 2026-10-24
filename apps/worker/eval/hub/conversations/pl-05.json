@@ -1,0 +1,72 @@
+{
+  "id": "pl-05",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["two-company-project", "named-project", "signature-sp-zoo"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-05",
+      "mailbox": "owner@example.com",
+      "subject": "Wdrożenie Orkiestra - spotkanie startowe",
+      "messages": [
+        {
+          "ref": "thr-pl-05/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-7@lipowy-gaj.example>\r\nDate: Mon, 02 Jun 2025 06:50:00 +0000\r\nFrom: Monika Dąbrowska <monika.dabrowska@lipowy-gaj.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Tomasz Głowacki <tomasz.glowacki@integra-dane.example>\r\nSubject: Wdrożenie Orkiestra - spotkanie startowe\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nzapraszam na spotkanie startowe wdrożenia Orkiestra w czwartek o 10:00. Lipowy Gaj Sp. k. jest właścicielem procesu, a Integra Dane Sp. z o.o. dostarcza platformę integracyjną.\n\nMonika Dąbrowska\nSpecjalista ds. Wdrożeń\nLipowy Gaj Sp. k.\nTel.: (+48) 12 555 05 05\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "monika.dabrowska@lipowy-gaj.example",
+        "name": "Monika Dąbrowska",
+        "roleTitle": "Specjalista ds. Wdrożeń",
+        "companyDomain": "lipowy-gaj.example"
+      },
+      {
+        "email": "tomasz.glowacki@integra-dane.example",
+        "name": "Tomasz Głowacki",
+        "companyDomain": "integra-dane.example"
+      }
+    ],
+    "companies": [
+      { "domain": "lipowy-gaj.example", "name": "Lipowy Gaj Sp. k." },
+      { "domain": "integra-dane.example", "name": "Integra Dane Sp. z o.o." }
+    ],
+    "projects": [{ "name": "Orkiestra" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "monika.dabrowska@lipowy-gaj.example",
+        "b": "lipowy-gaj.example",
+        "role": "Specjalista ds. Wdrożeń"
+      },
+      {
+        "kind": "person_company",
+        "a": "tomasz.glowacki@integra-dane.example",
+        "b": "integra-dane.example"
+      },
+      { "kind": "company_project", "a": "lipowy-gaj.example", "b": "Orkiestra" },
+      {
+        "kind": "company_project",
+        "a": "integra-dane.example",
+        "b": "Orkiestra",
+        "role": "supplier"
+      },
+      { "kind": "person_project", "a": "monika.dabrowska@lipowy-gaj.example", "b": "Orkiestra" }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "person",
+        "reason": "low_confidence",
+        "address": "tomasz.glowacki@integra-dane.example"
+      }
+    ],
+    "summaryMentions": ["Orkiestra", "czwartek"]
+  }
+}

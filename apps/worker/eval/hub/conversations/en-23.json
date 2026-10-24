@@ -1,0 +1,31 @@
+{
+  "id": "en-23",
+  "set": "reference",
+  "language": "en",
+  "categories": ["newsletter"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-23",
+      "mailbox": "owner@example.com",
+      "subject": "Last chance: 30% off Lanternworks video packages",
+      "messages": [
+        {
+          "ref": "thr-en-23/1",
+          "direction": "inbound",
+          "folders": ["INBOX", "CATEGORY_PROMOTIONS"],
+          "raw": "Message-ID: <en-23@lanternworks.example>\r\nDate: Fri, 06 Jun 2025 08:00:00 +0000\r\nFrom: Lanternworks Media <marketing@lanternworks.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Last chance: 30% off Lanternworks video packages\r\nList-Unsubscribe: <mailto:leave@lanternworks.example>\r\nX-Campaign-Id: summer-2025\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nOnly three days left: 30% off all explainer video packages ordered before 9 June. Book a free call with one of our producers today.\n\nLanternworks Media. You are receiving this message because you downloaded our pricing guide. Unsubscribe here.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

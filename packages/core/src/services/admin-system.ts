@@ -1,6 +1,8 @@
 import { APP_SETTING_DEFAULTS, appSetting, getDb } from '@voicespark/db';
 import { countActionsSince, queryAudit } from '@voicespark/db/repos/admin/audit';
+import { hubAggregates } from '@voicespark/db/repos/admin/hub-counts';
 import { ratings } from '@voicespark/db/repos/admin/metrics';
+import type { AdminHubAggregates } from '@voicespark/db/repos/admin/types';
 import { countFlaggedDeletions } from '@voicespark/db/repos/system/deletions';
 import { QUEUES, getQueue, type QueueName } from '../queues';
 import { getSetting, type SettingKey } from './settings';
@@ -18,6 +20,8 @@ export interface SystemHealth {
   queues: Record<QueueName, QueueCounts>;
   overdueDeletions: number;
   credentialAuditHits: number;
+  /** Context Hub aggregates (FR-029): numbers only. */
+  hub: AdminHubAggregates;
 }
 
 export interface SettingView {
@@ -45,10 +49,12 @@ export async function health(): Promise<SystemHealth> {
     'filter.audit_hit',
     new Date(now.getTime() - CREDENTIAL_AUDIT_WINDOW_MS),
   );
+  const hub = await hubAggregates();
   return {
     queues: Object.fromEntries(counts) as Record<QueueName, QueueCounts>,
     overdueDeletions,
     credentialAuditHits,
+    hub,
   };
 }
 

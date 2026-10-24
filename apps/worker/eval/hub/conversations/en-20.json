@@ -1,0 +1,69 @@
+{
+  "id": "en-20",
+  "set": "reference",
+  "language": "en",
+  "categories": ["multi-address", "seeded-person", "named-project"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-20",
+      "mailbox": "owner@example.com",
+      "subject": "Lumen phase 2 - vendor contract",
+      "messages": [
+        {
+          "ref": "thr-en-20/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-20@brightmoor-group.example>\r\nDate: Tue, 03 Jun 2025 09:20:00 +0000\r\nFrom: Oliver Grant <o.grant@brightmoor-group.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Lumen phase 2 - vendor contract\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-bf0c9c22\"\r\n\r\n--mix-bf0c9c22\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nMarek,\n\nthe group legal team asked me to send the Lumen phase 2 vendor contract from my group address. Draft attached; comments by 10 June please.\n\nOliver Grant\nProgramme Director\nBrightmoor Energy plc\n+44 113 496 0200\r\n--mix-bf0c9c22\r\nContent-Type: application/octet-stream; name=\"lumen-vendor-contract-draft.pdf\"\r\nContent-Disposition: attachment; filename=\"lumen-vendor-contract-draft.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGx1bWVuLXZlbmRvci1jb250cmFjdC1kcmFmdC5wZGY=\r\n--mix-bf0c9c22--\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "oliver.grant@brightmoor-energy.example",
+        "name": "Oliver Grant",
+        "roleTitle": "Programme Director",
+        "phone": "+44 113 496 0200"
+      }
+    ],
+    "companies": [{ "name": "Brightmoor Energy plc", "domain": "brightmoor-energy.example" }],
+    "projects": [{ "name": "Lumen", "companyDomains": ["brightmoor-energy.example"] }]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "o.grant@brightmoor-group.example",
+        "name": "Oliver Grant",
+        "roleTitle": "Programme Director",
+        "companyDomain": "brightmoor-energy.example"
+      }
+    ],
+    "companies": [
+      { "domain": "brightmoor-energy.example", "name": "Brightmoor Energy plc" },
+      { "domain": "brightmoor-group.example" }
+    ],
+    "projects": [{ "name": "Lumen" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "o.grant@brightmoor-group.example",
+        "b": "brightmoor-energy.example",
+        "role": "Programme Director"
+      },
+      { "kind": "person_project", "a": "o.grant@brightmoor-group.example", "b": "Lumen" },
+      { "kind": "company_project", "a": "brightmoor-energy.example", "b": "Lumen" }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "person_email",
+        "reason": "name_only_match",
+        "person": "oliver.grant@brightmoor-energy.example",
+        "address": "o.grant@brightmoor-group.example"
+      }
+    ],
+    "summaryMentions": ["contract", "10 June"]
+  }
+}

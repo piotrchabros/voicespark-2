@@ -12,6 +12,7 @@ import {
   type UserRole,
   type UserStatus,
 } from '../../schema';
+import { hubCountsForUser } from './hub-counts';
 import type { AdminUserDetail, AdminUserListItem } from './types';
 
 export interface ListUsersQuery {
@@ -132,7 +133,7 @@ export async function getUserDetail(id: string): Promise<AdminUserDetail | null>
     .limit(1);
   if (!u) return null;
 
-  const [identities, sources, profiles] = await Promise.all([
+  const [identities, sources, profiles, hub] = await Promise.all([
     db
       .select({
         provider: signInIdentity.provider,
@@ -168,6 +169,7 @@ export async function getUserDetail(id: string): Promise<AdminUserDetail | null>
       .where(eq(toneProfile.userId, id))
       .groupBy(toneProfile.id, toneDefinition.key, toneDefinitionVersion.name)
       .orderBy(toneProfile.createdAt),
+    hubCountsForUser(id),
   ]);
 
   const sourceIds = sources.map((s) => s.id);
@@ -222,6 +224,7 @@ export async function getUserDetail(id: string): Promise<AdminUserDetail | null>
       versionCount: p.versionCount,
       lastGeneratedAt: p.lastGeneratedAt ? new Date(p.lastGeneratedAt).toISOString() : null,
     })),
+    hub,
   };
 }
 

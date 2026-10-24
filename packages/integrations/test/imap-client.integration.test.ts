@@ -129,6 +129,31 @@ describe('imap fetcher', () => {
     await expect(fetcher.getAddress()).resolves.toBe(user);
   });
 
+  it('skips every junk/trash/drafts folder by name, not just one per role', async () => {
+    const junkUser = `imap-junk-${randomUUID()}@greenmail.test`;
+    let delimiter = '/';
+    await withAdmin(junkUser, async (c) => {
+      delimiter = (await c.list()).find((b) => b.path === 'INBOX')?.delimiter ?? '/';
+      const boxes = ['Spam', 'Junk', 'Trash', 'Deleted Items', 'Kosz', 'Projects'];
+      // A subfolder of Trash (real hierarchy, using the server's delimiter).
+      boxes.push(`Trash${delimiter}Old`);
+      for (const [i, box] of boxes.entries()) {
+        await c.mailboxCreate(box).catch(() => undefined);
+        const d = new Date('2024-03-05T10:00:00Z');
+        await c.append(box, message(100 + i, d), [], d);
+      }
+      const d = new Date('2024-03-06T10:00:00Z');
+      await c.append('INBOX', message(200, d), [], d);
+    });
+    const f = createImapFetcher(config(junkUser), insecure);
+    try {
+      const keys = (await f.listFolders()).map((x) => x.folderKey).sort();
+      expect(keys).toEqual(['INBOX', 'Projects']);
+    } finally {
+      await f.close();
+    }
+  });
+
   it('pages the date range, fetches sources and never sets \\Seen', async () => {
     const dateRange = { from: '2024-03-01', to: '2024-03-31' };
     const p1 = await fetcher.listPage(fresh('INBOX'), { mode: 'initial', dateRange, limit: 1 });

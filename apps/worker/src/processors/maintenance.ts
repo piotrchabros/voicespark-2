@@ -1,12 +1,14 @@
 import { readdir, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, eq, inArray, isNull, lt, ne, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import { loadEnv } from '@voicespark/core/env';
 import { runCredentialAudit } from '@voicespark/core/services/credential-audit';
 import { runDeletionSla } from '@voicespark/core/services/deletion-sla';
+import { enqueue, jobIds } from '@voicespark/core/queues';
 import * as imports from '@voicespark/core/services/imports';
 import * as retroscans from '@voicespark/core/services/retroscans';
-import { connectedSource, getDb, importJob, upload } from '@voicespark/db';
+import { connectedSource, filterPreferences, getDb, hubSyncItem, importJob, upload, user } from '@voicespark/db';
+import { dueSyncUsers, dueThreads, expireLeases, orphanBlobKeys } from '@voicespark/db/repos/system/hub';
 import { createMemoryStore, type MemoryStore } from '@voicespark/integrations/supermemory';
 import type { HandlerMap } from '../handlers';
 
@@ -121,6 +123,111 @@ async function retroscanExpiry(): Promise<{ count: number }> {
   return { count: await retroscans.expireStale() };
 }
 
+/** Blobs younger than this are left alone: an upload writes the blob before its row commits. */
+export const HUB_BLOB_MIN_AGE_MS = 3600 * 1000;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const BLOB_NAME_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.bin$/i;
+
+async function listDir(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir);
+  } catch (e) {
+    if (isMissing(e)) return [];
+    throw e;
+  }
+}
+
+/**
+ * `maintenance.hub-blob-sweep` (T063, daily; contracts/jobs.md (16)): deletes `{HUB_FILES_DIR}/{userId}/{key}.bin`
+ * blobs older than 1 h that have no `hub_file` row (failed commits, deletes whose blob removal failed). Never touches
+ * rows.
+ */
+export async function hubBlobSweep(now: Date = new Date()): Promise<{ deleted: number }> {
+  const dir = loadEnv().HUB_FILES_DIR;
+  const cutoff = new Date(now.getTime() - HUB_BLOB_MIN_AGE_MS);
+  let deleted = 0;
+  for (const userDir of await listDir(dir)) {
+    if (!UUID_RE.test(userDir)) continue;
+    const old = new Map<string, string>();
+    for (const name of await listDir(join(dir, userDir))) {
+      const key = BLOB_NAME_RE.exec(name)?.[1];
+      if (!key) continue;
+      const path = join(dir, userDir, name);
+      try {
+        const s = await stat(path);
+        if (s.isFile() && s.mtime < cutoff) old.set(key.toLowerCase(), path);
+      } catch (e) {
+        if (!isMissing(e)) throw e;
+      }
+    }
+    for (const key of await orphanBlobKeys([...old.keys()])) {
+      try {
+        await unlink(old.get(key)!);
+        deleted += 1;
+      } catch (e) {
+        if (!isMissing(e)) throw e;
+      }
+    }
+  }
+  return { deleted };
+}
+
+/**
+ * `maintenance.hub-sync-sweep` (T082, every minute; contracts/jobs.md (16)): enqueues `hub.sync` for every user with
+ * due `hub_sync_item` rows (lost wake-ups, backoff due; never `refilter_pending` rows). The job id keeps one pending
+ * wake-up per user.
+ */
+export async function hubSyncSweep(): Promise<{ count: number }> {
+  const users = await dueSyncUsers();
+  for (const userId of users) await enqueue('hub.sync', { userId }, { jobId: jobIds.hubSync(userId) });
+  return { count: users.length };
+}
+
+/** Threads enqueued per sweep; the rest are picked up by the next minute's sweep. */
+export const HUB_THREAD_SWEEP_LIMIT = 500;
+
+/**
+ * `maintenance.hub-thread-sweep` (T122, every minute; contracts/jobs.md (16)): clears expired leases (crashed runs),
+ * then enqueues `hub.thread` for due threads (`pending`, `version > processed_version`, `next_attempt_at <= now()`, no
+ * live lease): lost jobs, backoffs and debounces that came due, and threads that got a new version during a run. The
+ * job id `hubthread-{threadId}-{version}` dedups against a waiting one.
+ */
+export async function hubThreadSweep(): Promise<{ count: number; expired: number }> {
+  const expired = await expireLeases();
+  const due = await dueThreads(HUB_THREAD_SWEEP_LIMIT);
+  for (const t of due) {
+    await enqueue(
+      'hub.thread',
+      { userId: t.userId, threadId: t.id, version: t.version },
+      { jobId: jobIds.hubThread(t.id, t.version) },
+    );
+  }
+  return { count: due.length, expired };
+}
+
+/**
+ * `maintenance.hub-refilter-retry` (T084, daily; contracts/jobs.md (15), (16)): re-enqueues `hub.refilter` under the
+ * current policy version for every active user with rows held as `refilter_pending` (final refilter failure or a
+ * credential-audit hit). Finished `hub.refilter` jobs are not kept, so the same job id enqueues again.
+ */
+export async function hubRefilterRetry(): Promise<{ count: number }> {
+  const users = await getDb()
+    .selectDistinct({ userId: hubSyncItem.userId, version: sql<number>`coalesce(${filterPreferences.version}, 0)::int` })
+    .from(hubSyncItem)
+    .innerJoin(user, and(eq(user.id, hubSyncItem.userId), eq(user.status, 'active')))
+    .leftJoin(filterPreferences, eq(filterPreferences.userId, hubSyncItem.userId))
+    .where(eq(hubSyncItem.lastErrorCode, 'refilter_pending'));
+  for (const u of users) {
+    await enqueue(
+      'hub.refilter',
+      { userId: u.userId, policyVersion: u.version },
+      { jobId: jobIds.hubRefilter(u.userId, u.version) },
+    );
+  }
+  return { count: users.length };
+}
+
 let store: MemoryStore | undefined;
 
 /** `maintenance.credential-audit` (T167, weekly): locked-category re-scan of a sample of every active namespace. */
@@ -135,4 +242,8 @@ export const handlers: HandlerMap = {
   'maintenance.stale-imports': staleImports,
   'maintenance.retroscan-expiry': retroscanExpiry,
   'maintenance.credential-audit': credentialAudit,
+  'maintenance.hub-blob-sweep': () => hubBlobSweep(),
+  'maintenance.hub-sync-sweep': () => hubSyncSweep(),
+  'maintenance.hub-thread-sweep': () => hubThreadSweep(),
+  'maintenance.hub-refilter-retry': () => hubRefilterRetry(),
 };

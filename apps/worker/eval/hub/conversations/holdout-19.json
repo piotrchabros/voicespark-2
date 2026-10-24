@@ -1,0 +1,72 @@
+{
+  "id": "holdout-19",
+  "set": "holdout",
+  "language": "en",
+  "categories": ["cross-mailbox", "signature-ltd"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    },
+    {
+      "address": "owner@outlook.com",
+      "provider": "microsoft"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-19",
+      "mailbox": "owner@example.com",
+      "subject": "Sample shipment - tracking and customs papers",
+      "messages": [
+        {
+          "ref": "thr-holdout-19/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-19@anatolia-textile.example>\r\nDate: Mon, 30 Jun 2025 07:20:00 +0000\r\nFrom: Yusuf Demir <yusuf.demir@anatolia-textile.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Marek Wiśniewski <owner@outlook.com>\r\nSubject: Sample shipment - tracking and customs papers\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-5b601114\"\r\n\r\n--mix-5b601114\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear Marek,\n\nthe sample shipment left Izmir this morning; the tracking number is in the attached proforma. Customs papers are with the courier. Please let me know within a week whether the fabric weight suits the autumn collection so we can book the production slot.\n\nKind regards,\nYusuf Demir\nExport Manager\nAnatolia Textile Ltd.\n+90 232 555 01 90\r\n--mix-5b601114\r\nContent-Type: application/octet-stream; name=\"proforma-2025-0611.pdf\"\r\nContent-Disposition: attachment; filename=\"proforma-2025-0611.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHByb2Zvcm1hLTIwMjUtMDYxMS5wZGY=\r\n--mix-5b601114--\r\n"
+        }
+      ]
+    },
+    {
+      "ref": "conv-holdout-19",
+      "mailbox": "owner@outlook.com",
+      "subject": "Sample shipment - tracking and customs papers",
+      "messages": [
+        {
+          "ref": "conv-holdout-19/1",
+          "direction": "inbound",
+          "folders": ["Inbox"],
+          "raw": "Message-ID: <holdout-19@anatolia-textile.example>\r\nDate: Mon, 30 Jun 2025 07:20:00 +0000\r\nFrom: Yusuf Demir <yusuf.demir@anatolia-textile.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Marek Wiśniewski <owner@outlook.com>\r\nSubject: Sample shipment - tracking and customs papers\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-5b601114\"\r\n\r\n--mix-5b601114\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDear Marek,\n\nthe sample shipment left Izmir this morning; the tracking number is in the attached proforma. Customs papers are with the courier. Please let me know within a week whether the fabric weight suits the autumn collection so we can book the production slot.\n\nKind regards,\nYusuf Demir\nExport Manager\nAnatolia Textile Ltd.\n+90 232 555 01 90\r\n--mix-5b601114\r\nContent-Type: application/octet-stream; name=\"proforma-2025-0611.pdf\"\r\nContent-Disposition: attachment; filename=\"proforma-2025-0611.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHByb2Zvcm1hLTIwMjUtMDYxMS5wZGY=\r\n--mix-5b601114--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "yusuf.demir@anatolia-textile.example",
+        "name": "Yusuf Demir",
+        "roleTitle": "Export Manager",
+        "companyDomain": "anatolia-textile.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "anatolia-textile.example",
+        "name": "Anatolia Textile Ltd."
+      }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "yusuf.demir@anatolia-textile.example",
+        "b": "anatolia-textile.example",
+        "role": "Export Manager"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["sample"]
+  }
+}

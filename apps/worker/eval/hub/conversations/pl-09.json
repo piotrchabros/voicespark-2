@@ -1,0 +1,31 @@
+{
+  "id": "pl-09",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["freemail"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-09",
+      "mailbox": "owner@example.com",
+      "subject": "Kontakt w sprawie szkolenia",
+      "messages": [
+        {
+          "ref": "thr-pl-09/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-11@gmail.com>\r\nDate: Fri, 06 Jun 2025 16:40:00 +0000\r\nFrom: Jan Kowalczyk <jan.kowalczyk.szkolenia@gmail.com>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Kontakt w sprawie szkolenia\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nnazywam się Jan Kowalczyk, prowadzę szkolenia z negocjacji dla zespołów sprzedażowych. Polecił mnie Pan Adam z działu HR. Czy mógłbym zadzwonić w przyszłym tygodniu? Mój numer: 502 555 090.\n\nPozdrawiam,\nJan Kowalczyk\ntrener biznesu\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [{ "email": "jan.kowalczyk.szkolenia@gmail.com", "name": "Jan Kowalczyk" }],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["szkole", "negocjac"]
+  }
+}

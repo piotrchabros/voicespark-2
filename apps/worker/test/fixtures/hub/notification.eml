@@ -1,0 +1,10 @@
+Message-ID: <notification-{{RUN}}@mail.example>
+Date: Fri, 11 Sep 2026 07:00:00 +0000
+From: Portal <no-reply@portal.example>
+To: {{OWNER}}
+Subject: Twoje konto zostało zaktualizowane
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Informujemy, że dane Twojego konta zostały zaktualizowane. hubfx:acme-offer

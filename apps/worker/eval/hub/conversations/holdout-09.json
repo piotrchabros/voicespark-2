@@ -1,0 +1,55 @@
+{
+  "id": "holdout-09",
+  "set": "holdout",
+  "language": "pl",
+  "categories": ["generic-project", "signature-sp-zoo"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-09",
+      "mailbox": "owner@example.com",
+      "subject": "Wycena do naszego projektu",
+      "messages": [
+        {
+          "ref": "thr-holdout-09/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-09@dolina-meble.example>\r\nDate: Tue, 19 Aug 2025 06:50:00 +0000\r\nFrom: Rafał Kubiak <rafal.kubiak@dolina-meble.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Wycena do naszego projektu\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nwracam do naszego projektu. Zarząd zaakceptował budżet na wdrożenie, więc proszę o aktualną wycenę z podziałem na etapy oraz orientacyjny termin startu. Oferta z czerwca jest już nieaktualna ze względu na zmianę liczby stanowisk.\n\nZ poważaniem\nRafał Kubiak\nKierownik Produkcji\nDolina Meble Sp. z o.o.\nkom. 512 555 909\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "rafal.kubiak@dolina-meble.example",
+        "name": "Rafał Kubiak",
+        "roleTitle": "Kierownik Produkcji",
+        "companyDomain": "dolina-meble.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "dolina-meble.example",
+        "name": "Dolina Meble Sp. z o.o."
+      }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "rafal.kubiak@dolina-meble.example",
+        "b": "dolina-meble.example",
+        "role": "Kierownik Produkcji"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["wycen"]
+  }
+}

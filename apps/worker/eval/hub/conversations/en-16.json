@@ -1,0 +1,52 @@
+{
+  "id": "en-16",
+  "set": "reference",
+  "language": "en",
+  "categories": ["large-cc", "named-project"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-16",
+      "mailbox": "owner@example.com",
+      "subject": "Project Harvest - store rollout wave 2",
+      "messages": [
+        {
+          "ref": "thr-en-16/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-16@pinecrest-retail.example>\r\nDate: Mon, 26 May 2025 06:50:00 +0000\r\nFrom: Megan Ashby <megan.ashby@pinecrest-retail.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nCc: Alice Ashworth <alice.ashworth@pinecrest-retail.example>,\r\n Ben Bellamy <ben.bellamy@pinecrest-retail.example>,\r\n Carla Cross <carla.cross@pinecrest-retail.example>,\r\n Dev Doyle <dev.doyle@pinecrest-retail.example>,\r\n Erin Everett <erin.everett@pinecrest-retail.example>,\r\n Farid Farrow <farid.farrow@pinecrest-retail.example>,\r\n Gwen Gale <gwen.gale@pinecrest-retail.example>,\r\n Hugo Hart <hugo.hart@pinecrest-retail.example>,\r\n Ines Ingram <ines.ingram@pinecrest-retail.example>,\r\n Jonas Joyce <jonas.joyce@pinecrest-retail.example>,\r\n Kara Kemp <kara.kemp@pinecrest-retail.example>,\r\n Liam Lowe <liam.lowe@pinecrest-retail.example>,\r\n Mia Marsh <mia.marsh@pinecrest-retail.example>,\r\n Noah Nash <noah.nash@pinecrest-retail.example>,\r\n Orla Oldfield <orla.oldfield@pinecrest-retail.example>,\r\n Pavel Pryce <pavel.pryce@pinecrest-retail.example>,\r\n Quinn Quigley <quinn.quigley@pinecrest-retail.example>,\r\n Rosa Rowe <rosa.rowe@pinecrest-retail.example>,\r\n Sven Steed <sven.steed@pinecrest-retail.example>,\r\n Tara Thorne <tara.thorne@pinecrest-retail.example>,\r\n Umar Underhill <umar.underhill@pinecrest-retail.example>,\r\n Vera Vale <vera.vale@pinecrest-retail.example>,\r\n Wes Whitlock <wes.whitlock@pinecrest-retail.example>,\r\n Xena Xavier <xena.xavier@pinecrest-retail.example>,\r\n Yusuf Yates <yusuf.yates@pinecrest-retail.example>,\r\n Zoe Zeller <zoe.zeller@pinecrest-retail.example>,\r\n Adam Abbott <adam.abbott@pinecrest-retail.example>,\r\n Bea Byrne <bea.byrne@pinecrest-retail.example>,\r\n Cole Carver <cole.carver@pinecrest-retail.example>,\r\n Dana Dunn <dana.dunn@pinecrest-retail.example>\r\nSubject: Project Harvest - store rollout wave 2\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-6ab1750b\"\r\n\r\n--mix-6ab1750b\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi all,\n\nwave 2 of Project Harvest covers 38 stores between 9 and 27 June; the schedule is attached. Store managers: please confirm your installation window by Thursday. Marek, the POS integration needs to be live in the pilot stores by 6 June.\n\nMegan Ashby\nProject Manager, Pinecrest Retail Group\nmegan.ashby@pinecrest-retail.example | +44 161 496 0777\r\n--mix-6ab1750b\r\nContent-Type: application/octet-stream; name=\"harvest-wave2-schedule.xlsx\"\r\nContent-Disposition: attachment; filename=\"harvest-wave2-schedule.xlsx\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGhhcnZlc3Qtd2F2ZTItc2NoZWR1bGUueGxzeA==\r\n--mix-6ab1750b--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "megan.ashby@pinecrest-retail.example",
+        "name": "Megan Ashby",
+        "roleTitle": "Project Manager",
+        "companyDomain": "pinecrest-retail.example"
+      }
+    ],
+    "companies": [{ "domain": "pinecrest-retail.example", "name": "Pinecrest Retail Group" }],
+    "projects": [{ "name": "Harvest" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "megan.ashby@pinecrest-retail.example",
+        "b": "pinecrest-retail.example",
+        "role": "Project Manager"
+      },
+      {
+        "kind": "person_project",
+        "a": "megan.ashby@pinecrest-retail.example",
+        "b": "Harvest",
+        "role": "Project Manager"
+      },
+      { "kind": "company_project", "a": "pinecrest-retail.example", "b": "Harvest" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Harvest", "6 June"]
+  }
+}

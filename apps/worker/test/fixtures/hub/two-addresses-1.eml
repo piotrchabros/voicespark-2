@@ -1,0 +1,15 @@
+Message-ID: <two-addresses-1-{{RUN}}@mail.example>
+Date: Mon, 14 Sep 2026 09:00:00 +0000
+From: Jan Kowalski <jan@acme.example>
+To: {{OWNER}}
+Subject: Dostawa
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Dzień dobry, potwierdzam termin dostawy. hubfx:acme-offer
+
+-- 
+Jan Kowalski
+Kierownik zakupów
+Acme Sp. z o.o.

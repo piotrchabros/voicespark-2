@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppError } from '@voicespark/core/errors';
+import { isEnabled as hubIsEnabled } from '@voicespark/core/services/hub/mailboxes';
 import * as sources from '@voicespark/core/services/sources';
 import { ExclusionSummary } from '@/components/exclusion-summary';
 import { ImportProgress } from '@/components/sources/import-progress';
@@ -25,6 +26,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ s
   }
 
   const latestFinished = source.recentImports.find((i) => ['completed', 'failed', 'cancelled'].includes(i.status));
+  const hubEnabled = await hubIsEnabled(source.id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,6 +43,13 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ s
             {source.itemCount} items, last sync {formatDate(source.lastSyncAt)}
           </span>
         </div>
+        {/* Hub on/off for this mailbox (FR-012, FR-022); the switch lives on the hub settings page. */}
+        <p className="text-sm" data-hub-enabled={hubEnabled}>
+          Hub: {hubEnabled ? 'on' : 'off'}.{' '}
+          <Link href="/hub/settings" className="underline">
+            {hubEnabled ? 'Hub status and counts' : 'Turn the hub on'}
+          </Link>
+        </p>
         <SourceActions
           sourceId={source.id}
           type={source.type}
@@ -48,6 +57,7 @@ export default async function SourceDetailPage({ params }: { params: Promise<{ s
           accountLabel={source.accountLabel}
           itemCount={source.itemCount}
           lastSyncAt={source.lastSyncAt}
+          hubEnabled={hubEnabled}
         />
       </div>
 

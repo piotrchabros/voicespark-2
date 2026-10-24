@@ -1,0 +1,41 @@
+{
+  "id": "holdout-04",
+  "set": "holdout",
+  "language": "en",
+  "categories": ["role-address", "signed-role-address", "signature-ltd"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-04",
+      "mailbox": "owner@example.com",
+      "subject": "Re: Licence key no longer accepted (ticket 48812)",
+      "messages": [
+        {
+          "ref": "thr-holdout-04/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-04@northwind-tools.example>\r\nDate: Tue, 22 Jul 2025 13:48:00 +0000\r\nFrom: Northwind Helpdesk <support@northwind-tools.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Re: Licence key no longer accepted (ticket 48812)\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nI have reset the activation count on your licence, so the key should be accepted again on the new laptop. If it still fails, send me a screenshot of the error and the machine name and I will look at the activation log.\n\nBest,\nTom Kessler\nSupport Engineer\nNorthwind Tools Ltd\nsupport@northwind-tools.example | +44 161 496 0180\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [
+      {
+        "domain": "northwind-tools.example",
+        "name": "Northwind Tools Ltd"
+      }
+    ],
+    "projects": [],
+    "links": [],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["activation"]
+  }
+}

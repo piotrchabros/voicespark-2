@@ -1,0 +1,7 @@
+Hello,
+
+Notes from today.
+Questions? Write to claire.dubois@brightpay.example.
+Reset your password here: https://accounts.brightpay.example/reset-password?token=Tq3GqJ8tvwNfqfpxOcLxlSmQFCw5zhvM
+
+Thanks

@@ -37,7 +37,8 @@ function hasKnownIin(digits: string): boolean {
   });
 }
 
-export const detect: Detector = async (text) => {
+/** Synchronous core of `detect`, for callers that cannot await (contact-value validation). */
+export const detectSync = (text: string): Span[] => {
   const spans: Span[] = [];
   for (const m of text.matchAll(CANDIDATE)) {
     const digits = m[0].replace(/[ -]/g, '');
@@ -47,3 +48,5 @@ export const detect: Detector = async (text) => {
   }
   return spans;
 };
+
+export const detect: Detector = async (text) => detectSync(text);

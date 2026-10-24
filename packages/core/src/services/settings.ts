@@ -10,6 +10,7 @@ export const SETTING_SCHEMAS: Record<SettingKey, z.ZodType<number>> = {
   'profile.min_authored_words': z.number().int().min(1),
   'profile.significant_new_content_ratio': z.number().min(0).max(1),
   'draft.memory_context_limit': z.number().int().min(1).max(20),
+  'hub.daily_thread_cap_per_user': z.number().int().min(1),
 };
 
 /** Uncached on purpose: admin changes apply to the next read (FR-029). */

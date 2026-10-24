@@ -24,6 +24,8 @@ import { AppError, type ServiceContext } from '../errors';
 import { DRAFT_PROMPT_KEY, type VersionBodyView } from '../prompting';
 import { enqueue, jobIds } from '../queues';
 import { audit } from './audit';
+import type { HubKind } from './hub/common';
+import { get as getHubRecord } from './hub/records';
 import { notify } from './notifications';
 import { decryptVersionBody } from './profiles';
 import { getActiveVersion } from './prompts';
@@ -35,6 +37,16 @@ export const TOPIC_CHARS = 120;
 const LIST_MAX_LIMIT = 100;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+export const HUB_RECORD_KINDS = ['person', 'company', 'project'] as const satisfies readonly HubKind[];
+export type HubContextStatus = 'used' | 'missing' | 'inspection_failed';
+
+/** The pinned hub record (FR-027); `id` is null once the record is deleted, the label is the name at creation (AS6.3). */
+export interface DraftHubRecord {
+  kind: HubKind;
+  id: string | null;
+  label: string;
+}
+
 export interface DraftListItem {
   id: string;
   contentType: DraftContentType;
@@ -44,6 +56,8 @@ export interface DraftListItem {
   status: DraftStatus;
   rating: DraftRating | null;
   createdAt: string;
+  hubRecord: DraftHubRecord | null;
+  hubContextStatus: HubContextStatus | null;
 }
 
 export interface DraftView extends DraftListItem {
@@ -77,6 +91,15 @@ function toListItem(row: DraftListRow): DraftListItem {
     status: d.status,
     rating: d.rating,
     createdAt: d.createdAt.toISOString(),
+    hubRecord:
+      d.hubRecordKind && d.hubRecordLabelEnc
+        ? {
+            kind: d.hubRecordKind as HubKind,
+            id: row.hubRecordExists ? d.hubRecordId : null,
+            label: decrypt('user-content', d.hubRecordLabelEnc),
+          }
+        : null,
+    hubContextStatus: d.hubContextStatus as HubContextStatus | null,
   };
 }
 
@@ -132,22 +155,44 @@ async function insertQueued(values: typeof draft.$inferInsert): Promise<{ draftI
   return { draftId: row.id };
 }
 
+/** The pin columns for a record the caller owns; anything else is 404 `not_found` (hub records' own 404). */
+async function hubPin(
+  ctx: ServiceContext,
+  ref: { kind: HubKind; id: string },
+): Promise<Pick<typeof draft.$inferInsert, 'hubRecordKind' | 'hubRecordId' | 'hubRecordLabelEnc'>> {
+  if (!(HUB_RECORD_KINDS as readonly string[]).includes(ref.kind) || !UUID_RE.test(ref.id)) {
+    throw new AppError('not_found', undefined, undefined, 404);
+  }
+  const { record } = await getHubRecord(ctx, ref.kind, ref.id);
+  return { hubRecordKind: ref.kind, hubRecordId: record.id, hubRecordLabelEnc: encrypt('user-content', record.name) };
+}
+
 const briefSchema = z
   .string()
   .max(BRIEF_MAX)
   .refine((s) => s.trim().length > 0);
 
-/** Creates a queued draft pinned to the profile's latest version (T151). Rate limiting lives in the route (D-D7). */
+/**
+ * Creates a queued draft pinned to the profile's latest version (T151), optionally pinned to a hub record (FR-027).
+ * Rate limiting lives in the route (D-D7).
+ */
 export async function create(
   ctx: ServiceContext,
-  input: { contentType: DraftContentType; profileId: string; brief: string },
+  input: {
+    contentType: DraftContentType;
+    profileId: string;
+    brief: string;
+    hubRecord?: { kind: HubKind; id: string };
+  },
 ): Promise<{ draftId: string }> {
   if (!briefSchema.safeParse(input.brief).success) throw new AppError('validation_failed');
   const pinned = await pins(ctx, input.profileId, input.contentType);
+  const hub = input.hubRecord ? await hubPin(ctx, input.hubRecord) : {};
   return insertQueued({
     userId: ctx.userId,
     contentType: input.contentType,
     ...pinned,
+    ...hub,
     topicEnc: encrypt('user-content', input.brief.trim().slice(0, TOPIC_CHARS)),
     briefEnc: encrypt('user-content', input.brief),
     status: 'queued',
@@ -206,7 +251,8 @@ export async function edit(ctx: ServiceContext, id: string, editedText: string):
 
 /**
  * A new draft with `parent_draft_id` and the feedback, pinning the profile's CURRENT latest version and the
- * CURRENT active prompt (D-D2); the parent is untouched (FR-053, FR-058).
+ * CURRENT active prompt (D-D2), and inheriting the parent's hub record pin as is (FR-027); the parent is untouched
+ * (FR-053, FR-058).
  */
 export async function regenerate(ctx: ServiceContext, id: string, feedback?: string): Promise<{ draftId: string }> {
   const parent = (await owned(ctx, id)).draft;
@@ -218,6 +264,9 @@ export async function regenerate(ctx: ServiceContext, id: string, feedback?: str
     contentType: parent.contentType,
     ...pinned,
     parentDraftId: parent.id,
+    hubRecordKind: parent.hubRecordKind,
+    hubRecordId: parent.hubRecordId,
+    hubRecordLabelEnc: parent.hubRecordLabelEnc,
     topicEnc: parent.topicEnc,
     briefEnc: parent.briefEnc,
     feedbackEnc: enc(text),

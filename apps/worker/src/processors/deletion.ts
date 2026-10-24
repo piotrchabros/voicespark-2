@@ -1,5 +1,6 @@
 import { DelayedError, UnrecoverableError, type Job } from 'bullmq';
 import { loadEnv } from '@voicespark/core/env';
+import { createFsBlobStore, type BlobStore } from '@voicespark/core/hub/blob-store';
 import { jobLogger } from '@voicespark/core/logger';
 import { enqueue, jobIds, type JobPayload } from '@voicespark/core/queues';
 import {
@@ -21,6 +22,8 @@ export interface DeletionHandlerOverrides {
   mailer?: Mailer;
   /** Default (left undefined): core's `revokeGoogleToken`. */
   revokeGoogleToken?: (token: string) => Promise<void>;
+  /** Hub file blobs; default `createFsBlobStore()` on `HUB_FILES_DIR`. */
+  blobStore?: BlobStore;
 }
 
 type DeletionJob = Job<JobPayload<'deletion.execute'>, unknown, 'deletion.execute'>;
@@ -46,14 +49,17 @@ export function createDeletionHandler(
 ): Handler<'deletion.execute'> {
   let store: MemoryStore | undefined;
   let mailer: Mailer | undefined;
+  let blobStore: BlobStore | undefined;
 
   return async (job: DeletionJob, token?: string): Promise<unknown> => {
     const { deletionRequestId, waitCount = 0 } = job.data;
     try {
       store ??= overrides.store ?? createMemoryStore(loadEnv());
       mailer ??= overrides.mailer ?? createMailer(loadEnv());
+      blobStore ??= overrides.blobStore ?? createFsBlobStore();
       const deps = {
         mailer,
+        blobStore,
         ...(overrides.revokeGoogleToken ? { revokeGoogleToken: overrides.revokeGoogleToken } : {}),
       };
       const result = await executeDeletion(deletionRequestId, store, { waitCount, deps });

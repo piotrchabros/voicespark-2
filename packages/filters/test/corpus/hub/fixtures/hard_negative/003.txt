@@ -1,0 +1,12 @@
+Hi,
+
+The order 1002 ships tomorrow. Ticket reference TCK-202.
+
+Best wishes,
+Maria Zielinska
+Tel. +1 202 555 0143 | Fax 601 700 800
+maria.zielinska@northwind-test.example
+www.northwind-test.example
+
+--
+You are receiving this message because you subscribed to our newsletter. Unsubscribe at any time.

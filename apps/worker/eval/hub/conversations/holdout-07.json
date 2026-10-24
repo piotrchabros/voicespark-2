@@ -1,0 +1,78 @@
+{
+  "id": "holdout-07",
+  "set": "holdout",
+  "language": "pl",
+  "categories": ["multi-address", "seeded-person", "signature-sp-zoo"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-07",
+      "mailbox": "owner@example.com",
+      "subject": "Umowa serwisowa - nowy podmiot",
+      "messages": [
+        {
+          "ref": "thr-holdout-07/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-07@kaskada-serwis.example>\r\nDate: Thu, 10 Apr 2025 08:05:00 +0000\r\nFrom: Marcin Wróbel <m.wrobel@kaskada-serwis.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Umowa serwisowa - nowy podmiot\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-bb5fd42c\"\r\n\r\n--mix-bb5fd42c\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nPanie Marku,\n\nod kwietnia obsługę serwisową przejmuje nasza nowa spółka Kaskada Serwis Sp. z o.o., dlatego piszę już z nowego adresu. W załączeniu projekt umowy serwisowej na dotychczasowych warunkach; zmienia się tylko strona umowy i numer konta. Proszę o uwagi do końca przyszłego tygodnia.\n\nPozdrawiam\nMarcin Wróbel\nDyrektor Handlowy\nKaskada Serwis Sp. z o.o.\ntel. +48 601 300 707\r\n--mix-bb5fd42c\r\nContent-Type: application/octet-stream; name=\"umowa-serwisowa-projekt.docx\"\r\nContent-Disposition: attachment; filename=\"umowa-serwisowa-projekt.docx\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHVtb3dhLXNlcndpc293YS1wcm9qZWt0LmRvY3g=\r\n--mix-bb5fd42c--\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "people": [
+      {
+        "email": "marcin.wrobel@kaskada-systemy.example",
+        "name": "Marcin Wróbel",
+        "roleTitle": "Dyrektor Handlowy",
+        "phone": "+48 601 300 707"
+      }
+    ],
+    "companies": [
+      {
+        "name": "Kaskada Systemy Sp. z o.o.",
+        "domain": "kaskada-systemy.example"
+      }
+    ]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "m.wrobel@kaskada-serwis.example",
+        "name": "Marcin Wróbel",
+        "roleTitle": "Dyrektor Handlowy",
+        "companyDomain": "kaskada-serwis.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "kaskada-serwis.example",
+        "name": "Kaskada Serwis Sp. z o.o."
+      }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "m.wrobel@kaskada-serwis.example",
+        "b": "kaskada-serwis.example",
+        "role": "Dyrektor Handlowy"
+      }
+    ],
+    "automated": false,
+    "suggestions": [
+      {
+        "type": "person_email",
+        "reason": "name_only_match",
+        "person": "marcin.wrobel@kaskada-systemy.example",
+        "address": "m.wrobel@kaskada-serwis.example"
+      }
+    ],
+    "summaryMentions": ["serwis"]
+  }
+}

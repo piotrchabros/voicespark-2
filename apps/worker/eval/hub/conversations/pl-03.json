@@ -1,0 +1,45 @@
+{
+  "id": "pl-03",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["signature-sp-zoo", "disclaimer"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-03",
+      "mailbox": "owner@example.com",
+      "subject": "Oferta na system rezerwacji",
+      "messages": [
+        {
+          "ref": "thr-pl-03/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-4@kaskada-systemy.example>\r\nDate: Wed, 14 May 2025 13:05:00 +0000\r\nFrom: Piotr Zawadzki <piotr.zawadzki@kaskada-systemy.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Oferta na system rezerwacji\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-057b87f1\"\r\n\r\n--mix-057b87f1\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nSzanowny Panie Marku,\n\nprzesyłam ofertę na system rezerwacji sal konferencyjnych. Cena za wdrożenie to 48 000 zł netto, utrzymanie 1 200 zł miesięcznie. Oferta ważna do końca czerwca.\n\nZ wyrazami szacunku,\nPiotr Zawadzki\nDyrektor Handlowy\nKaskada Systemy Sp. z o.o.\nKRS 0000123456, NIP 000-000-00-00\ntel. 22 555 03 33\n\nTa wiadomość oraz wszelkie załączniki są poufne i przeznaczone wyłącznie dla adresata. Jeżeli nie jest Pan/Pani adresatem, prosimy o niezwłoczne powiadomienie nadawcy i usunięcie wiadomości.\r\n--mix-057b87f1\r\nContent-Type: application/octet-stream; name=\"oferta-kaskada.pdf\"\r\nContent-Disposition: attachment; filename=\"oferta-kaskada.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIG9mZXJ0YS1rYXNrYWRhLnBkZg==\r\n--mix-057b87f1--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "piotr.zawadzki@kaskada-systemy.example",
+        "name": "Piotr Zawadzki",
+        "roleTitle": "Dyrektor Handlowy",
+        "companyDomain": "kaskada-systemy.example"
+      }
+    ],
+    "companies": [{ "domain": "kaskada-systemy.example", "name": "Kaskada Systemy Sp. z o.o." }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "piotr.zawadzki@kaskada-systemy.example",
+        "b": "kaskada-systemy.example",
+        "role": "Dyrektor Handlowy"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["48 000", "czerwca"]
+  }
+}

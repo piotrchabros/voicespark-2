@@ -2,6 +2,9 @@ import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 import { getDb } from '../../client';
 import {
   draft,
+  hubCompany,
+  hubPerson,
+  hubProject,
   profileVersion,
   toneDefinition,
   toneDefinitionVersion,
@@ -15,6 +18,8 @@ export interface DraftListRow {
   draft: Draft;
   definitionName: string | null;
   profileVersionNumber: number | null;
+  /** Whether the pinned hub record still exists; false without a pin (no FK, so the pin outlives it). */
+  hubRecordExists: boolean;
 }
 
 // Postgres keeps microseconds and JS Dates milliseconds, so keyset ordering and comparison use the
@@ -23,18 +28,26 @@ const createdAtMs = sql<Date>`date_trunc('milliseconds', ${draft.createdAt})`;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function hubPin(kind: string, t: typeof hubPerson | typeof hubCompany | typeof hubProject) {
+  return and(eq(draft.hubRecordKind, kind), eq(t.id, draft.hubRecordId), eq(t.userId, draft.userId));
+}
+
 function select() {
   return getDb()
     .select({
       draft,
       definitionName: toneDefinitionVersion.name,
       profileVersionNumber: profileVersion.versionNumber,
+      hubRecordExists: sql<boolean>`coalesce(${hubPerson.id}, ${hubCompany.id}, ${hubProject.id}) is not null`,
     })
     .from(draft)
     .leftJoin(toneProfile, eq(toneProfile.id, draft.profileId))
     .leftJoin(toneDefinition, eq(toneDefinition.id, toneProfile.definitionId))
     .leftJoin(toneDefinitionVersion, eq(toneDefinitionVersion.id, toneDefinition.activeVersionId))
-    .leftJoin(profileVersion, eq(profileVersion.id, draft.profileVersionId));
+    .leftJoin(profileVersion, eq(profileVersion.id, draft.profileVersionId))
+    .leftJoin(hubPerson, hubPin('person', hubPerson))
+    .leftJoin(hubCompany, hubPin('company', hubCompany))
+    .leftJoin(hubProject, hubPin('project', hubProject));
 }
 
 /** Null for ids owned by another user, missing ids and non-uuid input. */

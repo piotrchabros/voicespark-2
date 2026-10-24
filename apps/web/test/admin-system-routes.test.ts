@@ -73,6 +73,19 @@ describe('admin settings route', () => {
     const { GET } = adminSettingsRoute;
     expect((await GET(new Request('http://x/api/admin/settings'), undefined)).status).toBe(403);
   });
+
+  it('lists and sets hub.daily_thread_cap_per_user', async () => {
+    const cap = { key: 'hub.daily_thread_cap_per_user', value: 500, defaultValue: 500, updatedAt: null };
+    mocks.listSettings.mockResolvedValue([view, cap]);
+    const { GET, PUT } = adminSettingsRoute;
+    const listed = await (await GET(new Request('http://x/api/admin/settings'), undefined)).json();
+    expect(listed.settings.map((s: { key: string }) => s.key)).toContain(cap.key);
+    mocks.listSettings.mockResolvedValue([view, { ...cap, value: 200 }]);
+    const res = await PUT(put({ key: cap.key, value: 200 }), undefined);
+    expect(res.status).toBe(200);
+    expect(mocks.setSetting).toHaveBeenCalledWith(cap.key, 200, 'a1');
+    expect((await res.json()).setting).toEqual({ ...cap, value: 200 });
+  });
 });
 
 describe('admin audit route', () => {
@@ -101,15 +114,28 @@ describe('admin audit route', () => {
 });
 
 describe('admin health and metrics routes', () => {
-  it('health returns counts', async () => {
+  it('health returns counts and hub aggregates', async () => {
+    // Context Hub aggregates (FR-029): numbers only.
+    const hub = {
+      llmCallsToday: 12,
+      inputTokensToday: 34000,
+      outputTokensToday: 5600,
+      threadsPending: 3,
+      threadsFailed: 1,
+      syncFailed: 0,
+    };
     mocks.health.mockResolvedValue({
       queues: { import: { waiting: 1, active: 0, failed: 0, delayed: 0 } },
       overdueDeletions: 0,
       credentialAuditHits: 2,
+      hub,
     });
     const { GET } = adminSystemHealthRoute;
     const res = await GET(new Request('http://x/api/admin/system/health'), undefined);
-    expect((await res.json()).credentialAuditHits).toBe(2);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.credentialAuditHits).toBe(2);
+    expect(json.hub).toEqual(hub);
   });
 
   it('ratings returns aggregates', async () => {

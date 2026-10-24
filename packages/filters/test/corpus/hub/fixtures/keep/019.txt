@@ -1,0 +1,9 @@
+Hello,
+
+Please contact Anna Nowak at anna.nowak@lumen-labs.example or call +33 1 23 45 67 89 about the schedule.
+
+Regards,
+Oliver Hughes
+Project lead, brightpay Ltd
+Tel: +49 30 901820
+E-mail: oliver.hughes@brightpay.example

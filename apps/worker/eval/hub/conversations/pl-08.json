@@ -1,0 +1,31 @@
+{
+  "id": "pl-08",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["notification"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-08",
+      "mailbox": "owner@example.com",
+      "subject": "[ZGŁ-4821] Zgłoszenie zostało zaktualizowane",
+      "messages": [
+        {
+          "ref": "thr-pl-08/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-10@helpdesk-przyklad.example>\r\nDate: Thu, 05 Jun 2025 12:00:00 +0000\r\nFrom: Helpdesk Przykład <serwis@helpdesk-przyklad.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: [ZGŁ-4821] Zgłoszenie zostało zaktualizowane\r\nAuto-Submitted: auto-generated\r\nPrecedence: bulk\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nZgłoszenie ZGŁ-4821 zmieniło status na \"W trakcie realizacji\". Przypisany do: Wojciech Lis. Aby zobaczyć szczegóły, zaloguj się do panelu.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

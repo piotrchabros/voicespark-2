@@ -15,6 +15,8 @@ import {
 } from '@voicespark/core/prompting';
 import type { JobPayload } from '@voicespark/core/queues';
 import * as drafts from '@voicespark/core/services/drafts';
+import type { HubKind } from '@voicespark/core/services/hub/common';
+import { buildRecordContext, setContextStatus, type ContextInspector } from '@voicespark/core/services/hub/draft-context';
 import { inspectForUser, loadOwnAddresses, loadPolicy } from '@voicespark/core/services/inspection';
 import { getSetting } from '@voicespark/core/services/settings';
 import { labelFor, type CountCategory } from '@voicespark/filters';
@@ -57,12 +59,14 @@ async function runDraft(job: DraftJob, deps: DraftDeps): Promise<DraftRunResult>
 
   const { policy } = await loadPolicy(userId);
   const ownAddresses = await loadOwnAddresses(userId);
-  const inspect: Inspector = async (text) => {
-    const result = await inspectForUser(
+  const inspectText = (text: string) =>
+    inspectForUser(
       userId,
       { kind: 'note', bodyText: text, headers: {}, folders: [] },
       { policy, ownAddresses, classifier: deps.classifier },
     );
+  const inspect: Inspector = async (text) => {
+    const result = await inspectText(text);
     if (result.outcome !== 'accepted') return null;
     redactions += result.counts.reduce((n, c) => n + c.redactedValues, 0);
     return result.text ?? '';
@@ -117,11 +121,34 @@ async function runDraft(job: DraftJob, deps: DraftDeps): Promise<DraftRunResult>
     voiceDocument,
   });
 
+  // A pinned hub record is appended by code after render() (FR-027); without a pin the prompt is unchanged.
+  let user = prompt.user;
+  const { hubRecordKind, hubRecordId } = run.draft;
+  if (hubRecordKind !== null && hubRecordId !== null) {
+    let contextRedactions = 0;
+    const inspectContext: ContextInspector = async (text) => {
+      const result = await inspectText(text);
+      if (result.outcome !== 'accepted') {
+        if (result.counts.some((c) => c.category === 'inspection_failed')) throw new Error('inspection_failed');
+        return null;
+      }
+      contextRedactions += result.counts.reduce((n, c) => n + c.redactedValues, 0);
+      return result.text ?? '';
+    };
+    const context = await buildRecordContext(userId, hubRecordKind as HubKind, hubRecordId, inspectContext);
+    await setContextStatus(userId, draftId, context.flags.status);
+    if (context.block !== null) {
+      user = `${prompt.user}\n\n${context.block}`;
+      redactions += contextRedactions;
+    }
+  }
+
   const output = await deps.llm.parseStructured({
     model: version.model || loadEnv().LLM_DRAFT_MODEL,
     effort: version.effort,
     maxTokens: version.maxTokens,
     ...prompt,
+    user,
     schema: buildDraftOutputSchema(type),
   });
   const capped = applyWordCap(type, output);

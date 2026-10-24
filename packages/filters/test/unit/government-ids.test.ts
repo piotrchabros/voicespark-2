@@ -86,6 +86,17 @@ describe('government-ids detector', () => {
     expect(covers(text, spans, '65 929 970 489')).toBe(true);
   });
 
+  it('does not treat a +CC phone number as an 11-digit ID, but still redacts a PESEL next to one', async () => {
+    // 48601300707 passes the Steuer-ID checksum; with a leading + it is a Polish mobile.
+    for (const phone of ['+48 601 300 707', '+48601300707', '+48 601-300-707']) {
+      expect(await detect(`Zadzwoń: ${phone}`, ctx())).toEqual([]);
+    }
+    const text = 'Tel. +48 601 300 707, PESEL 44051401359.';
+    const spans = await detect(text, ctx());
+    expect(covers(text, spans, '44051401359')).toBe(true);
+    expect(spans).toHaveLength(1);
+  });
+
   it('redacts a Polish ID card and passport number near a keyword', async () => {
     const text = 'Dowód osobisty ABC123456, paszport EA1234567.';
     const spans = await detect(text, ctx());

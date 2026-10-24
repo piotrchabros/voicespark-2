@@ -24,7 +24,7 @@ export function fillLabels(template: string, labels: string): string {
   return template.split('{labels}').join(labels.trim() === '' ? 'none' : labels);
 }
 
-const MARKER_RE = /<(\s*)(\/?)(\s*)(analysis_prompt|sample|item|received_context|feedback)/gi;
+const MARKER_RE = /<(\s*)(\/?)(\s*)(analysis_prompt|sample|item|received_context|feedback|record_context)/gi;
 
 /** Breaks block markers in untrusted text with U+200B so none can open or close a block. */
 export function neutralizeTags(text: string): string {

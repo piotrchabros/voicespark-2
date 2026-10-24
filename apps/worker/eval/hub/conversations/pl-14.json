@@ -1,0 +1,43 @@
+{
+  "id": "pl-14",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["generic-project"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-14",
+      "mailbox": "owner@example.com",
+      "subject": "Pilotaż i wdrożenie - pytania",
+      "messages": [
+        {
+          "ref": "thr-pl-14/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-16@kuznia-kodu.example>\r\nDate: Fri, 13 Jun 2025 07:30:00 +0000\r\nFrom: Iwona Sadowska <iwona.sadowska@kuznia-kodu.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Pilotaż i wdrożenie - pytania\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nDzień dobry,\n\nmamy kilka pytań dotyczących pilotażu i późniejszego wdrożenia: kto jest po Państwa stronie osobą kontaktową, jaki jest planowany budżet i czy pilotaż obejmie jeden oddział, czy wszystkie? Nowy projekt chcielibyśmy zamknąć w trzecim kwartale.\n\nPozdrawiam\nIwona Sadowska\nKuźnia Kodu Sp. z o.o.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "iwona.sadowska@kuznia-kodu.example",
+        "name": "Iwona Sadowska",
+        "companyDomain": "kuznia-kodu.example"
+      }
+    ],
+    "companies": [{ "domain": "kuznia-kodu.example", "name": "Kuźnia Kodu Sp. z o.o." }],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "iwona.sadowska@kuznia-kodu.example",
+        "b": "kuznia-kodu.example"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["pilota"]
+  }
+}

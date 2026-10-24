@@ -16,6 +16,7 @@
     "./queues": "./src/queues/index.ts",
     "./prompting": "./src/prompting/index.ts",
     "./text-diff": "./src/text-diff.ts",
+    "./hub/*": "./src/hub/*.ts",
     "./services/*": "./src/services/*.ts"
   },
   "scripts": {
@@ -25,6 +26,10 @@
     "cli": "tsx --env-file-if-exists=../../.env src/cli.ts"
   },
   "dependencies": {
+    "@tiptap/core": "3.31.4",
+    "@tiptap/extension-list": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "@voicespark/db": "workspace:*",
     "@voicespark/filters": "workspace:*",
     "@voicespark/integrations": "workspace:*",

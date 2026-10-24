@@ -1,0 +1,9 @@
+Hello,
+
+Please contact Claire Dubois at claire.dubois@northwind-test.example or call +44 7700 900123 about the schedule.
+
+Regards,
+Sophie Turner
+Project lead, oakline Ltd
+Tel: +49 30 901820
+E-mail: sophie.turner@oakline.example

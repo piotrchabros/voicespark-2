@@ -36,6 +36,15 @@ vi.mock('@voicespark/db', () => {
     ownAnalysisPromptVersion: { id: 'ownVersion.id', ownPromptId: 'ownVersion.ownPromptId' },
     signInIdentity: { accountId: 'identity.accountId', userId: 'identity.userId' },
     filterPreferences: { userId: 'fp.userId', confirmedAt: 'fp.confirmedAt' },
+    hubPerson: table('hubPerson'),
+    hubCompany: table('hubCompany'),
+    hubProject: table('hubProject'),
+    hubNote: table('hubNote'),
+    hubFile: table('hubFile'),
+    hubLink: table('hubLink'),
+    hubFact: table('hubFact'),
+    hubThread: table('hubThread'),
+    hubIgnoreRule: table('hubIgnoreRule'),
   };
 });
 vi.mock('drizzle-orm', () => ({ eq: () => ({}) }));

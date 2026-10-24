@@ -8,6 +8,7 @@ import { Redis } from 'ioredis';
 import { closeDb, getPool } from '@voicespark/db/client';
 import { startMemoryRpcServer } from '@voicespark/integrations/testing';
 import { E2E_ADMIN_DATABASE_URL, E2E_BASE_URL, E2E_DB_NAME, E2E_ENV, E2E_MEMORY_PORT } from './env';
+import { FailableMemoryStore, restoreMemoryStore } from './memory';
 
 // Runs in the Playwright runner main process, which lives for the whole run (after the webServer is up). It owns
 // exactly three things and tears down only those: the e2e database contents, the memory RPC server and the worker
@@ -21,7 +22,65 @@ const WORKER_PID_FILE = join(STATE_DIR, 'worker.pid');
 /** Marker in the worker's environment: a stale pid is only killed when it still carries it. */
 const WORKER_MARKER = 'VS_E2E_WORKER=1';
 const WORKER_READY_TIMEOUT_MS = 60_000;
-const WARMUP_PATHS = ['/sign-in', '/dashboard', '/drafts'];
+const HUB_WARMUP_ID = '00000000-0000-4000-8000-000000000000';
+const WARMUP_PATHS = [
+  '/sign-in',
+  '/dashboard',
+  '/drafts',
+  // Hub screens and API (the record detail route is compiled even when the id is unknown).
+  ...(['people', 'companies', 'projects'] as const).flatMap((kind) => [
+    `/hub/${kind}`,
+    `/hub/${kind}/new`,
+    `/hub/${kind}/${HUB_WARMUP_ID}`,
+    `/api/hub/${kind}`,
+    `/api/hub/${kind}/${HUB_WARMUP_ID}`,
+  ]),
+  // Links, notes and files (US2); one kind each compiles the dynamic routes.
+  `/api/hub/people/${HUB_WARMUP_ID}/notes`,
+  `/api/hub/people/${HUB_WARMUP_ID}/files`,
+  '/api/hub/links',
+  `/api/hub/links/${HUB_WARMUP_ID}`,
+  `/api/hub/notes/${HUB_WARMUP_ID}`,
+  `/api/hub/files/${HUB_WARMUP_ID}`,
+  `/api/hub/files/${HUB_WARMUP_ID}/download`,
+  // Admin screens and routes with the hub counts, and the account deletion dialog (US8). The warm-up user is not an
+  // admin, so these compile the route and render the 403 panel.
+  '/admin',
+  `/admin/users/${HUB_WARMUP_ID}`,
+  `/api/admin/users/${HUB_WARMUP_ID}`,
+  '/api/admin/system/health',
+  '/settings/account',
+  // Memory store sync (US7).
+  '/hub/settings',
+  '/api/hub/sync',
+  '/api/hub/sync/retry',
+  '/api/hub/sync/resync',
+  // Search (US5).
+  '/hub/search',
+  '/api/hub/search',
+  // Mailboxes, ignore rules and conversation sources (US3).
+  '/api/hub/mailboxes',
+  `/api/hub/mailboxes/${HUB_WARMUP_ID}/enable`,
+  `/api/hub/mailboxes/${HUB_WARMUP_ID}/disable`,
+  `/api/hub/mailboxes/${HUB_WARMUP_ID}/threads/${HUB_WARMUP_ID}/retry`,
+  '/api/hub/ignore-rules',
+  `/api/hub/ignore-rules/${HUB_WARMUP_ID}`,
+  `/api/hub/people/${HUB_WARMUP_ID}/sources`,
+  `/sources/${HUB_WARMUP_ID}`,
+  // Suggestions and merge (US4).
+  '/hub/suggestions',
+  '/api/hub/suggestions',
+  '/api/hub/suggestions/count',
+  '/api/hub/suggestions/decide',
+  `/api/hub/people/${HUB_WARMUP_ID}/merge-preview`,
+  `/api/hub/people/${HUB_WARMUP_ID}/merge`,
+  // Drafts about a hub record (US6).
+  '/drafts/new',
+  `/drafts/${HUB_WARMUP_ID}`,
+  '/api/drafts',
+  `/api/drafts/${HUB_WARMUP_ID}`,
+  `/api/drafts/${HUB_WARMUP_ID}/regenerate`,
+];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });
 
@@ -174,12 +233,14 @@ export default async function globalSetup(_config: FullConfig): Promise<() => Pr
   await prepareDatabase();
   await flushRedis();
 
-  const memory = await startMemoryRpcServer({ port: E2E_MEMORY_PORT });
+  restoreMemoryStore();
+  const memory = await startMemoryRpcServer({ port: E2E_MEMORY_PORT, store: new FailableMemoryStore() });
   let worker: ChildProcess | undefined;
   const teardown = async (): Promise<void> => {
     if (worker) await stopWorker(worker);
     rmSync(WORKER_PID_FILE, { force: true });
     await memory.close();
+    restoreMemoryStore();
     // next dev may drop an AGENTS.md into the app directory; it is not part of the repo.
     rmSync(join(WEB_DIR, 'AGENTS.md'), { force: true });
   };

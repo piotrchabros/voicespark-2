@@ -1,0 +1,7 @@
+Hello,
+
+Notes from today.
+Questions? Write to jan.kowalski@kestrel.example.
+Reset your password here: https://accounts.kestrel.example/reset-password?token=FozdKRGVAT6BSx7XIa4rUpHknU6J4wY5
+
+Thanks

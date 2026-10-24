@@ -65,6 +65,11 @@ Rationale: a small team operates this on its own server; every moving part is an
   changes to definitions, prompts, users, roles and settings) MUST write an audit entry. Audit
   entries, logs and summaries MUST NOT contain content or excluded values; loggers MUST be typed
   to accept only safe fields.
+  Exception: an original file a user uploads to their Context Hub MAY be retained as an
+  AES-256-GCM encrypted blob (VII) when inspection of its derived text excludes it or cannot
+  complete, provided the blob is downloadable only by its owner and is never sent to an LLM, the
+  memory store or any other external service; its derived text follows the rule above and is not
+  stored, indexed or synced.
 - **VII. Secrets Encrypted at Rest**: mailbox tokens, IMAP passwords, staged uploads and user
   content columns MUST be encrypted with AES-256-GCM under a versioned keyring that supports
   rotation. Secrets MUST NOT appear in logs, API responses, audit metadata or the repository.
@@ -94,4 +99,4 @@ Rationale: a small team operates this on its own server; every moving part is an
 - Compliance is reviewed in every plan's Constitution Check, in `/speckit-analyze`, in code review
   and in the per-release security review.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-19 | **Last Amended**: 2026-10-19
+**Version**: 1.1.0 | **Ratified**: 2026-10-19 | **Last Amended**: 2026-10-23

@@ -1,0 +1,26 @@
+Message-ID: <business-2-{{RUN}}@mail.example>
+Date: Wed, 09 Sep 2026 11:30:00 +0000
+From: Jan Kowalski <jan@acme.example>
+To: {{OWNER}}
+Subject: Re: Zapytanie o ofertę na stal
+In-Reply-To: <business-1-{{RUN}}@mail.example>
+References: <business-1-{{RUN}}@mail.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Dzień dobry,
+
+dziękuję za szybką odpowiedź. Termin dostawy pasuje. BODY-SENTINEL
+
+-- 
+Jan Kowalski
+Kierownik zakupów
+Acme Sp. z o.o.
+tel. +48 601 234 567
+
+Ta wiadomość jest poufna i przeznaczona wyłącznie dla adresata. This e-mail and any attachments are confidential.
+
+W dniu 7.09.2026 o 09:00 Jan Kowalski <jan@acme.example> napisał(a):
+> Dzień dobry,
+> proszę o przygotowanie oferty na dostawę stali. QUOTED-HISTORY

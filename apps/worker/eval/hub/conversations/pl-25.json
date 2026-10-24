@@ -1,0 +1,31 @@
+{
+  "id": "pl-25",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["notification", "role-address"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-25",
+      "mailbox": "owner@example.com",
+      "subject": "Przypomnienie: przegląd techniczny samochodu służbowego",
+      "messages": [
+        {
+          "ref": "thr-pl-25/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-30@flota-przyklad.example>\r\nDate: Mon, 30 Jun 2025 05:00:00 +0000\r\nFrom: Flota Przykład <powiadomienia@flota-przyklad.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Przypomnienie: przegląd techniczny samochodu służbowego\r\nAuto-Submitted: auto-generated\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nPrzypominamy, że przegląd techniczny pojazdu WX 12345 upływa 15.07.2025. Umów wizytę w panelu klienta. To jest wiadomość automatyczna.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

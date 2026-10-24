@@ -4,6 +4,7 @@ export const APP_SETTING_DEFAULTS = {
   'profile.min_authored_words': 5000,
   'profile.significant_new_content_ratio': 0.25,
   'draft.memory_context_limit': 8,
+  'hub.daily_thread_cap_per_user': 500,
 } as const;
 export type AppSettingKey = keyof typeof APP_SETTING_DEFAULTS;
 

@@ -1,0 +1,7 @@
+Hello,
+
+Notes from today.
+Questions? Write to claire.dubois@kestrel.example.
+Reset your password here: https://accounts.harbor-point.example/reset-password?token=hLVIi3IHesVULROFgdqXRgCbDBgYgyCA
+
+Thanks

@@ -1,0 +1,31 @@
+{
+  "id": "pl-06",
+  "set": "reference",
+  "language": "pl",
+  "categories": ["newsletter"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-pl-06",
+      "mailbox": "owner@example.com",
+      "subject": "Biuletyn Integra Dane - czerwiec 2025",
+      "messages": [
+        {
+          "ref": "thr-pl-06/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <pl-8@integra-dane.example>\r\nDate: Tue, 03 Jun 2025 05:00:00 +0000\r\nFrom: Integra Dane <newsletter@integra-dane.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Biuletyn Integra Dane - czerwiec 2025\r\nList-Unsubscribe: <mailto:wypisz@integra-dane.example>\r\nList-Id: Integra Dane Biuletyn <biuletyn.integra-dane.example>\r\nPrecedence: bulk\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nCzerwcowy biuletyn: nowy konektor do systemów ERP, webinar 18 czerwca oraz case study z branży logistycznej. Aby zrezygnować z subskrypcji, kliknij link w stopce.\n\nIntegra Dane Sp. z o.o.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

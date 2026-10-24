@@ -1,0 +1,48 @@
+{
+  "id": "en-24",
+  "set": "reference",
+  "language": "en",
+  "categories": ["freemail", "named-project", "seeded-project"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-24",
+      "mailbox": "owner@example.com",
+      "subject": "Atlas - timesheet and next sprint",
+      "messages": [
+        {
+          "ref": "thr-en-24/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-24@proton.me>\r\nDate: Mon, 09 Jun 2025 17:40:00 +0000\r\nFrom: Chloe Barnes <chloe.barnes.dev@proton.me>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Atlas - timesheet and next sprint\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-45556189\"\r\n\r\n--mix-45556189\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nmy timesheet for last week is attached (32 hours on Atlas). For the next sprint I will take the migration scripts for the orders table unless you want me on the API tests instead.\n\nCheers,\nChloe Barnes\nContract backend developer\r\n--mix-45556189\r\nContent-Type: application/octet-stream; name=\"timesheet-2025-w23.pdf\"\r\nContent-Disposition: attachment; filename=\"timesheet-2025-w23.pdf\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIHRpbWVzaGVldC0yMDI1LXcyMy5wZGY=\r\n--mix-45556189--\r\n"
+        }
+      ]
+    }
+  ],
+  "seed": {
+    "companies": [{ "name": "Quillstone Software Inc.", "domain": "quillstone.example" }],
+    "projects": [{ "name": "Atlas", "companyDomains": ["quillstone.example"] }]
+  },
+  "expected": {
+    "people": [
+      {
+        "email": "chloe.barnes.dev@proton.me",
+        "name": "Chloe Barnes",
+        "roleTitle": "Contract backend developer"
+      }
+    ],
+    "companies": [],
+    "projects": [{ "name": "Atlas" }],
+    "links": [
+      {
+        "kind": "person_project",
+        "a": "chloe.barnes.dev@proton.me",
+        "b": "Atlas",
+        "role": "Contract backend developer"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["timesheet"]
+  }
+}

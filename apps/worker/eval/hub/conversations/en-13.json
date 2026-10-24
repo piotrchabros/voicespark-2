@@ -1,0 +1,31 @@
+{
+  "id": "en-13",
+  "set": "reference",
+  "language": "en",
+  "categories": ["newsletter"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-13",
+      "mailbox": "owner@example.com",
+      "subject": "Oakridge Quarterly Outlook - Q2 2025",
+      "messages": [
+        {
+          "ref": "thr-en-13/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-13@oakridge-capital.example>\r\nDate: Wed, 21 May 2025 07:00:00 +0000\r\nFrom: Oakridge Capital <news@oakridge-capital.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Oakridge Quarterly Outlook - Q2 2025\r\nList-Unsubscribe: <https://oakridge-capital.example/unsubscribe?u=4f1c>\r\nList-Id: Oakridge Outlook <outlook.oakridge-capital.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nOur view on the second quarter: rates, infrastructure spending and what it means for mid-cap industrials. Read the full note on our website.\n\nOakridge Capital LLP. This newsletter is for information only. To stop receiving it, use the unsubscribe link.\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": true,
+    "suggestions": [],
+    "summaryMentions": []
+  }
+}

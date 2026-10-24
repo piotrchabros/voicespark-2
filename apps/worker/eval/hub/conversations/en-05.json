@@ -1,0 +1,37 @@
+{
+  "id": "en-05",
+  "set": "reference",
+  "language": "en",
+  "categories": ["freemail"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-05",
+      "mailbox": "owner@example.com",
+      "subject": "Cover illustration - revised sketches",
+      "messages": [
+        {
+          "ref": "thr-en-05/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-05@gmail.com>\r\nDate: Thu, 08 May 2025 16:30:00 +0000\r\nFrom: Priya Natarajan <priya.natarajan.art@gmail.com>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Cover illustration - revised sketches\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-6885af8d\"\r\n\r\n--mix-6885af8d\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHello Marek,\n\nattached are the two revised sketches for the cover. I kept the lighthouse motif you liked and moved the title to the top. Let me know which one you prefer and I will start on the final version.\n\nBest,\nPriya Natarajan\nFreelance illustrator\n+44 7700 900456\r\n--mix-6885af8d\r\nContent-Type: application/octet-stream; name=\"cover-v2.png\"\r\nContent-Disposition: attachment; filename=\"cover-v2.png\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGNvdmVyLXYyLnBuZw==\r\n--mix-6885af8d\r\nContent-Type: application/octet-stream; name=\"cover-v3.png\"\r\nContent-Disposition: attachment; filename=\"cover-v3.png\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIGNvdmVyLXYzLnBuZw==\r\n--mix-6885af8d--\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "priya.natarajan.art@gmail.com",
+        "name": "Priya Natarajan",
+        "roleTitle": "Freelance illustrator"
+      }
+    ],
+    "companies": [],
+    "projects": [],
+    "links": [],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["sketch"]
+  }
+}

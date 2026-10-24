@@ -1,0 +1,61 @@
+{
+  "id": "holdout-10",
+  "set": "holdout",
+  "language": "en",
+  "categories": ["generic-project", "quoted-reply", "outgoing", "signature-llp"],
+  "mailboxes": [
+    {
+      "address": "owner@example.com",
+      "provider": "gmail"
+    }
+  ],
+  "threads": [
+    {
+      "ref": "thr-holdout-10",
+      "mailbox": "owner@example.com",
+      "subject": "Implementation timeline",
+      "messages": [
+        {
+          "ref": "thr-holdout-10/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <holdout-10-1@cobalt-finance.example>\r\nDate: Tue, 09 Sep 2025 09:02:00 +0000\r\nFrom: Priya Raman <priya.raman@cobalt-finance.example>\r\nTo: Marek Wiśniewski <owner@example.com>\r\nSubject: Implementation timeline\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Marek,\n\nthank you for the proposal. Before I take it to the partners I need a realistic implementation timeline: when could the first phase go live if we sign by the end of September, and how much of our team's time would the implementation need each week?\n\nKind regards,\nPriya Raman\nFinance Transformation Lead\nCobalt Finance Partners LLP\n+44 20 7946 0455\r\n"
+        },
+        {
+          "ref": "thr-holdout-10/2",
+          "direction": "outbound",
+          "folders": ["SENT"],
+          "raw": "Message-ID: <holdout-10-2@example.com>\r\nDate: Tue, 09 Sep 2025 14:30:00 +0000\r\nFrom: Marek Wiśniewski <owner@example.com>\r\nTo: Priya Raman <priya.raman@cobalt-finance.example>\r\nSubject: Implementation timeline\r\nIn-Reply-To: <holdout-10-1@cobalt-finance.example>\r\nReferences: <holdout-10-1@cobalt-finance.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHi Priya,\n\nwith a signature by 30 September the first phase can go live in the second week of November. We would need about four hours a week from one person on your side during the implementation, mostly for data validation.\n\nBest,\nMarek\n\nOn 9 Sep 2025 at 11:02, Priya Raman <priya.raman@cobalt-finance.example> wrote:\n> thank you for the proposal. Before I take it to the partners I need a realistic implementation timeline\n> when could the first phase go live if we sign by the end of September\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "priya.raman@cobalt-finance.example",
+        "name": "Priya Raman",
+        "roleTitle": "Finance Transformation Lead",
+        "companyDomain": "cobalt-finance.example"
+      }
+    ],
+    "companies": [
+      {
+        "domain": "cobalt-finance.example",
+        "name": "Cobalt Finance Partners LLP"
+      }
+    ],
+    "projects": [],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "priya.raman@cobalt-finance.example",
+        "b": "cobalt-finance.example",
+        "role": "Finance Transformation Lead"
+      }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["November"]
+  }
+}

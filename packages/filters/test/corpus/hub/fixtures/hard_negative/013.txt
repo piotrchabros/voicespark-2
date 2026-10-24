@@ -1,0 +1,12 @@
+Hi,
+
+The order 1012 ships tomorrow. Ticket reference TCK-212.
+
+Best wishes,
+Jan Kowalski
+Tel. +48 512 000 345 | Fax +48 22 555 01 23
+jan.kowalski@lumen-labs.example
+www.lumen-labs.example
+
+--
+This email and any attachments are confidential and intended solely for the addressee.

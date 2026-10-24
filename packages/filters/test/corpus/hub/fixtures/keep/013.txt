@@ -1,0 +1,9 @@
+Hello,
+
+Please contact Sophie Turner at sophie.turner@northwind-test.example or call 601 700 800 about the schedule.
+
+Regards,
+Anna Nowak
+Account executive, lumen-labs Ltd
+Tel: +44 20 7946 0958
+E-mail: anna.nowak@lumen-labs.example

@@ -1,6 +1,8 @@
+import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
   boolean,
+  check,
   index,
   integer,
   pgTable,
@@ -50,11 +52,30 @@ export const draft = pgTable(
     errorCode: text('error_code'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    // Context Hub pin (FR-027). No FK on the id, so the pin survives record deletion.
+    hubRecordKind: text('hub_record_kind'),
+    hubRecordId: uuid('hub_record_id'),
+    hubRecordLabelEnc: text('hub_record_label_enc'),
+    // Written by the draft worker; null without a pin.
+    hubContextStatus: text('hub_context_status'),
   },
   (t) => [
     index('draft_user_created_idx').on(t.userId, t.createdAt.desc()),
     index('draft_rating_idx').on(t.rating, t.ratedAt),
     index('draft_profile_idx').on(t.profileId),
+    check(
+      'draft_hub_record_kind_check',
+      sql`${t.hubRecordKind} in ('person', 'company', 'project')`,
+    ),
+    check(
+      'draft_hub_record_all_or_none',
+      sql`(${t.hubRecordKind} is null and ${t.hubRecordId} is null and ${t.hubRecordLabelEnc} is null)
+        or (${t.hubRecordKind} is not null and ${t.hubRecordId} is not null and ${t.hubRecordLabelEnc} is not null)`,
+    ),
+    check(
+      'draft_hub_context_status_check',
+      sql`${t.hubContextStatus} in ('used', 'missing', 'inspection_failed')`,
+    ),
   ],
 );
 

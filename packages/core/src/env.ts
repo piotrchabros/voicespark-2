@@ -76,6 +76,9 @@ export const envSchema = z
     SUPERMEMORY_API_VERSION: z.enum(['v5', 'v3']).default('v3'),
     ANTHROPIC_API_KEY: optionalString,
     LLM_PROFILE_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
+    // Defaults to the resolved LLM_PROFILE_MODEL (see the final transform).
+    LLM_HUB_EXTRACTION_MODEL: z.string().min(1).optional(),
+    LLM_HUB_EXTRACTION_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
     LLM_DRAFT_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
     LLM_CLASSIFIER_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     LLM_ALLOWED_MODELS: z
@@ -91,6 +94,8 @@ export const envSchema = z
     MAIL_FROM: z.string().min(1).default(DEFAULT_MAIL_FROM),
     UPLOAD_TMP_DIR: z.string().min(1).default('/data/uploads-tmp'),
     UPLOAD_MAX_BYTES: int(10485760),
+    HUB_FILES_DIR: z.string().min(1).default('/data/hub-files'),
+    HUB_FILE_MAX_BYTES: int(26214400),
     WORKER_CONCURRENCY_IMPORT: int(8),
     WORKER_CONCURRENCY_LLM: int(4),
     SYNC_POLL_INTERVAL_MINUTES: int(5),
@@ -108,6 +113,14 @@ export const envSchema = z
         message: 'must be a key id present in ENCRYPTION_KEYRING',
       });
     }
+    // contracts/jobs.md: poll + 60 s debounce + queue latency must stay within 15 min (SC-009).
+    if (env.SYNC_POLL_INTERVAL_MINUTES > 10) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SYNC_POLL_INTERVAL_MINUTES'],
+        message: 'must be at most 10 so a change reaches the memory store within 15 minutes',
+      });
+    }
     if (
       env.SUPERMEMORY_API_VERSION === 'v5' &&
       new URL(env.SUPERMEMORY_BASE_URL).hostname === 'supermemory.voicespark.ai'
@@ -119,7 +132,11 @@ export const envSchema = z
       });
     }
   })
-  .transform((env) => ({ ...env, BETTER_AUTH_URL: env.BETTER_AUTH_URL ?? env.APP_URL }));
+  .transform((env) => ({
+    ...env,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL ?? env.APP_URL,
+    LLM_HUB_EXTRACTION_MODEL: env.LLM_HUB_EXTRACTION_MODEL ?? env.LLM_PROFILE_MODEL,
+  }));
 
 export type Env = z.infer<typeof envSchema>;
 

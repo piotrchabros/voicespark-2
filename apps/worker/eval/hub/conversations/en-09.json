@@ -1,0 +1,70 @@
+{
+  "id": "en-09",
+  "set": "reference",
+  "language": "en",
+  "categories": ["two-company-project", "named-project"],
+  "mailboxes": [{ "address": "owner@example.com", "provider": "gmail" }],
+  "threads": [
+    {
+      "ref": "thr-en-09",
+      "mailbox": "owner@example.com",
+      "subject": "Project Meridian - data pipeline hand-over",
+      "messages": [
+        {
+          "ref": "thr-en-09/1",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-09a@quillstone.example>\r\nDate: Thu, 15 May 2025 09:10:00 +0000\r\nFrom: Daniel Mercer <daniel.mercer@quillstone.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Lena Fischer <lena.fischer@greywater.example>\r\nSubject: Project Meridian - data pipeline hand-over\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"mix-27ee909f\"\r\n\r\n--mix-27ee909f\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nHello both,\n\nattached is the hand-over document for the Project Meridian data pipeline. Quillstone will keep the ingestion jobs; Greywater takes over the reporting layer from June.\n\nDaniel Mercer\nEngineering Manager, Quillstone Software Inc.\r\n--mix-27ee909f\r\nContent-Type: application/octet-stream; name=\"meridian-pipeline-handover.docx\"\r\nContent-Disposition: attachment; filename=\"meridian-pipeline-handover.docx\"\r\nContent-Transfer-Encoding: base64\r\n\r\ncGxhY2Vob2xkZXIgZm9yIG1lcmlkaWFuLXBpcGVsaW5lLWhhbmRvdmVyLmRvY3g=\r\n--mix-27ee909f--\r\n"
+        },
+        {
+          "ref": "thr-en-09/2",
+          "direction": "inbound",
+          "folders": ["INBOX"],
+          "raw": "Message-ID: <en-09b@greywater.example>\r\nDate: Thu, 15 May 2025 12:00:00 +0000\r\nFrom: Lena Fischer <lena.fischer@greywater.example>\r\nTo: Marek Wiśniewski <owner@example.com>,\r\n Daniel Mercer <daniel.mercer@quillstone.example>\r\nSubject: Project Meridian - data pipeline hand-over\r\nIn-Reply-To: <en-09a@quillstone.example>\r\nReferences: <en-09a@quillstone.example>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nThanks Daniel. Greywater Analytics can start the reporting work on 2 June once the staging credentials arrive.\n\nLena Fischer\nData Lead\nGreywater Analytics\n+49 30 901820 44\r\n"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "people": [
+      {
+        "email": "daniel.mercer@quillstone.example",
+        "name": "Daniel Mercer",
+        "roleTitle": "Engineering Manager",
+        "companyDomain": "quillstone.example"
+      },
+      {
+        "email": "lena.fischer@greywater.example",
+        "name": "Lena Fischer",
+        "roleTitle": "Data Lead",
+        "companyDomain": "greywater.example"
+      }
+    ],
+    "companies": [
+      { "domain": "quillstone.example", "name": "Quillstone Software Inc." },
+      { "domain": "greywater.example", "name": "Greywater Analytics" }
+    ],
+    "projects": [{ "name": "Meridian" }],
+    "links": [
+      {
+        "kind": "person_company",
+        "a": "daniel.mercer@quillstone.example",
+        "b": "quillstone.example",
+        "role": "Engineering Manager"
+      },
+      {
+        "kind": "person_company",
+        "a": "lena.fischer@greywater.example",
+        "b": "greywater.example",
+        "role": "Data Lead"
+      },
+      { "kind": "person_project", "a": "daniel.mercer@quillstone.example", "b": "Meridian" },
+      { "kind": "person_project", "a": "lena.fischer@greywater.example", "b": "Meridian" },
+      { "kind": "company_project", "a": "quillstone.example", "b": "Meridian" },
+      { "kind": "company_project", "a": "greywater.example", "b": "Meridian" }
+    ],
+    "automated": false,
+    "suggestions": [],
+    "summaryMentions": ["Meridian", "June"]
+  }
+}
