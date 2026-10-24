@@ -1,4 +1,5 @@
 import { hmacHex } from '../crypto';
+import { companyMatchName, normalizeAddress, normalizeDomain, projectMatchName } from './normalize';
 
 /** Per-user fingerprint of a finding: type, normalised target identity and normalised value. */
 export function factFingerprint(userId: string, type: string, targetIdentity: string, value: string): string {
@@ -9,10 +10,10 @@ export function factFingerprint(userId: string, type: string, targetIdentity: st
 const mk = (key: string): string => hmacHex(key);
 
 export const markerKey = {
-  personEmail: (address: string) => mk(`person:email:${address.trim().toLowerCase()}`),
-  companyDomain: (domain: string) => mk(`company:domain:${domain.trim().toLowerCase()}`),
-  companyName: (name: string) => mk(`company:name:${name.trim().toLowerCase()}`),
-  projectName: (name: string) => mk(`project:name:${name.trim().toLowerCase()}`),
+  personEmail: (address: string) => mk(`person:email:${normalizeAddress(address)}`),
+  companyDomain: (domain: string) => mk(`company:domain:${normalizeDomain(domain) ?? domain.trim().toLowerCase()}`),
+  companyName: (name: string) => mk(`company:name:${companyMatchName(name)}`),
+  projectName: (name: string) => mk(`project:name:${projectMatchName(name)}`),
   link: (kind: string, idA: string, idB: string) => mk(`link:${kind}:${idA}:${idB}`),
   field: (kind: string, id: string, field: string, value: string) =>
     mk(`field:${kind}:${id}:${field}:${hmacHex(value.trim().toLowerCase())}`),

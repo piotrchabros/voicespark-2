@@ -11,6 +11,8 @@ import {
   type SkipReason,
   type Tx,
 } from '@voicespark/db';
+import { logger } from '@voicespark/core/logger';
+import * as hubIngest from '@voicespark/core/services/hub/ingest';
 import * as imports from '@voicespark/core/services/imports';
 import { inspectForUser } from '@voicespark/core/services/inspection';
 import {
@@ -42,6 +44,8 @@ export interface PageContext {
   ownAddresses: string[];
   store: MemoryStore;
   classifier: Classifier;
+  /** The hub switch of this mailbox (`hub_mailbox_setting`); off means `recordMessage` is never called (AS3.9). */
+  hub: { enabled: boolean };
 }
 
 /** Set when a write transaction finds the source no longer `connected` or the job no longer `running` (D-C9). */
@@ -218,6 +222,7 @@ export async function processMessage(
     }
     if (dup.status === 'duplicate') {
       tally.counters.itemsDuplicate += 1;
+      await recordForHub(ctx, ref, parsed, authored);
       return { outcome: 'duplicate', tally };
     }
 
@@ -300,7 +305,32 @@ export async function processMessage(
       .where(and(inArray(contentItem.id, ids), eq(contentItem.status, 'pending_write')));
     tally.counters.itemsImported += 1;
     mergeTally(tally, inspected.tally);
+    await recordForHub(ctx, ref, parsed, authored);
     return { outcome: 'imported', tally };
+  }
+}
+
+/**
+ * Hub ingest hook (contracts/jobs.md (1)): only for an `imported` or `duplicate` message of a hub-enabled mailbox.
+ * Metadata only. A failure is logged by code and never fails the page.
+ */
+async function recordForHub(ctx: PageContext, ref: MailRef, parsed: ParsedMessage, authored: boolean): Promise<void> {
+  if (!ctx.hub.enabled) return;
+  try {
+    await hubIngest.recordMessage({
+      userId: ctx.userId,
+      sourceId: ctx.sourceId,
+      providerRef: ref.providerRef,
+      folders: parsed.folders,
+      parsed,
+      direction: authored ? 'outbound' : 'inbound',
+      webLink: null,
+    });
+  } catch {
+    logger.warn(
+      { userId: ctx.userId, sourceId: ctx.sourceId, importJobId: ctx.importJobId, errorCode: 'hub_ingest_failed' },
+      'hub ingest failed; message not recorded',
+    );
   }
 }
 

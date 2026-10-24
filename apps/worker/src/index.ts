@@ -20,6 +20,7 @@ import { perJobNameSemaphore, type HandlerMap } from './handlers';
 import { handlers as analysisPreview } from './processors/analysis-preview';
 import { handlers as deletion } from './processors/deletion';
 import { handlers as draft } from './processors/draft';
+import { handlers as hubBackfill } from './processors/hub-backfill';
 import { handlers as hubFile } from './processors/hub-file';
 import { handlers as hubRefilter } from './processors/hub-refilter';
 import { handlers as hubSync } from './processors/hub-sync';
@@ -42,6 +43,7 @@ const HANDLERS: HandlerMap = {
   ...retroscan,
   ...notify,
   ...maintenance,
+  ...hubBackfill,
   ...hubFile,
   ...hubRefilter,
   ...hubSync,

@@ -163,8 +163,11 @@ export const JOB_OPTIONS: Record<JobName, JobsOptions> = {
   'maintenance.stale-imports': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'maintenance.retroscan-expiry': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
   'maintenance.credential-audit': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
-  'hub.thread': { ...DEFAULT_JOB_OPTIONS, attempts: 1 },
-  'hub.backfill': { ...DEFAULT_JOB_OPTIONS, attempts: 5, backoff: exponential(30_000) },
+  // `hubthread-{threadId}-{version}` is re-enqueued for the same version (retry of a failed thread, the sweep) and
+  // `hubbackfill-{sourceId}` on every re-enable; a kept finished job would swallow those, so finished runs are removed
+  // at once. A waiting or delayed one still dedups.
+  'hub.thread': { removeOnComplete: true, removeOnFail: true, attempts: 1 },
+  'hub.backfill': { removeOnComplete: true, removeOnFail: true, attempts: 5, backoff: exponential(30_000) },
   // The fixed id `hubsync-{userId}` keeps at most one pending wake-up per user; a kept finished job would swallow
   // every later wake-up with that id until it expires, so finished runs are removed at once (SC-010).
   'hub.sync': { removeOnComplete: true, removeOnFail: true, attempts: 1 },

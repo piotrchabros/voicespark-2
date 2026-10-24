@@ -10,6 +10,7 @@ import {
 } from '@voicespark/db';
 import { jobLogger } from '@voicespark/core/logger';
 import type { JobPayload } from '@voicespark/core/queues';
+import * as hubMailboxes from '@voicespark/core/services/hub/mailboxes';
 import * as imports from '@voicespark/core/services/imports';
 import * as profiles from '@voicespark/core/services/profiles';
 import { loadOwnAddresses, loadPolicy } from '@voicespark/core/services/inspection';
@@ -226,6 +227,7 @@ async function runPage(job: ImportJob, token: string | undefined, deps: WorkerDe
       ownAddresses: await loadOwnAddresses(userId),
       store: deps.store,
       classifier: deps.classifier,
+      hub: { enabled: await hubMailboxes.isEnabled(sourceId) },
     };
     const signal: PageSignal = { aborted: false };
     const tally = newTally();

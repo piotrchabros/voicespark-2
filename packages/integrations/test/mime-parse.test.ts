@@ -26,6 +26,16 @@ describe('parseMessage', () => {
     expect(m.bodyText).not.toContain('<');
   });
 
+  it('survives deeply nested html without blocking or overflowing the stack', async () => {
+    const depth = 200_000;
+    const html = `${'<div>'.repeat(depth)}Deep text &amp; more${'</div>'.repeat(depth)}`;
+    const raw = Buffer.from(['From: a@example.test', 'Subject: Deep', 'MIME-Version: 1.0', 'Content-Type: text/html; charset=utf-8', '', html, ''].join('\r\n'));
+    const started = performance.now();
+    const m = await parseMessage(raw, { authored: true });
+    expect(performance.now() - started).toBeLessThan(2000);
+    expect(m.bodyText).toBe('Deep text & more');
+  });
+
   it('strips quoted replies only for authored items', async () => {
     const authored = await parseMessage(fixture('reply.eml'), { authored: true });
     expect(authored.bodyText).toContain('option two');
@@ -40,6 +50,114 @@ describe('parseMessage', () => {
     expect(m.attachments[0]!.filename).toBe('notes.txt');
     expect(m.attachments[0]!.buffer.toString()).toBe('Some attached notes.');
     expect(m.bodyText).toBe('See attached notes.');
+  });
+});
+
+const eml = (lines: string[]) => Buffer.from(lines.join('\r\n'));
+
+const hubMail = eml([
+  'Message-ID: <m2@mail.acme.example>',
+  'In-Reply-To: <M1@Mail.Acme.Example>',
+  'References: <root@mail.acme.example>',
+  ' <M1@mail.acme.example>',
+  'Return-Path: <>',
+  'List-Unsubscribe: <https://lists.acme.example/u?id=1>,',
+  ' <mailto:unsub@lists.acme.example>',
+  'List-Id: Acme news <news.acme.example>',
+  'Precedence: bulk',
+  'Auto-Submitted: auto-generated',
+  'X-Auto-Response-Suppress: All',
+  'Feedback-ID: 1:2:acme',
+  'X-Mailgun-Variables: {"a":1}',
+  'X-Mailchimp-Campaign: c1',
+  'X-CampaignID: 42',
+  'X-SG-EID: abc',
+  'X-SES-Outgoing: 2025.01.06',
+  'X-MC-User: u1',
+  'X-Other: not kept',
+  'Received: from relay.acme.example',
+  'From: Ann <ann@acme.example>',
+  'To: bob@corp.example',
+  'Subject: News',
+  'Date: Mon, 6 Jan 2025 10:00:00 +0000',
+  'MIME-Version: 1.0',
+  'Content-Type: multipart/alternative; boundary="b1"',
+  '',
+  '--b1',
+  'Content-Type: text/plain; charset=utf-8',
+  '',
+  'Plain part.',
+  '',
+  'On Sun, Jan 5, 2025 Bob <bob@corp.example> wrote:',
+  '> earlier',
+  '--b1',
+  'Content-Type: text/html; charset=utf-8',
+  '',
+  '<p>Html part.</p>',
+  '--b1--',
+  '',
+]);
+
+describe('parseMessage hub fields', () => {
+  it('exposes reply ids, html, raw text and whitelisted headers', async () => {
+    const m = await parseMessage(hubMail, { authored: true });
+    expect(m.inReplyTo).toBe('<M1@Mail.Acme.Example>');
+    expect(m.references).toEqual(['<root@mail.acme.example>', '<M1@mail.acme.example>']);
+    expect(m.html).toContain('<p>Html part.</p>');
+    expect(m.rawText).toContain('Plain part.');
+    expect(m.rawText).toContain('> earlier');
+    expect(m.bodyText).toBe('Plain part.');
+    expect(m.headers).toEqual({
+      'return-path': '<>',
+      'list-unsubscribe': '<https://lists.acme.example/u?id=1>, <mailto:unsub@lists.acme.example>',
+      'list-id': 'Acme news <news.acme.example>',
+      precedence: 'bulk',
+      'auto-submitted': 'auto-generated',
+      'x-auto-response-suppress': 'All',
+      'feedback-id': '1:2:acme',
+      'x-mailgun-variables': '{"a":1}',
+      'x-mailchimp-campaign': 'c1',
+      'x-campaignid': '42',
+      'x-sg-eid': 'abc',
+      'x-ses-outgoing': '2025.01.06',
+      'x-mc-user': 'u1',
+    });
+  });
+
+  it('defaults the hub fields on a plain message', async () => {
+    const m = await parseMessage(fixture('plain.eml'), { authored: false });
+    expect(m.inReplyTo).toBeNull();
+    expect(m.references).toEqual([]);
+    expect(m.html).toBeNull();
+    expect(m.rawText).toContain('This is the plain body.');
+    expect(m.headers).toEqual({});
+  });
+
+  it('leaves rawText empty for an html-only message', async () => {
+    const m = await parseMessage(fixture('html-only.eml'), { authored: false });
+    expect(m.html).toContain('<b>world</b>');
+    expect(m.rawText).toBe('');
+  });
+
+  it('keeps the authored-only reply-parser output byte-identical', async () => {
+    const expected: [string, boolean, string][] = [
+      ['plain.eml', true, 'Hello Bob,\n\nThis is the plain body.'],
+      ['plain.eml', false, 'Hello Bob,\n\nThis is the plain body.'],
+      ['html-only.eml', true, 'Hello world\n\nSecond paragraph'],
+      ['html-only.eml', false, 'Hello world\n\nSecond paragraph'],
+      ['reply.eml', true, 'Sounds good, lets go with option two.'],
+      [
+        'reply.eml',
+        false,
+        'Sounds good, lets go with option two.\n\nOn Mon, Jan 6, 2025 at 10:00 AM Bob <bob@example.test> wrote:\n> Which option do you prefer?\n> I think option one is cheaper.',
+      ],
+      ['attachment.eml', true, 'See attached notes.'],
+      ['attachment.eml', false, 'See attached notes.'],
+    ];
+    for (const [name, authored, body] of expected) {
+      const m = await parseMessage(fixture(name), { authored });
+      expect(m.bodyText).toBe(body);
+    }
   });
 });
 

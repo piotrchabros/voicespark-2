@@ -144,4 +144,12 @@ describe('fingerprints and marker keys', () => {
     const fp = factFingerprint(U, 'company', 't', 'v');
     expect(markerKey.fact(fp)).toBe(hmacHex(`fact:${fp}`));
   });
+
+  it('name marker keys use the record match normalisation', () => {
+    expect(markerKey.companyName('Acme Sp. z o.o.')).toBe(markerKey.companyName('acme'));
+    expect(markerKey.companyName('ŁÓDŹ Systems Inc.')).toBe(markerKey.companyName('lodz systems'));
+    expect(markerKey.projectName('Łódź Projekt')).toBe(markerKey.projectName('lodz projekt'));
+    expect(markerKey.projectName('Project Phoenix')).toBe(markerKey.projectName('phoenix'));
+    expect(markerKey.companyDomain('WWW.Acme.com')).toBe(markerKey.companyDomain('acme.com'));
+  });
 });

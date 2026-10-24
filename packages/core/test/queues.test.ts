@@ -77,6 +77,13 @@ describe('context hub jobs', () => {
     }
   });
 
+  it('removes finished runs of jobs re-enqueued under a fixed id', () => {
+    // A kept completed or failed job would silently drop a later enqueue with the same id (re-enable, retry).
+    for (const n of ['hub.thread', 'hub.backfill', 'hub.sync', 'hub.refilter'] as const) {
+      expect(JOB_OPTIONS[n]).toMatchObject({ removeOnComplete: true, removeOnFail: true });
+    }
+  });
+
   it('sets attempts, backoff, ids and concurrency', () => {
     expect(JOB_OPTIONS['hub.thread'].attempts).toBe(1);
     expect(JOB_OPTIONS['hub.sync'].attempts).toBe(1);

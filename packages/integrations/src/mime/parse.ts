@@ -1,6 +1,7 @@
 import { simpleParser, type AddressObject } from 'mailparser';
 import { convert } from 'html-to-text';
 import EmailReplyParser from 'email-reply-parser';
+import { exceedsHtmlNesting, HTML_MAX_NESTING, stripHtmlLinear } from './html-guard';
 
 export const MAX_PART_CHARS = 100_000;
 
@@ -22,6 +23,33 @@ export interface ParsedMessage {
   bodyParts: string[];
   folders: string[];
   attachments: ParsedAttachment[];
+  inReplyTo: string | null;
+  references: string[];
+  html: string | null;
+  /** The text/plain part as received (no reply parsing); '' when the message has only HTML. */
+  rawText: string;
+  /** Whitelisted headers only (lower-case names, unfolded values, first occurrence). */
+  headers: Record<string, string>;
+}
+
+const HUB_HEADERS = new Set(['list-unsubscribe', 'list-id', 'precedence', 'auto-submitted', 'x-auto-response-suppress', 'return-path', 'feedback-id']);
+const ESP_HEADERS = new Set(['x-sg-eid', 'x-ses-outgoing', 'x-mc-user', 'feedback-id']);
+const MAX_HEADER_CHARS = 2000;
+
+/** ESP marker headers: `x-mailgun-*`, `x-mailchimp-*`, `x-campaign*`, `x-sg-eid`, `x-ses-outgoing`, `x-mc-user`, `feedback-id`. */
+export function isEspHeaderName(name: string): boolean {
+  return ESP_HEADERS.has(name) || name.startsWith('x-mailgun-') || name.startsWith('x-mailchimp-') || name.startsWith('x-campaign');
+}
+
+function hubHeaders(lines: readonly { key: string; line: string }[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const { key, line } of lines) {
+    const name = key.toLowerCase();
+    if (name in out || !(HUB_HEADERS.has(name) || isEspHeaderName(name))) continue;
+    const colon = line.indexOf(':');
+    out[name] = line.slice(colon + 1).replace(/\r?\n[ \t]+/g, ' ').trim().slice(0, MAX_HEADER_CHARS);
+  }
+  return out;
 }
 
 function addressText(value: AddressObject | AddressObject[] | undefined): string {
@@ -30,6 +58,8 @@ function addressText(value: AddressObject | AddressObject[] | undefined): string
 }
 
 function htmlToPlain(html: string): string {
+  // Crafted deep nesting makes htmlparser2/html-to-text take seconds or overflow the stack.
+  if (exceedsHtmlNesting(html, HTML_MAX_NESTING)) return stripHtmlLinear(html);
   return convert(html, { wordwrap: false, selectors: [{ selector: 'a', options: { ignoreHref: true } }, { selector: 'img', format: 'skip' }] });
 }
 
@@ -62,6 +92,11 @@ export async function parseMessage(raw: Buffer, opts: { authored: boolean; folde
   let body = mail.text?.trim() ? mail.text : typeof mail.html === 'string' ? htmlToPlain(mail.html) : '';
   if (opts.authored && body) body = new EmailReplyParser().read(body).getVisibleText();
   const bodyText = body.trim();
+  const html = typeof mail.html === 'string' ? mail.html : null;
+  // mailparser converts a root text/html part into `text`; that is not a plain-text part.
+  const rootType = (mail.headers.get('content-type') as { value?: string } | undefined)?.value?.toLowerCase();
+  const rawText = rootType === 'text/html' ? '' : (mail.text ?? '');
+  const references = mail.references === undefined ? [] : Array.isArray(mail.references) ? mail.references : [mail.references];
 
   const attachments: ParsedAttachment[] = [];
   for (const a of mail.attachments) {
@@ -81,5 +116,10 @@ export async function parseMessage(raw: Buffer, opts: { authored: boolean; folde
     bodyParts: splitParts(bodyText),
     folders: opts.folders ?? [],
     attachments,
+    inReplyTo: mail.inReplyTo ?? null,
+    references,
+    html,
+    rawText,
+    headers: hubHeaders(mail.headerLines),
   };
 }
