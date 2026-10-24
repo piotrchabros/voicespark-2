@@ -1,0 +1,10 @@
+Message-ID: <subdomain-{{RUN}}@mail.example>
+Date: Wed, 16 Sep 2026 09:00:00 +0000
+From: Marek Zieliński <marek@biuro.acme.example>
+To: {{OWNER}}
+Subject: Faktura
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Dzień dobry, w załączeniu faktura za wrzesień. hubfx:acme-offer

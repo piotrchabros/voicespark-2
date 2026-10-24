@@ -1,0 +1,10 @@
+Message-ID: <owner-old-{{RUN}}@mail.example>
+Date: Sat, 12 Sep 2026 13:00:00 +0000
+From: Anna <{{OLD_OWNER}}>
+To: {{OWNER}}
+Subject: Przeniesienie skrzynki
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Przekazuję notatki ze starej skrzynki. hubfx:acme-offer

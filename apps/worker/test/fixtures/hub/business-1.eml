@@ -1,0 +1,18 @@
+Message-ID: <business-1-{{RUN}}@mail.example>
+Date: Mon, 07 Sep 2026 09:00:00 +0000
+From: Jan Kowalski <jan@acme.example>
+To: {{OWNER}}
+Subject: Zapytanie o ofertę na stal
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Dzień dobry,
+
+proszę o przygotowanie oferty na dostawę stali do końca miesiąca. hubfx:acme-offer
+
+-- 
+Jan Kowalski
+Kierownik zakupów
+Acme Sp. z o.o.
+tel. +48 601 234 567

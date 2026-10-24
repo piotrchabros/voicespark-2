@@ -58,6 +58,15 @@ const WARMUP_PATHS = [
   // Search (US5).
   '/hub/search',
   '/api/hub/search',
+  // Mailboxes, ignore rules and conversation sources (US3).
+  '/api/hub/mailboxes',
+  `/api/hub/mailboxes/${HUB_WARMUP_ID}/enable`,
+  `/api/hub/mailboxes/${HUB_WARMUP_ID}/disable`,
+  `/api/hub/mailboxes/${HUB_WARMUP_ID}/threads/${HUB_WARMUP_ID}/retry`,
+  '/api/hub/ignore-rules',
+  `/api/hub/ignore-rules/${HUB_WARMUP_ID}`,
+  `/api/hub/people/${HUB_WARMUP_ID}/sources`,
+  `/sources/${HUB_WARMUP_ID}`,
 ];
 
 const childEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...E2E_ENV });

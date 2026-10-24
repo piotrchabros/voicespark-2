@@ -231,15 +231,23 @@ describe('hub mailboxes', () => {
     const ctx = await newCtx();
     const sourceId = await newSource(ctx.userId);
     await mailboxes.enable(ctx, sourceId, { acknowledgeAi: true });
+    const t1 = await newThread(ctx.userId, sourceId, 'done', 'cap-1');
+    const t2 = await newThread(ctx.userId, sourceId, 'done', 'cap-2');
+    const extractCall = (threadId: string) =>
+      q(`insert into hub_llm_call (user_id, thread_id, purpose, model, prompt_version, input_tokens, output_tokens)
+       values ($1, $2, 'extract', 'm', 'v1', 1, 1)`, [ctx.userId, threadId]);
     await q(
-      `insert into app_setting (key, value) values ('hub.daily_thread_cap_per_user', '1'::jsonb)
+      `insert into app_setting (key, value) values ('hub.daily_thread_cap_per_user', '2'::jsonb)
        on conflict (key) do update set value = excluded.value`,
       [],
     );
     try {
       expect((await mailboxes.list(ctx))[0]!.pausedUntil).toBeNull();
-      await q(`insert into hub_llm_call (user_id, purpose, model, prompt_version, input_tokens, output_tokens)
-       values ($1, 'extract', 'm', 'v1', 1, 1)`, [ctx.userId]);
+      // A schema retry writes two extract rows for one thread: they count as one thread, as in the worker.
+      await extractCall(t1);
+      await extractCall(t1);
+      expect((await mailboxes.list(ctx))[0]!.pausedUntil).toBeNull();
+      await extractCall(t2);
       const paused = (await mailboxes.list(ctx))[0]!.pausedUntil;
       expect(paused).not.toBeNull();
       const at = new Date(paused!);

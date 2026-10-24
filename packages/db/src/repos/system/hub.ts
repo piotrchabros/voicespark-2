@@ -145,3 +145,28 @@ export async function orphanBlobKeys(keys: string[], db: DbOrTx = getDb()): Prom
   const known = new Set(rows.map((r) => r.key));
   return keys.filter((k) => !known.has(k));
 }
+
+/**
+ * Distinct threads with an `extract` call for the user since `since` (a schema retry writes two rows for one
+ * thread). Shared by the hub.thread daily cap and the mailbox "paused" indicator; `excludeThreadId` leaves out the
+ * thread being processed.
+ */
+export async function countExtractedThreadsSince(
+  userId: string,
+  since: Date,
+  excludeThreadId?: string,
+  db: DbOrTx = getDb(),
+): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(distinct ${hubLlmCall.threadId})::int` })
+    .from(hubLlmCall)
+    .where(
+      and(
+        eq(hubLlmCall.userId, userId),
+        eq(hubLlmCall.purpose, 'extract'),
+        gte(hubLlmCall.createdAt, since),
+        excludeThreadId ? sql`${hubLlmCall.threadId} is distinct from ${excludeThreadId}` : undefined,
+      ),
+    );
+  return Number(row?.n ?? 0);
+}

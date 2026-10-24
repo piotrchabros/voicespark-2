@@ -24,6 +24,7 @@ import { handlers as hubBackfill } from './processors/hub-backfill';
 import { handlers as hubFile } from './processors/hub-file';
 import { handlers as hubRefilter } from './processors/hub-refilter';
 import { handlers as hubSync } from './processors/hub-sync';
+import { handlers as hubThread } from './processors/hub-thread';
 import { handlers as importHandlers } from './processors/import';
 import { handlers as maintenance } from './processors/maintenance';
 import { handlers as notify } from './processors/notify';
@@ -47,6 +48,7 @@ const HANDLERS: HandlerMap = {
   ...hubFile,
   ...hubRefilter,
   ...hubSync,
+  ...hubThread,
 };
 
 // Per-job-name limits inside the single `hub` Worker (contracts/jobs.md; sum = its concurrency of 12).
@@ -103,6 +105,7 @@ const SCHEDULERS: ReadonlyArray<{
   { id: 'maintenance.hub-blob-sweep', repeat: { pattern: '0 5 * * *' } },
   { id: 'maintenance.hub-refilter-retry', repeat: { pattern: '0 4 * * *' } },
   { id: 'maintenance.hub-sync-sweep', repeat: { every: 60_000 } },
+  { id: 'maintenance.hub-thread-sweep', repeat: { every: 60_000 } },
 ];
 
 async function main(): Promise<void> {

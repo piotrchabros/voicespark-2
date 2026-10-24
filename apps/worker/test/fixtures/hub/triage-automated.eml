@@ -1,0 +1,10 @@
+Message-ID: <triage-automated-{{RUN}}@mail.example>
+Date: Fri, 11 Sep 2026 08:00:00 +0000
+From: Status Portal <status@portal.example>
+To: {{OWNER}}
+Subject: Raport dzienny
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Raport dzienny systemu: wszystkie usługi działają poprawnie. hubfx:triage-automated hubfx:acme-offer

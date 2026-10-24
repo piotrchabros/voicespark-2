@@ -8,7 +8,7 @@ import { enqueue, jobIds } from '@voicespark/core/queues';
 import * as imports from '@voicespark/core/services/imports';
 import * as retroscans from '@voicespark/core/services/retroscans';
 import { connectedSource, filterPreferences, getDb, hubSyncItem, importJob, upload, user } from '@voicespark/db';
-import { dueSyncUsers, orphanBlobKeys } from '@voicespark/db/repos/system/hub';
+import { dueSyncUsers, dueThreads, expireLeases, orphanBlobKeys } from '@voicespark/db/repos/system/hub';
 import { createMemoryStore, type MemoryStore } from '@voicespark/integrations/supermemory';
 import type { HandlerMap } from '../handlers';
 
@@ -184,6 +184,28 @@ export async function hubSyncSweep(): Promise<{ count: number }> {
   return { count: users.length };
 }
 
+/** Threads enqueued per sweep; the rest are picked up by the next minute's sweep. */
+export const HUB_THREAD_SWEEP_LIMIT = 500;
+
+/**
+ * `maintenance.hub-thread-sweep` (T122, every minute; contracts/jobs.md (16)): clears expired leases (crashed runs),
+ * then enqueues `hub.thread` for due threads (`pending`, `version > processed_version`, `next_attempt_at <= now()`, no
+ * live lease): lost jobs, backoffs and debounces that came due, and threads that got a new version during a run. The
+ * job id `hubthread-{threadId}-{version}` dedups against a waiting one.
+ */
+export async function hubThreadSweep(): Promise<{ count: number; expired: number }> {
+  const expired = await expireLeases();
+  const due = await dueThreads(HUB_THREAD_SWEEP_LIMIT);
+  for (const t of due) {
+    await enqueue(
+      'hub.thread',
+      { userId: t.userId, threadId: t.id, version: t.version },
+      { jobId: jobIds.hubThread(t.id, t.version) },
+    );
+  }
+  return { count: due.length, expired };
+}
+
 /**
  * `maintenance.hub-refilter-retry` (T084, daily; contracts/jobs.md (15), (16)): re-enqueues `hub.refilter` under the
  * current policy version for every active user with rows held as `refilter_pending` (final refilter failure or a
@@ -222,5 +244,6 @@ export const handlers: HandlerMap = {
   'maintenance.credential-audit': credentialAudit,
   'maintenance.hub-blob-sweep': () => hubBlobSweep(),
   'maintenance.hub-sync-sweep': () => hubSyncSweep(),
+  'maintenance.hub-thread-sweep': () => hubThreadSweep(),
   'maintenance.hub-refilter-retry': () => hubRefilterRetry(),
 };

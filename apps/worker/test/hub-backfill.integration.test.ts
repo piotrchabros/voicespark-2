@@ -30,8 +30,8 @@ import {
   BACKFILL_PAGE_SIZE,
   BACKFILL_RETRY_DELAY_MS,
   createHubBackfillHandler,
-  webLinkFor,
 } from '../src/processors/hub-backfill';
+import { webLinkFor } from '../src/hub-links';
 import { createImportHandler } from '../src/processors/import';
 import { seedMailbox, uniqueMailbox, type SeedMessage } from './helpers/greenmail';
 
@@ -135,7 +135,10 @@ interface BackfillRun {
 }
 
 async function runBackfill(payload: BackfillPayload): Promise<BackfillRun> {
-  const moveToDelayed = vi.fn(async (_ts: number, _token?: string) => undefined);
+  let calledAt = 0;
+  const moveToDelayed = vi.fn(async (_ts: number, _token?: string) => {
+    calledAt = Date.now();
+  });
   const job = {
     id: jobIds.hubBackfill(payload.sourceId),
     name: 'hub.backfill',
@@ -144,7 +147,6 @@ async function runBackfill(payload: BackfillPayload): Promise<BackfillRun> {
     opts: { attempts: 5 },
     moveToDelayed,
   };
-  const before = Date.now();
   try {
     const r = (await backfillHandler(job as unknown as Job<BackfillPayload, unknown, 'hub.backfill'>, 'token')) as {
       outcome: string;
@@ -157,16 +159,18 @@ async function runBackfill(payload: BackfillPayload): Promise<BackfillRun> {
     expect(moveToDelayed).toHaveBeenCalledTimes(1);
     const [ts, token] = moveToDelayed.mock.calls[0]!;
     expect(token).toBe('token');
-    const delayMs = ts - before;
+    // Measured at the moment the handler requested the delay, so slow page fetches do not count.
+    const delayMs = ts - calledAt;
     // `recorded` is not visible through the re-delay; the spy counts calls instead.
     return { outcome: 'delayed', recorded: -1, delayMs };
   }
 }
 
-/** `delayMs` is measured from before the run, so it also includes the run itself. */
+/** `delayMs` is the delay the handler requested (target minus the time it called moveToDelayed). */
 function expectDelay(r: BackfillRun, delayMs: number): void {
-  expect(r.delayMs).toBeGreaterThanOrEqual(delayMs);
-  expect(r.delayMs).toBeLessThan(delayMs + 5_000);
+  // The handler reads Date.now() just before calling moveToDelayed, so allow a few ms of skew.
+  expect(r.delayMs).toBeGreaterThanOrEqual(delayMs - 50);
+  expect(r.delayMs).toBeLessThan(delayMs + 1_000);
 }
 
 async function setting(sourceId: string) {
@@ -369,5 +373,5 @@ describe('hub.backfill (contracts/jobs.md (12))', () => {
     const after = await setting(sourceId);
     expect(after.backfillState).toBe('running');
     expect(after.backfillCursor).toEqual(before.backfillCursor);
-  });
+  }, 120_000);
 });

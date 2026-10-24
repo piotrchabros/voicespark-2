@@ -9,6 +9,7 @@ import {
   type HubMailboxSetting,
 } from '@voicespark/db';
 import * as mail from '@voicespark/db/repos/user/hub-mail';
+import { countExtractedThreadsSince } from '@voicespark/db/repos/system/hub';
 import { getSource, listSources, type ConnectedSourceRow } from '@voicespark/db/repos/user/sources';
 import { AppError, type ServiceContext } from '../../errors';
 import { logger } from '../../logger';
@@ -105,7 +106,7 @@ async function failedThreadsBySource(ctx: ServiceContext): Promise<Map<string, F
 }
 
 async function pausedUntilFor(ctx: ServiceContext, cap: number, now: Date): Promise<string | null> {
-  const used = await mail.countLlmCallsSince(ctx, new Date(now.getTime() - DAY_MS), 'extract');
+  const used = await countExtractedThreadsSince(ctx.userId, new Date(now.getTime() - DAY_MS));
   return used >= cap ? nextUtcMidnight(now).toISOString() : null;
 }
 

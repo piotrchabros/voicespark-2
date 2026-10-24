@@ -23,7 +23,9 @@ import {
   type HubPromptMessage,
   type HubPromptParticipant,
 } from '../../hub/prompts';
+import { HUB_POLICY_V1 } from '../../hub/policy';
 import { getClassifier } from '../inspection';
+import type { ApplyParticipant } from './apply';
 import { domainHash } from './records';
 
 // The model-facing steps of `hub.thread` (contracts/hub-extraction.md sections 4 to 7): participants, hub-mode
@@ -97,24 +99,15 @@ export interface HubParticipantMessage {
   automated: boolean;
 }
 
-export interface HubParticipant {
-  /** `P1..Pn` in order of first appearance. */
-  key: string;
-  name: string | null;
-  /** Lower-cased. */
-  address: string;
-  owner: boolean;
-  roleAddress: boolean;
-  freeMail: boolean;
+/** A candidate of the thread: the apply participant (data-model shape plus key and counts) and the ignore flag. */
+export interface SelectedParticipant extends ApplyParticipant {
+  /** Matches a `hub_ignore_rule` (FR-021); never sent to the model or applied. */
   ignored: boolean;
-  /** Sender of an automated message. */
-  automated: boolean;
-  /** In `From` of at least one message. */
-  sent: boolean;
 }
 
 export interface ParticipantSelection {
-  participants: HubParticipant[];
+  /** `P1..Pn` in order of first appearance; addresses lower-cased. */
+  participants: SelectedParticipant[];
   /** `owner_only` when no other candidate is left; `ignored` when every other candidate is ignored. */
   skip: 'ignored' | 'owner_only' | null;
 }
@@ -162,8 +155,8 @@ function isIgnored(address: string, rules: HubIgnoreRules): boolean {
 
 /**
  * Candidates are the `From` of every message and the `To` of messages with at most 10 `To` and at most 20 `To`
- * plus `CC`; `CC` never adds a candidate. `ownerAddresses` holds the user's identities and the addresses of all
- * connected and disconnected sources.
+ * plus `CC`; `CC` never adds a candidate (it only adds the `cc` role to one). `ownerAddresses` holds the user's
+ * identities and the addresses of all connected and disconnected sources.
  */
 export function selectParticipants(
   messages: readonly HubParticipantMessage[],
@@ -171,8 +164,9 @@ export function selectParticipants(
   ignoreRules: HubIgnoreRules,
 ): ParticipantSelection {
   const owners = new Set([...ownerAddresses].map(normalizeAddress));
-  const byAddress = new Map<string, HubParticipant>();
-  const add = (entry: { name: string | null; address: string }, sent: boolean, automated: boolean) => {
+  const byAddress = new Map<string, SelectedParticipant>();
+  const ccAddresses = new Set<string>();
+  const add = (entry: { name: string | null; address: string }, role: 'from' | 'to', automated: boolean) => {
     let p = byAddress.get(entry.address);
     if (p === undefined) {
       const domain = entry.address.slice(entry.address.lastIndexOf('@') + 1);
@@ -180,33 +174,50 @@ export function selectParticipants(
         key: `P${byAddress.size + 1}`,
         name: entry.name,
         address: entry.address,
+        roles: [],
         owner: owners.has(entry.address),
         roleAddress: isRoleAddress(entry.address),
         freeMail: isFreeMailDomain(domain),
         ignored: isIgnored(entry.address, ignoreRules),
         automated: false,
         sent: false,
+        messagesSent: 0,
+        directToOnOwnerSent: false,
       };
       byAddress.set(entry.address, p);
     }
     p.name ??= entry.name;
-    if (sent) p.sent = true;
+    if (!p.roles.includes(role)) p.roles.push(role);
+    if (role === 'from') {
+      p.sent = true;
+      p.messagesSent++;
+    }
     if (automated) p.automated = true;
+    return p;
   };
   for (const m of messages) {
-    for (const from of parseList(m.from).slice(0, 1)) add(from, true, m.automated);
+    const from = parseList(m.from).slice(0, 1);
+    for (const f of from) add(f, 'from', m.automated);
+    const ownerSent = from.some((f) => owners.has(f.address));
     const to = parseList(m.to);
     const cc = parseList(m.cc);
-    if (to.length <= MAX_TO && to.length + cc.length <= MAX_TO_CC) for (const t of to) add(t, false, false);
+    for (const c of cc) ccAddresses.add(c.address);
+    if (to.length <= MAX_TO && to.length + cc.length <= MAX_TO_CC) {
+      for (const t of to) {
+        const p = add(t, 'to', false);
+        if (ownerSent && to.length <= HUB_POLICY_V1.maxOwnerToRecipients) p.directToOnOwnerSent = true;
+      }
+    }
   }
   const participants = [...byAddress.values()];
+  for (const p of participants) if (ccAddresses.has(p.address) && !p.roles.includes('cc')) p.roles.push('cc');
   const others = participants.filter((p) => !p.owner);
   const skip = others.length === 0 ? 'owner_only' : others.every((p) => p.ignored) ? 'ignored' : null;
   return { participants, skip };
 }
 
 /** The `<participants>` lines: ignored participants are left out, so the model can not reference them. */
-export function toPromptParticipants(participants: readonly HubParticipant[]): HubPromptParticipant[] {
+export function toPromptParticipants(participants: readonly SelectedParticipant[]): HubPromptParticipant[] {
   return participants
     .filter((p) => !p.ignored)
     .map((p) => {

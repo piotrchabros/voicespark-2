@@ -28,7 +28,10 @@ import { ATTACHMENT_SKIP_FOR, extractText } from '@voicespark/integrations/files
 import type { FetchedMessage, MailRef } from '@voicespark/integrations/mail';
 import { parseMessage, type ParsedMessage } from '@voicespark/integrations/mime';
 import { META, type MemoryDoc, type MemoryStore } from '@voicespark/integrations/supermemory';
+import { webLinkFor } from '../hub-links';
 import { buildMetadata } from './metadata';
+
+type SourceType = Parameters<typeof webLinkFor>[0];
 
 const DAY_MS = 86_400_000;
 
@@ -44,8 +47,11 @@ export interface PageContext {
   ownAddresses: string[];
   store: MemoryStore;
   classifier: Classifier;
-  /** The hub switch of this mailbox (`hub_mailbox_setting`); off means `recordMessage` is never called (AS3.9). */
-  hub: { enabled: boolean };
+  /**
+   * The hub switch of this mailbox (`hub_mailbox_setting`); off means `recordMessage` is never called (AS3.9).
+   * `sourceType` picks the provider "open original" link (FR-019).
+   */
+  hub: { enabled: boolean; sourceType: SourceType };
 }
 
 /** Set when a write transaction finds the source no longer `connected` or the job no longer `running` (D-C9). */
@@ -324,7 +330,7 @@ async function recordForHub(ctx: PageContext, ref: MailRef, parsed: ParsedMessag
       folders: parsed.folders,
       parsed,
       direction: authored ? 'outbound' : 'inbound',
-      webLink: null,
+      webLink: webLinkFor(ctx.hub.sourceType, ref.providerRef),
     });
   } catch {
     logger.warn(

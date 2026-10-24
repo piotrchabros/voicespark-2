@@ -1,0 +1,17 @@
+Message-ID: <two-addresses-2-{{RUN}}@mail.example>
+Date: Mon, 14 Sep 2026 15:00:00 +0000
+From: Jan Kowalski <jan.kowalski@acme.example>
+To: {{OWNER}}
+Subject: Re: Dostawa
+In-Reply-To: <two-addresses-1-{{RUN}}@mail.example>
+References: <two-addresses-1-{{RUN}}@mail.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Piszę z drugiego adresu: dostawa wyjedzie w czwartek.
+
+-- 
+Jan Kowalski
+Kierownik zakupów
+Acme Sp. z o.o.

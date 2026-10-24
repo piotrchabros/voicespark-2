@@ -1,0 +1,10 @@
+Message-ID: <info-{{RUN}}@mail.example>
+Date: Sun, 13 Sep 2026 09:00:00 +0000
+From: Acme Biuro <info@acme.example>
+To: {{OWNER}}
+Subject: Godziny otwarcia biura
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Uprzejmie informujemy o zmianie godzin otwarcia biura w przyszłym tygodniu.

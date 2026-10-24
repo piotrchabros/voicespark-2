@@ -1,0 +1,10 @@
+Message-ID: <owner-self-{{RUN}}@mail.example>
+Date: Sat, 12 Sep 2026 12:00:00 +0000
+From: Anna <{{OWNER}}>
+To: {{OWNER}}
+Subject: Notatka dla siebie
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Przypomnienie: oddzwonić do Acme w sprawie oferty. hubfx:acme-offer

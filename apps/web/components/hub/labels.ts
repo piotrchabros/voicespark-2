@@ -48,6 +48,7 @@ const ERROR_TEXT: Record<string, string> = {
   note_excluded: 'This note was not saved: it only contained excluded information.',
   too_large: 'This file is larger than 25 MB, so it was not attached.',
   unsupported_type: 'This file type is not allowed, so it was not attached.',
+  hub_not_enabled: 'The hub is not on for this mailbox.',
 };
 
 export interface HubApiFailure {
@@ -258,3 +259,114 @@ export function searchResultHref(item: Pick<HubSearchItem, 'type' | 'id' | 'owne
   }
   return `/hub/${KIND_PATH[item.type]}/${item.id}`;
 }
+
+// Mailboxes, ignore rules and conversation sources (US3; contracts/http-api.md "Mailboxes and ignore rules",
+// "GET /api/hub/{kind}/{id}/sources"; FR-012, FR-018, FR-019, FR-021, FR-022).
+
+export type BackfillState = 'none' | 'pending' | 'running' | 'done';
+
+export interface HubFailedThread {
+  id: string;
+  subjectAvailable: false;
+  errorCode: string | null;
+  attempts: number;
+  lastAttemptAt: string | null;
+}
+
+export interface HubMailbox {
+  sourceId: string;
+  accountLabel: string;
+  status: string;
+  enabled: boolean;
+  enabledAt: string | null;
+  backfillState: BackfillState;
+  pausedUntil: string | null;
+  threadsProcessed: number;
+  threadsSkipped: number;
+  threadsFailed: number;
+  lastRunAt: string | null;
+  dataChoice: 'keep' | 'delete' | null;
+  failedThreads: HubFailedThread[];
+}
+
+/** The notice the user acknowledges before the hub is turned on for a mailbox (FR-012). */
+export const HUB_AI_NOTICE =
+  'Conversation content from this mailbox is sent to the AI service, which recognises the people, companies and projects in it. Only filtered summaries and findings are kept; message text is not stored.';
+
+export const BACKFILL_STATE_TEXT: Record<BackfillState, string | null> = {
+  none: null,
+  pending: 'Earlier mail is queued for reading.',
+  running: 'Reading earlier mail.',
+  done: null,
+};
+
+/** Plain-words reasons for a failed conversation; codes come from the `hub.thread` worker. */
+export const THREAD_ERROR_TEXT: Record<string, string> = {
+  llm_refused: 'The AI service declined this conversation.',
+  llm_bad_output: 'The AI service gave an unusable answer.',
+  llm_rate_limited: 'The AI service was busy.',
+  llm_unavailable: 'The AI service was unavailable.',
+  inspection_failed: 'The content could not be checked.',
+  fetch_unavailable: 'The messages could not be read from the mailbox.',
+  source_auth: 'The mailbox needs reconnection.',
+  daily_cap_reached: 'The daily limit was reached.',
+  apply_failed: 'The findings could not be saved.',
+};
+
+export type IgnoreRuleKind = 'address' | 'domain';
+
+export interface HubIgnoreRule {
+  id: string;
+  kind: IgnoreRuleKind;
+  value: string;
+  createdAt: string;
+}
+
+export const IGNORE_RULE_KIND_LABELS: Record<IgnoreRuleKind, string> = { address: 'Sender', domain: 'Domain' };
+
+export type HubSourceSupport = { field: string } | { link: string } | { email: string } | { domain: string };
+
+export interface HubSourceParticipant {
+  name: string | null;
+  address: string;
+  owner: boolean;
+}
+
+export interface HubSourceThread {
+  threadId: string;
+  subject: string | null;
+  firstMessageAt: string | null;
+  lastMessageAt: string | null;
+  messageCount: number;
+  participants: HubSourceParticipant[];
+  summary: string | null;
+  openUrl: string | null;
+  supports: HubSourceSupport[];
+}
+
+/** Field keys of the three record kinds as shown on the detail page. */
+export const FIELD_LABELS: Record<string, string> = {
+  name: 'Name',
+  roleTitle: 'Role',
+  phone: 'Phone',
+  website: 'Website',
+  industry: 'Industry',
+  status: 'Status',
+  startDate: 'Start date',
+  endDate: 'End date',
+  description: 'Description',
+};
+
+/** Date part only, the same on the server and in the browser. */
+export function formatDay(iso: string | null): string {
+  return iso ? iso.slice(0, 10) : 'Unknown date';
+}
+
+/** The domain of an address, lower-cased; empty when there is none. */
+export function domainOfAddress(address: string): string {
+  const at = address.lastIndexOf('@');
+  return at < 0 ? '' : address.slice(at + 1).toLowerCase();
+}
+
+/** Anchor of a conversation in the summaries panel, so the sources panel can point at it. */
+export const threadAnchor = (threadId: string) => `hub-thread-${threadId}`;

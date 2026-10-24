@@ -10,6 +10,7 @@ import * as sources from '@voicespark/core/services/sources';
 import { MailAuthError, RateLimitedError, type MailFetcher, type MailRef } from '@voicespark/integrations/mail';
 import { parseMessage } from '@voicespark/integrations/mime';
 import { defaultDeps, type WorkerDeps } from '../deps';
+import { webLinkFor } from '../hub-links';
 import type { Handler, HandlerMap } from '../handlers';
 
 // `hub.backfill` (T116, contracts/jobs.md (12); data-model.md `hub_mailbox_setting`; FR-013). Feeds the hub with mail
@@ -64,11 +65,6 @@ export function createHubBackfillHandler(overrides: Partial<WorkerDeps> = {}): H
     }
     return result;
   };
-}
-
-/** The provider "open original" link (data-model.md `hub_thread_source`): Gmail only; Graph and IMAP give none here. */
-export function webLinkFor(type: SourceRow['type'], providerRef: string): string | null {
-  return type === 'gmail' ? `https://mail.google.com/mail/#all/${encodeURIComponent(providerRef)}` : null;
 }
 
 /** Gmail lists every message under `_all`; Graph refs carry their folder id; IMAP refs embed the folder path. */

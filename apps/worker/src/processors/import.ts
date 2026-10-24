@@ -227,7 +227,7 @@ async function runPage(job: ImportJob, token: string | undefined, deps: WorkerDe
       ownAddresses: await loadOwnAddresses(userId),
       store: deps.store,
       classifier: deps.classifier,
-      hub: { enabled: await hubMailboxes.isEnabled(sourceId) },
+      hub: { enabled: await hubMailboxes.isEnabled(sourceId), sourceType: source.type },
     };
     const signal: PageSignal = { aborted: false };
     const tally = newTally();

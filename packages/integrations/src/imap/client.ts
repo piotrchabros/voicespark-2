@@ -29,6 +29,57 @@ export interface ImapConnectOptions {
 export const IMAP_FETCH_BATCH = 50;
 /** Folders never read; `\All` is skipped too so messages are not counted twice. */
 const SKIPPED_SPECIAL_USE = new Set(['\\Trash', '\\Junk', '\\Drafts', '\\All']);
+/**
+ * Junk/trash/drafts folder names, compared after lowercasing and dropping spaces, hyphens and
+ * underscores. Needed because without SPECIAL-USE imapflow guesses only ONE folder per role, so a
+ * mailbox with both "Spam" and "Junk" (or "Trash" and "Deleted Items") would otherwise import one.
+ */
+const SKIPPED_FOLDER_NAMES = new Set(
+  [
+    'Spam',
+    'Junk',
+    'Junk E-mail',
+    'Junk Email',
+    'Junk Mail',
+    'Bulk Mail',
+    'Trash',
+    'Deleted',
+    'Deleted Items',
+    'Deleted Messages',
+    'Bin',
+    'Kosz',
+    'Wiadomości-śmieci',
+    'Śmieci',
+    'Drafts',
+    'Szkice',
+    'Wersje robocze',
+  ].map(normaliseFolderName),
+);
+
+function normaliseFolderName(name: string): string {
+  return name
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+}
+
+/**
+ * True when a listed folder must never be read: a junk/trash/drafts/all special-use flag, or any
+ * path segment named like one (so "Trash/Old" is skipped too). Sent detection is separate.
+ */
+export function isSkippedImapFolder(f: {
+  name: string;
+  parent?: string[];
+  specialUse?: string;
+  flags?: Set<string>;
+}): boolean {
+  if (f.specialUse && SKIPPED_SPECIAL_USE.has(f.specialUse)) return true;
+  for (const flag of f.flags ?? []) if (SKIPPED_SPECIAL_USE.has(flag)) return true;
+  return [...(f.parent ?? []), f.name].some((s) =>
+    SKIPPED_FOLDER_NAMES.has(normaliseFolderName(s)),
+  );
+}
+
 const CONNECT_TIMEOUT_MS = 20_000;
 
 function buildClient(cfg: ImapConfig, opts: ImapConnectOptions = {}): ImapFlow {
@@ -153,7 +204,7 @@ export function createImapFetcher(cfg: ImapConfig, opts?: ImapConnectOptions): M
         const list = await c.list();
         return list
           .filter((f) => !f.flags.has('\\Noselect') && !f.flags.has('\\NonExistent'))
-          .filter((f) => !(f.specialUse && SKIPPED_SPECIAL_USE.has(f.specialUse)))
+          .filter((f) => !isSkippedImapFolder(f))
           .map((f) => ({ folderKey: f.path, name: f.path, authored: f.specialUse === '\\Sent' }));
       }),
 

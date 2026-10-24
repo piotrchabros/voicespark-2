@@ -168,7 +168,7 @@ export const FAKE_HUB_FIXTURES = {
   acmeOffer: 'acme-offer',
   /** As `acme-offer`, plus the explicitly named project Orion with person and company links. */
   acmeProject: 'acme-project',
-  /** Ola Nowak <ola.nowak@gmail.example>: a person from a free-mail address, no company. */
+  /** Ola Nowak <ola.nowak@gmail.com>: a person from a free-mail address, no company. */
   freeMailPerson: 'freemail-person',
   /** `relevant = false`, nothing extracted. */
   irrelevant: 'irrelevant',
@@ -328,7 +328,7 @@ const HUB_FIXTURES: Record<string, HubFixture> = {
     relevant: true,
     language: 'en',
     summary: 'Ola Nowak asked about the workshop dates and confirmed she will attend.',
-    people: [{ address: 'ola.nowak@gmail.example', name: 'Ola Nowak', confidence: 0.9, evidence: 'Best, Ola Nowak' }],
+    people: [{ address: 'ola.nowak@gmail.com', name: 'Ola Nowak', confidence: 0.9, evidence: 'Best, Ola Nowak' }],
     companies: [],
     projects: [],
     links: [],

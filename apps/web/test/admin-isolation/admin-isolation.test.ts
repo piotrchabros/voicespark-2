@@ -17,7 +17,9 @@ import {
   hubCompany,
   hubCompanyDomain,
   hubFile,
+  hubIgnoreRule,
   hubLink,
+  hubMailboxSetting,
   hubNote,
   hubPersonEmail,
   hubProject,
@@ -1044,6 +1046,57 @@ describe("(b) an admin reaching another user's content", () => {
       verb: 'GET',
       params: (sd) => ({ id: sd.u.hub.fileId }),
       target: (sd) => sd.u.hub.fileId,
+    },
+    {
+      name: 'hub mailbox enable',
+      route: 'hub/mailboxes/[sourceId]/enable',
+      verb: 'POST',
+      params: (sd) => ({ sourceId: sd.u.hub.mailboxSourceId }),
+      target: (sd) => sd.u.hub.mailboxSourceId,
+      body: { acknowledgeAi: true },
+    },
+    {
+      name: 'hub mailbox disable',
+      route: 'hub/mailboxes/[sourceId]/disable',
+      verb: 'POST',
+      params: (sd) => ({ sourceId: sd.u.hub.mailboxSourceId }),
+      target: (sd) => sd.u.hub.mailboxSourceId,
+      body: { hubData: 'delete' },
+      unchanged: async (sd) => {
+        const [row] = await getDb()
+          .select({ enabled: hubMailboxSetting.enabled })
+          .from(hubMailboxSetting)
+          .where(eq(hubMailboxSetting.sourceId, sd.u.hub.mailboxSourceId));
+        expect(row?.enabled).toBe(true);
+      },
+    },
+    {
+      name: 'hub mailbox thread retry',
+      route: 'hub/mailboxes/[sourceId]/threads/[threadId]/retry',
+      verb: 'POST',
+      params: (sd) => ({ sourceId: sd.u.hub.mailboxSourceId, threadId: sd.u.hub.threadId }),
+      target: (sd) => sd.u.hub.threadId,
+    },
+    {
+      name: 'hub ignore rule delete',
+      route: 'hub/ignore-rules/[id]',
+      verb: 'DELETE',
+      params: (sd) => ({ id: sd.u.hub.ignoreRuleId }),
+      target: (sd) => sd.u.hub.ignoreRuleId,
+      unchanged: async (sd) => {
+        const rows = await getDb()
+          .select({ id: hubIgnoreRule.id })
+          .from(hubIgnoreRule)
+          .where(eq(hubIgnoreRule.id, sd.u.hub.ignoreRuleId));
+        expect(rows).toHaveLength(1);
+      },
+    },
+    {
+      name: 'hub record sources',
+      route: 'hub/[kind]/[id]/sources',
+      verb: 'GET',
+      params: (sd) => ({ kind: 'people', id: sd.u.hub.personId }),
+      target: (sd) => sd.u.hub.personId,
     },
   ];
 

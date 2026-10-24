@@ -32,6 +32,7 @@ import type { MailFetcher, MailRef } from '@voicespark/integrations/mail';
 import { parseMessage } from '@voicespark/integrations/mime';
 import { InMemoryMemoryStore } from '@voicespark/integrations/supermemory';
 import { defaultDeps } from '../src/deps';
+import { webLinkFor } from '../src/hub-links';
 import { createImportHandler } from '../src/processors/import';
 import { GREENMAIL_HOST, GREENMAIL_IMAPS_PORT, uniqueMailbox } from './helpers/greenmail';
 
@@ -332,6 +333,9 @@ describe('import.page hub hook (contracts/jobs.md (1))', () => {
     expect(rows.messageSources).toHaveLength(3);
     expect(rows.threadSources).toHaveLength(1);
     expect(rows.threadSources[0]!.sourceId).toBe(source.id);
+    // IMAP gives no "open original" link (FR-019).
+    for (const [input] of recordMessage.mock.calls) expect(input.webLink).toBeNull();
+    expect(rows.threadSources[0]!.webLinkEnc).toBeNull();
     const thread = rows.threads[0]!;
     expect(thread.messageCount).toBe(2);
     expect(thread.status).toBe('pending');
@@ -547,6 +551,64 @@ describe('import.page hub hook (contracts/jobs.md (1))', () => {
     expect(refs[0]!.startsWith('INBOX|')).toBe(true);
     expect(recordedRefs(source.id)).toEqual(refs);
     expect((await hubRows(ctx.userId)).messages).toHaveLength(1);
+  }, 60_000);
+});
+
+describe('import.page hub hook: open-original link (FR-019)', () => {
+  it('webLinkFor gives a Gmail link and none for Graph or IMAP', () => {
+    expect(webLinkFor('gmail', '18c2f0a1b2c3d4e5')).toBe('https://mail.google.com/mail/#all/18c2f0a1b2c3d4e5');
+    expect(webLinkFor('microsoft', 'AAMk')).toBeNull();
+    expect(webLinkFor('imap', 'INBOX|1|7')).toBeNull();
+  });
+
+  it('a Gmail-type source hands recordMessage the webLinkFor link of each message', async () => {
+    const ctx = await newUser();
+    const box = uniqueMailbox('hub-gmail-link');
+    await seed(box, [{ messageId: '<gl-1@acme.example>', subject: 'Contract', date: day(1), body: prose('contract') }]);
+    const source = await sources.connectImap(ctx, imapCfg(box));
+    await mailboxes.enable(ctx, source.id, { acknowledgeAi: true });
+    takeEnqueued('hub.backfill', (e) => e.payload.sourceId === source.id);
+
+    // The page sees a `gmail` source; the mail itself still comes from GreenMail (the fetcher is opened as IMAP).
+    const setType = (type: 'gmail' | 'imap') =>
+      getDb().update(connectedSource).set({ type }).where(eq(connectedSource.id, source.id));
+    await setType('gmail');
+    const real = defaultDeps({ store, classifier: createRecordedClassifier() }).openFetcher;
+    const handler = createImportHandler({
+      store,
+      classifier: createRecordedClassifier(),
+      openFetcher: async (sourceId) => {
+        await setType('imap');
+        try {
+          return await real(sourceId);
+        } finally {
+          await setType('gmail');
+        }
+      },
+    });
+    for (let guard = 0; ; guard++) {
+      expect(guard).toBeLessThan(100);
+      const idx = enqueued.findIndex((e) => e.name === 'import.page' && e.payload.sourceId === source.id);
+      if (idx < 0) break;
+      const payload = enqueued.splice(idx, 1)[0]!.payload as unknown as PagePayload;
+      await handler(
+        fakeJob('import.page', jobIds.importPage(payload.sourceId, Date.now()), payload) as unknown as Job<
+          PagePayload,
+          unknown,
+          'import.page'
+        >,
+        'token',
+      );
+    }
+
+    const calls = recordMessage.mock.calls.filter(([i]) => i.sourceId === source.id);
+    expect(calls).toHaveLength(1);
+    const [input] = calls[0]!;
+    expect(input.webLink).toBe(webLinkFor('gmail', input.providerRef));
+    expect(input.webLink).toMatch(/^https:\/\/mail\.google\.com\/mail\/#all\//);
+    const rows = await hubRows(ctx.userId);
+    expect(rows.threadSources).toHaveLength(1);
+    expect(rows.threadSources[0]!.webLinkEnc).not.toBeNull();
   }, 60_000);
 });
 
