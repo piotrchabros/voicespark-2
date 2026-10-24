@@ -11,7 +11,7 @@ import { indexTokens } from '../../hub/search-tokens';
 import { logger } from '../../logger';
 import { enqueue, jobIds } from '../../queues';
 import { decryptContent, encryptContent, hubNotFound, inspectFields, type HubKind } from './common';
-import { markDirty, syncFieldFor, tombstone, type SyncField } from './sync';
+import { markDirty, syncFieldFor, syncFieldsFor, tombstone, type SyncField } from './sync';
 
 // Files of the Context Hub (US2; contracts/http-api.md "Files (US2)", data-model.md "hub_file" and "Files and blob
 // store"; FR-009). Constitution VI exception: the original blob is kept unmodified, encrypted with the `hub-files`
@@ -246,7 +246,9 @@ export async function list(ctx: ServiceContext, kind: HubKind, recordId: string)
   const db = getDb();
   if (!(await repo.getRecord(ctx, kind, recordId, db))) throw hubNotFound();
   const rows = await content.listFilesForOwner(ctx, { kind, id: recordId }, db);
-  return Promise.all(rows.map((r) => viewWithSync(ctx, r, db)));
+  // One sync-status query for the list, not one per file (SC-002).
+  const syncs = await syncFieldsFor(ctx.userId, 'file', rows.map((r) => r.id), db);
+  return rows.map((r) => toView(r, syncs.get(r.id)!));
 }
 
 export async function get(ctx: ServiceContext, fileId: string): Promise<{ file: FileView; sync: SyncField }> {

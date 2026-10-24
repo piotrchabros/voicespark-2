@@ -374,3 +374,20 @@ export async function syncFieldFor(
     lastSyncedAt: row?.lastSyncedAt ? row.lastSyncedAt.toISOString() : null,
   };
 }
+
+/** `syncFieldFor` for many entities of one type in one query, keyed by entity id. */
+export async function syncFieldsFor(
+  userId: string,
+  entityType: SyncEntityType,
+  entityIds: string[],
+  db?: DbOrTx,
+): Promise<Map<string, SyncField>> {
+  const rows = await repo.getSyncItems({ userId }, entityIds.map((id) => docIdFor(entityType, id)), db);
+  return new Map(
+    entityIds.map((id) => {
+      const row = rows.get(docIdFor(entityType, id));
+      const lastSyncedAt = row?.lastSyncedAt ? row.lastSyncedAt.toISOString() : null;
+      return [id, { status: row?.status ?? 'pending', lastSyncedAt }];
+    }),
+  );
+}

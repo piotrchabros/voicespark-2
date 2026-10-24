@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import { getDb, type DbOrTx, type Tx } from '../../client';
 import {
   hubFile,
@@ -217,6 +217,20 @@ export async function getSyncItem(
     .where(and(eq(hubSyncItem.userId, ctx.userId), eq(hubSyncItem.docId, docId)))
     .limit(1);
   return row ?? null;
+}
+
+/** Status rows of several doc ids in one query (detail screens, SC-002); missing ids have no entry. */
+export async function getSyncItems(
+  ctx: UserContext,
+  docIds: string[],
+  db: DbOrTx = getDb(),
+): Promise<Map<string, Pick<HubSyncItem, 'status' | 'lastSyncedAt'>>> {
+  if (docIds.length === 0) return new Map();
+  const rows = await db
+    .select({ docId: hubSyncItem.docId, status: hubSyncItem.status, lastSyncedAt: hubSyncItem.lastSyncedAt })
+    .from(hubSyncItem)
+    .where(and(eq(hubSyncItem.userId, ctx.userId), inArray(hubSyncItem.docId, docIds)));
+  return new Map(rows.map(({ docId, ...r }) => [docId, r]));
 }
 
 export interface RecordTree {

@@ -13,7 +13,7 @@ import {
 } from '../../hub/content-schema';
 import { indexTokens } from '../../hub/search-tokens';
 import { decryptContent, encryptContent, hubNotFound, inspectFields, type HubKind } from './common';
-import { markDirty, syncFieldFor, tombstone, type SyncField } from './sync';
+import { markDirty, syncFieldFor, syncFieldsFor, tombstone, type SyncField } from './sync';
 
 // Notes on people, companies and projects (US2; contracts/http-api.md "Notes", data-model.md "hub_note"; FR-008,
 // FR-028). Text nodes, link hrefs and the title pass `inspectSegments` under the user's full policy before anything
@@ -131,6 +131,10 @@ async function inspectNote(ctx: ServiceContext, title: string | undefined, body:
 }
 
 async function toView(ctx: ServiceContext, row: HubNote, db: DbOrTx): Promise<NoteView> {
+  return viewOf(row, await syncFieldFor(ctx.userId, 'note', row.id, db));
+}
+
+function viewOf(row: HubNote, sync: SyncField): NoteView {
   return {
     id: row.id,
     owner: ownerOf(row),
@@ -139,7 +143,7 @@ async function toView(ctx: ServiceContext, row: HubNote, db: DbOrTx): Promise<No
     redactedValues: row.redactedValues,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    sync: await syncFieldFor(ctx.userId, 'note', row.id, db),
+    sync,
   };
 }
 
@@ -203,8 +207,9 @@ export async function list(
     rows = rows.filter((r) => r.updatedAt.getTime() < c.t || (r.updatedAt.getTime() === c.t && r.id > c.id));
   }
   const page = rows.slice(0, limit);
-  const items: NoteView[] = [];
-  for (const row of page) items.push(await toView(ctx, row, db));
+  // One sync-status query for the page, not one per note (SC-002).
+  const syncs = await syncFieldsFor(ctx.userId, 'note', page.map((r) => r.id), db);
+  const items = page.map((row) => viewOf(row, syncs.get(row.id)!));
   return { items, nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]!) : null };
 }
 
